@@ -15,7 +15,9 @@ public class FPSClock implements Clock {
     private final double FPS;
     /** The size of a frame in nanoseconds */
     private final long FRAME_TIME_NS;
-
+    /** The number of approximate ticks per frame */
+    private final double TICKS_PER_FRAME;
+    /** List of subscribers to this {@link Clock}s <cc>tick()</cc> events **/
     private final List<ClockWatcher> listeners = new ArrayList<>();
 
     private boolean running = true;
@@ -24,14 +26,15 @@ public class FPSClock implements Clock {
         HZ = hz;
         FPS = framesPerSecond;
         FRAME_TIME_NS = (long) (1_000_000_000 / FPS);
+        TICKS_PER_FRAME = (double) HZ / FPS;
+        //TODO Need to deal with franctional drift
     }
 
-    //XXX Make this work
     public void run(){
         while (running) {
             //XXX This could be wrapped in a executeWithinFrame(()->{})
             long frameStartTime = System.nanoTime();
-            tick();
+            tick(TICKS_PER_FRAME);
             long elapsedSinceFrameStart = System.nanoTime() - frameStartTime;
             long timeRemainingInFrame = FRAME_TIME_NS - elapsedSinceFrameStart;
 
@@ -60,6 +63,12 @@ public class FPSClock implements Clock {
 
     public void removeListener(final ClockWatcher listener){
         this.listeners.remove(listener);
+    }
+
+    public void tick(final double count){
+        for (int i=0; i<count; i++){
+            tick();
+        }
     }
 
     public void tick(){
