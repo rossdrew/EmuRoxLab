@@ -6,14 +6,14 @@ import java.util.List;
 /**
  * Something which ticks
  */
-public class Ticker {
-    private final List<TickListener> listeners = new ArrayList<>();
+public class Ticker implements Clock {
+    private final List<ClockWatcher> listeners = new ArrayList<>();
 
-    public void addListener(final TickListener listener){
+    public void addListener(final ClockWatcher listener){
         this.listeners.add(listener);
     }
 
-    public void removeListener(final TickListener listener){
+    public void removeListener(final ClockWatcher listener){
         this.listeners.remove(listener);
     }
 

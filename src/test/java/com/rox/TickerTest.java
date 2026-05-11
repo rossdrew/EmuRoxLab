@@ -21,7 +21,7 @@ public class TickerTest {
     public void testAdditionOfListeners(final int testListeners) {
         final Ticker ticker = new Ticker();
         for (int i=0; i<testListeners; i++){
-            ticker.addListener(mock(TickListener.class));
+            ticker.addListener(mock(ClockWatcher.class));
         }
         assertEquals(testListeners, ticker.listeners());
     }
@@ -29,9 +29,9 @@ public class TickerTest {
     @Test
     public void testRemovalOfListener() {
         final Ticker ticker = new Ticker();
-        final TickListener a = mock(TickListener.class);
+        final ClockWatcher a = mock(ClockWatcher.class);
         ticker.addListener(a);
-        final TickListener b = mock(TickListener.class);
+        final ClockWatcher b = mock(ClockWatcher.class);
         ticker.addListener(b);
 
         ticker.removeListener(a);
@@ -42,7 +42,7 @@ public class TickerTest {
     @Test
     public void testSingleTick() {
         final Ticker ticker = new Ticker();
-        final TickListener listener = mock(TickListener.class);
+        final ClockWatcher listener = mock(ClockWatcher.class);
         ticker.addListener(listener);
 
         ticker.tick();
@@ -53,7 +53,7 @@ public class TickerTest {
     @Test
     public void testMultipleTicks() {
         final Ticker ticker = new Ticker();
-        final TickListener listener = mock(TickListener.class);
+        final ClockWatcher listener = mock(ClockWatcher.class);
         ticker.addListener(listener);
 
         ticker.tick();
@@ -67,7 +67,7 @@ public class TickerTest {
     @Property
     public void propertyTestTicks(@ForAll @IntRange(min = 0, max = 489) int ticks) {
         final Ticker ticker = new Ticker();
-        final TickListener listener = mock(TickListener.class);
+        final ClockWatcher listener = mock(ClockWatcher.class);
         ticker.addListener(listener);
 
         for (int i=0; i<ticks; i++){

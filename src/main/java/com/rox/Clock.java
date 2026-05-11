@@ -1,41 +1,15 @@
 package com.rox;
 
 /**
- * XXX Make non static
+ * Something which generates ticks to {@link ClockWatcher}s
  */
-public class Clock {
-    private static final double FPS = 60; //PAL
-    private static final long FRAME_TIME_NS = (long) (1_000_000_000 / FPS);
-    private static Ticker ticker;
-    private boolean running = true;
-
-    public void run(){
-        while (running) {
-            //XXX This could be wrapped in a executeWithinFrame(()->{})
-            long frameStartTime = System.nanoTime();
-            ticker.tick();
-            long elapsedSinceFrameStart = System.nanoTime() - frameStartTime;
-            long timeRemainingInFrame = FRAME_TIME_NS - elapsedSinceFrameStart;
-
-            //Wait till next frame
-            if (timeRemainingInFrame > 0){
-                sleepFor(timeRemainingInFrame);
-            }
-
-        }
-    }
-
-    private void sleepFor(long nanos) {
-        long millis = nanos / 1_000_000;
-        int remainingNanos = (int) (nanos % 1_000_000);
-
-        try {
-            Thread.sleep(millis, remainingNanos);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            /*LOGGER*/System.out.println("Error while trying to sleep.");
-        }
-    }
-
-
+public interface Clock {
+    /** Add a {@link com.rox.ClockWatcher} to watch for <cc>tick()</cc> events **/
+    void addListener(final ClockWatcher listener);
+    /** Remove a {@link com.rox.ClockWatcher} to no longer watch for <cc>tick()</cc> events **/
+    void removeListener(final ClockWatcher listener);
+    /** Inform all {@link com.rox.ClockWatcher}s of a <cc>tick()</cc> event **/
+    void tick();
+    /** Returns the number of {@link com.rox.ClockWatcher}s on this {@link Ticker} **/
+    int listeners();
 }
