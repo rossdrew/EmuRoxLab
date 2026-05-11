@@ -18,7 +18,6 @@ public class FPSClock implements Clock {
 
     private final List<ClockWatcher> listeners = new ArrayList<>();
 
-    private static Ticker ticker;
     private boolean running = true;
 
     public FPSClock(final long hz, final int framesPerSecond){
@@ -32,7 +31,7 @@ public class FPSClock implements Clock {
         while (running) {
             //XXX This could be wrapped in a executeWithinFrame(()->{})
             long frameStartTime = System.nanoTime();
-            ticker.tick();
+            tick();
             long elapsedSinceFrameStart = System.nanoTime() - frameStartTime;
             long timeRemainingInFrame = FRAME_TIME_NS - elapsedSinceFrameStart;
 
