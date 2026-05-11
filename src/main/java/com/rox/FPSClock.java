@@ -63,7 +63,7 @@ public class FPSClock implements Clock {
     }
 
     public void tick(){
-        listeners.forEach(listener -> listener.tick());
+        listeners.forEach(ClockWatcher::tick);
     }
 
     public int listeners(){
