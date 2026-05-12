@@ -20,7 +20,10 @@ public class FPSClock implements Clock {
     /** List of subscribers to this {@link Clock}s <cc>tick()</cc> events **/
     private final List<ClockWatcher> listeners = new ArrayList<>();
 
-    private boolean running = true;
+    private volatile boolean running = false;
+
+    /** Current total of remainder ticks after rounding */
+    private double tickRemainderBuffer = 0.0;
 
     public FPSClock(final long hz, final int framesPerSecond){
         HZ = hz;
@@ -30,11 +33,34 @@ public class FPSClock implements Clock {
         //TODO Need to deal with franctional drift
     }
 
+    /**
+     * Keeps track fo fractional ticks while returning the rounded current set of ticks
+     *
+     * XXX this is package private to test but it modifies state (tickRemainderBuffer)
+     *
+     * @return the number of ticks this frame
+     */
+    long ticksThisFrame(){
+        double exactTicks = TICKS_PER_FRAME + tickRemainderBuffer;
+        long wholeTicks = (long) exactTicks;
+        tickRemainderBuffer = exactTicks - wholeTicks;
+        return wholeTicks;
+    }
+
+    /**
+     * Start the execution of this {@link Clock}
+     */
     public void run(){
+        if (running){
+            throw new IllegalStateException("Clock already running");
+        }
+
+        running = true;
+
         while (running) {
             //XXX This could be wrapped in a executeWithinFrame(()->{})
             long frameStartTime = System.nanoTime();
-            tick(TICKS_PER_FRAME);
+            tick(ticksThisFrame());
             long elapsedSinceFrameStart = System.nanoTime() - frameStartTime;
             long timeRemainingInFrame = FRAME_TIME_NS - elapsedSinceFrameStart;
 
@@ -43,6 +69,13 @@ public class FPSClock implements Clock {
                 sleepFor(timeRemainingInFrame);
             }
         }
+    }
+
+    /**
+     * Stop the execution of this {@link Clock}
+     */
+    public void stop(){
+        running = false;
     }
 
     private void sleepFor(long nanos) {
@@ -65,8 +98,8 @@ public class FPSClock implements Clock {
         this.listeners.remove(listener);
     }
 
-    public void tick(final double count){
-        for (int i=0; i<count; i++){
+    public void tick(final long count){
+        for (long i = 0; i < count; i++){
             tick();
         }
     }
