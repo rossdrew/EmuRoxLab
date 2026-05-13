@@ -2,8 +2,8 @@ package com.rox;
 
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.mock;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 public class FPSClockTest {
     @Test
@@ -15,13 +15,54 @@ public class FPSClockTest {
         //TODO validate 1 click
     }
 
-    //TODO run
-    //TODO run when already running
-    //TODO stop
-    
+    @Test
+    void testRun() throws InterruptedException {
+        final ClockWatcher watcher = mock(ClockWatcher.class);
+        try (FPSClock clock = new FPSClock(1,1)){
+            clock.addListener(watcher);
+            final Thread thread = new Thread(clock::run);
+            thread.start();
+            Thread.sleep(900);
+            clock.stop();
+        } catch (Exception e) {
+            fail("Unexpected exception: " + e.getMessage());
+        }
+        verify(watcher, times(1)).tick();
+    }
+
+    @Test
+    void testRunWhenAlreadyRunning(){
+        final ClockWatcher watcher = mock(ClockWatcher.class);
+        try (FPSClock clock = new FPSClock(1,1)){
+            clock.addListener(watcher);
+            final Thread thread = new Thread(clock::run);
+            thread.start();
+            Thread.sleep(900);
+            assertTrue(clock.isRunning());
+            clock.run();
+        } catch (Exception e) {
+            assertTrue(e.getMessage().toLowerCase().contains("already running"));
+            return;
+        }
+        fail("Expected exception, clock is already running");
+    }
+
+    @Test
+    void testStop() throws InterruptedException {
+        final FPSClock clock = new FPSClock(1,1);
+        final ClockWatcher watcher = mock(ClockWatcher.class);
+        clock.addListener(watcher);
+
+        final Thread thread = new Thread(clock::run);
+        thread.start();
+        clock.stop();
+
+        assertFalse(clock.isRunning());
+    }
+
     @Test
     void carriesFractionalTicksAcrossFrames() {
-        FPSClock clock = new FPSClock(10, 3);
+        final FPSClock clock = new FPSClock(10, 3);
 
         long frame1 = clock.ticksThisFrame();
         long frame2 = clock.ticksThisFrame();

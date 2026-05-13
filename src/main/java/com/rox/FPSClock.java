@@ -1,5 +1,7 @@
 package com.rox;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -8,7 +10,7 @@ import java.util.List;
  * specified <cc>hz</cc> in sub second time frame chunks defined by the specified
  * <cc>framesPerSecond</cc>
  */
-public class FPSClock implements Clock {
+public class FPSClock implements Clock, AutoCloseable {
     /** Number of clock ticks per second **/
     private final double HZ;
     /** Number of frames per second at the user level */
@@ -90,6 +92,10 @@ public class FPSClock implements Clock {
         }
     }
 
+    public boolean isRunning(){
+        return running;
+    }
+
     public void addListener(final ClockWatcher listener){
         this.listeners.add(listener);
     }
@@ -110,5 +116,10 @@ public class FPSClock implements Clock {
 
     public int listeners(){
         return listeners.size();
+    }
+
+    @Override
+    public void close() throws Exception {
+        stop();
     }
 }
