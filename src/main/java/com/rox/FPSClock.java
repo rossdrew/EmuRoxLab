@@ -1,7 +1,5 @@
 package com.rox;
 
-import java.io.Closeable;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -12,27 +10,30 @@ import java.util.List;
  */
 public class FPSClock implements Clock, AutoCloseable {
     /** Number of clock ticks per second **/
-    private final double HZ;
+    private final long HZ;
     /** Number of frames per second at the user level */
-    private final double FPS;
+    private final int FPS;
     /** The size of a frame in nanoseconds */
     private final long FRAME_TIME_NS;
     /** The number of approximate ticks per frame */
-    private final double TICKS_PER_FRAME;
+    private final long TICKS_PER_FRAME;
+
+    private final long TICKS_REMAINDER_PER_FRAME;
+
     /** List of subscribers to this {@link Clock}s <cc>tick()</cc> events **/
     private final List<ClockWatcher> listeners = new ArrayList<>();
 
     private volatile boolean running = false;
 
     /** Current total of remainder ticks after rounding */
-    private double tickRemainderBuffer = 0.0;
+    private long tickRemainderBuffer = 0;
 
     public FPSClock(final long hz, final int framesPerSecond){
         HZ = hz;
         FPS = framesPerSecond;
-        FRAME_TIME_NS = (long) (1_000_000_000 / FPS);
-        TICKS_PER_FRAME = (double) HZ / FPS;
-        //TODO Need to deal with franctional drift
+        FRAME_TIME_NS = 1_000_000_000L / FPS;
+        TICKS_PER_FRAME = HZ / FPS;
+        TICKS_REMAINDER_PER_FRAME = HZ % FPS;
     }
 
     /**
@@ -43,10 +44,13 @@ public class FPSClock implements Clock, AutoCloseable {
      * @return the number of ticks this frame
      */
     long ticksThisFrame(){
-        double exactTicks = TICKS_PER_FRAME + tickRemainderBuffer;
-        long wholeTicks = (long) exactTicks;
-        tickRemainderBuffer = exactTicks - wholeTicks;
-        return wholeTicks;
+        long ticks = TICKS_PER_FRAME;
+        tickRemainderBuffer += TICKS_REMAINDER_PER_FRAME;
+        if (tickRemainderBuffer >= FPS) {
+            ticks++;
+            tickRemainderBuffer -= FPS;
+        }
+        return ticks;
     }
 
     /**
@@ -62,14 +66,30 @@ public class FPSClock implements Clock, AutoCloseable {
         while (running) {
             //XXX This could be wrapped in a executeWithinFrame(()->{})
             long frameStartTime = System.nanoTime();
-            tick(ticksThisFrame());
-            long elapsedSinceFrameStart = System.nanoTime() - frameStartTime;
-            long timeRemainingInFrame = FRAME_TIME_NS - elapsedSinceFrameStart;
 
-            //Wait till next frame
-            if (timeRemainingInFrame > 0){
-                sleepFor(timeRemainingInFrame);
-            }
+            runFrame();
+            throttle(frameStartTime);
+        }
+    }
+
+    /**
+     * Execute all <cc>tick()</cc>s in this frame
+     */
+    void runFrame() {
+        tick(ticksThisFrame());
+    }
+
+    /**
+     * Slow the rate of generating tickets by consuming the rest of the frame
+     *
+     * @param frameStartTime used to calculate when the frame is expected to end.
+     */
+    private void throttle(long frameStartTime) {
+        long elapsedSinceFrameStart = System.nanoTime() - frameStartTime;
+        long timeRemainingInFrame = FRAME_TIME_NS - elapsedSinceFrameStart;
+
+        if (timeRemainingInFrame > 0) {
+            sleepFor(timeRemainingInFrame);
         }
     }
 

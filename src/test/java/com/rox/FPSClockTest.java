@@ -1,18 +1,50 @@
 package com.rox;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 public class FPSClockTest {
+    private class CountingClockWatcher implements ClockWatcher {
+        long ticks = 0;
+        @Override
+        public void tick() {
+            ticks++;
+        }
+    }
+
     @Test
     public void testUnitClock() {
-        final FPSClock clock = new FPSClock(1,1);
+        final ClockWatcher watcher = mock(ClockWatcher.class);
+        try (FPSClock clock = new FPSClock(1,1)){
+            clock.addListener(watcher);
+            final Thread thread = new Thread(clock::run);
+            thread.start();
+            Thread.sleep(900);
+            clock.stop();
+        } catch (Exception e) {
+            fail("Unexpected exception: " + e.getMessage());
+        }
+        verify(watcher, times(1)).tick();
+    }
 
-        //TODO add watcher
-        //TODO start
-        //TODO validate 1 click
+    @ParameterizedTest(name = "{0}: {2}Hz at {1}fps")
+    @CsvSource({
+            "NES_NTSC,60,1789773,",
+            "NES_PAL,50,1789773"
+    })
+    public void testRealWorldExamples(final String description, final int fps, final long hz) {
+        final FPSClock clock = new FPSClock(hz, fps);
+        final CountingClockWatcher watcher = new CountingClockWatcher();
+
+        clock.addListener(watcher);
+        for (int frame = 0; frame < fps; frame++) {
+            clock.runFrame();
+        }
+        assertEquals(hz, watcher.ticks);
     }
 
     @Test
