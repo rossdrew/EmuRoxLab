@@ -12,4 +12,7 @@ public interface Clock {
     void tick();
     /** Returns the number of {@link com.rox.ClockWatcher}s on this {@link Ticker} **/
     int listeners();
+
+    void run();
+    void stop();
 }

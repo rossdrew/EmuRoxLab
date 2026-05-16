@@ -7,6 +7,8 @@ import java.util.List;
  * A clock which generates {@link Clock} ticket to {@link ClockWatcher}s at the
  * specified <cc>hz</cc> in sub second time frame chunks defined by the specified
  * <cc>framesPerSecond</cc>
+ *
+ * XXX: This cannot deal with fractional FPS such as that of the GameBoy
  */
 public class FPSClock implements Clock, AutoCloseable {
     /** Number of clock ticks per second **/

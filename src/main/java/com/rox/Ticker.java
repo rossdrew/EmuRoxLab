@@ -24,4 +24,16 @@ public class Ticker implements Clock {
     public int listeners(){
         return listeners.size();
     }
+
+    @Override
+    public void run() {
+        throw new RuntimeException("This class is only for testing");
+    }
+
+    @Override
+    public void stop() {
+        throw new RuntimeException("This class is only for testing");
+    }
+
+
 }
