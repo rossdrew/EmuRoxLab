@@ -6,7 +6,7 @@ public class NES {
     private final MemoryBus memoryBus;
 
     public NES(){
-        this.memoryBus = new TestRAM(0x10000);
+        this.memoryBus = new TestMemoryBus(new RAM(0x10000));
         this.cpu = new MOS6502(memoryBus);
         this.clock = new FPSClock(1_789_773, 60);
 

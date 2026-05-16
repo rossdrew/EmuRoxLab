@@ -1,7 +1,6 @@
 package com.rox;
 
-import net.jqwik.api.ForAll;
-import net.jqwik.api.Property;
+import net.jqwik.api.*;
 import net.jqwik.api.constraints.IntRange;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
