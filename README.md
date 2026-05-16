@@ -8,6 +8,7 @@ I don't want to do #1 yet.  It's no fun.  So Ive created this project to run som
 
 So far
 1. We have a CPU clock that can run at a given Hz and Frame Rate
+2. We have some memory structures in place so that instructions work on something sensible
 
 
 Next up

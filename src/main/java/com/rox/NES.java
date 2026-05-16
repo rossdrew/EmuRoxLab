@@ -1,0 +1,23 @@
+package com.rox;
+
+public class NES {
+    private final MOS6502 cpu;
+    private final Clock clock;
+    private final MemoryBus memoryBus;
+
+    public NES(){
+        this.memoryBus = new TestRAM(0x10000);
+        this.cpu = new MOS6502(memoryBus);
+        this.clock = new FPSClock(1_789_773, 60);
+
+        clock.addListener(cpu);
+    }
+
+    public void powerOn(){
+        clock.run();
+    }
+
+    public void powerOff(){
+        clock.stop();
+    }
+}
