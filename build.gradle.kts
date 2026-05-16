@@ -1,5 +1,6 @@
 plugins {
     id("java")
+    id("jacoco") //test coverage
 }
 
 group = "com.rox"
@@ -15,6 +16,10 @@ java {
     }
 }
 
+jacoco { //Test coverage
+    toolVersion = "0.8.14"
+}
+
 dependencies {
     testImplementation(platform("org.junit:junit-bom:6.0.0"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.12.2")
@@ -26,4 +31,15 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+    finalizedBy(tasks.jacocoTestReport)
+}
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+
+    reports {
+        html.required = true
+        xml.required = false
+        csv.required = false
+    }
 }
