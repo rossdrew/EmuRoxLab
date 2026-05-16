@@ -1,5 +1,8 @@
 package com.rox;
 
+import com.rox.time.Sleeper;
+import com.rox.time.TimeSource;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,6 +24,8 @@ public class FPSClock implements Clock, AutoCloseable {
     private final long TICKS_PER_FRAME;
 
     private final long TICKS_REMAINDER_PER_FRAME;
+    private final TimeSource timeSource;
+    private final Sleeper sleeper;
 
     /** List of subscribers to this {@link Clock}s <cc>tick()</cc> events **/
     private final List<ClockWatcher> listeners = new ArrayList<>();
@@ -30,12 +35,18 @@ public class FPSClock implements Clock, AutoCloseable {
     /** Current total of remainder ticks after rounding */
     private long tickRemainderBuffer = 0;
 
-    public FPSClock(final long hz, final int framesPerSecond){
+    public FPSClock(final long hz,
+                    final int framesPerSecond,
+                    final TimeSource timeSource,
+                    final Sleeper sleeper){
         HZ = hz;
         FPS = framesPerSecond;
         FRAME_TIME_NS = 1_000_000_000L / FPS;
         TICKS_PER_FRAME = HZ / FPS;
         TICKS_REMAINDER_PER_FRAME = HZ % FPS;
+
+        this.timeSource = timeSource;
+        this.sleeper = sleeper;
     }
 
     /**
@@ -68,7 +79,6 @@ public class FPSClock implements Clock, AutoCloseable {
         while (running) {
             //XXX This could be wrapped in a executeWithinFrame(()->{})
             long frameStartTime = System.nanoTime();
-
             runFrame();
             throttle(frameStartTime);
         }
@@ -86,12 +96,12 @@ public class FPSClock implements Clock, AutoCloseable {
      *
      * @param frameStartTime used to calculate when the frame is expected to end.
      */
-    private void throttle(final long frameStartTime) {
-        long elapsedSinceFrameStart = System.nanoTime() - frameStartTime;
+    void throttle(final long frameStartTime) {
+        long elapsedSinceFrameStart = timeSource.nanoTime() - frameStartTime;
         long timeRemainingInFrame = FRAME_TIME_NS - elapsedSinceFrameStart;
 
         if (timeRemainingInFrame > 0) {
-            sleepFor(timeRemainingInFrame);
+            sleeper.sleepFor(timeRemainingInFrame);
         }
     }
 
@@ -100,18 +110,6 @@ public class FPSClock implements Clock, AutoCloseable {
      */
     public void stop(){
         running = false;
-    }
-
-    private void sleepFor(final long nanos) {
-        long millis = nanos / 1_000_000;
-        int remainingNanos = (int) (nanos % 1_000_000);
-
-        try {
-            Thread.sleep(millis, remainingNanos);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            /*LOGGER*/System.out.println("Error while trying to sleep.");
-        }
     }
 
     public boolean isRunning(){

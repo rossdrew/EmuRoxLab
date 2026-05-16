@@ -35,5 +35,10 @@ public class Ticker implements Clock {
         throw new RuntimeException("This class is only for testing");
     }
 
+    @Override
+    public boolean isRunning() {
+        throw new RuntimeException("This class is only for testing");
+    }
+
 
 }

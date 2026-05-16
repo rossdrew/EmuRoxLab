@@ -15,4 +15,5 @@ public interface Clock {
 
     void run();
     void stop();
+    boolean isRunning();
 }

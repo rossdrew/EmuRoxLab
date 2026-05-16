@@ -1,5 +1,10 @@
 package com.rox;
 
+import com.rox.time.Sleeper;
+import com.rox.time.SystemTimeSource;
+import com.rox.time.ThreadSleeper;
+import com.rox.time.TimeSource;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -18,10 +23,15 @@ public class FPSClockTest {
         }
     }
 
+    private FPSClock clock;
+
+    @BeforeEach
+    public void setup(){
+        clock = new FPSClock(1,1, new SystemTimeSource(), new ThreadSleeper());
+    }
+
     @Test
     public void addListener(){
-        final Clock clock = new FPSClock(1,1);
-
         clock.addListener(mock(ClockWatcher.class));
         clock.addListener(mock(ClockWatcher.class));
 
@@ -30,14 +40,12 @@ public class FPSClockTest {
 
     @Test
     public void removeListener(){
-        final Clock clock = new FPSClock(1,1);
-
         final ClockWatcher a = mock(ClockWatcher.class);
         final ClockWatcher b = mock(ClockWatcher.class);
         final ClockWatcher c = mock(ClockWatcher.class);
         final ClockWatcher d = mock(ClockWatcher.class);
 
-        Arrays.asList(a,b,c,d).forEach(clock::addListener);
+        Arrays.asList(a, b, c, d).forEach(clock::addListener);
         assert clock.listeners() == 4 : "Test not setup properly: Expected 4 test ClockWatchers";
 
         clock.removeListener(b);
@@ -48,7 +56,7 @@ public class FPSClockTest {
     @Test
     public void unitClock() {
         final ClockWatcher watcher = mock(ClockWatcher.class);
-        try (FPSClock clock = new FPSClock(1,1)){
+        try (FPSClock clock = new FPSClock(1,1, new SystemTimeSource(), new ThreadSleeper())){
             clock.addListener(watcher);
             final Thread thread = new Thread(clock::run);
             thread.start();
@@ -67,7 +75,7 @@ public class FPSClockTest {
             //"GAMEBOY_DMG, 59.7275, 4194304" //Requires fractional framerate
     })
     public void realWorldExamples(final String description, final int fps, final long hz) {
-        final FPSClock clock = new FPSClock(hz, fps);
+        final FPSClock clock = new FPSClock(hz, fps, new SystemTimeSource(), new ThreadSleeper());
         final CountingClockWatcher watcher = new CountingClockWatcher();
 
         clock.addListener(watcher);
@@ -80,7 +88,7 @@ public class FPSClockTest {
     @Test
     void run() throws InterruptedException {
         final ClockWatcher watcher = mock(ClockWatcher.class);
-        try (FPSClock clock = new FPSClock(1,1)){
+        try (FPSClock clock = new FPSClock(1,1, new SystemTimeSource(), new ThreadSleeper())){
             clock.addListener(watcher);
             final Thread thread = new Thread(clock::run);
             thread.start();
@@ -95,7 +103,7 @@ public class FPSClockTest {
     @Test
     void runWhenAlreadyRunning(){
         final ClockWatcher watcher = mock(ClockWatcher.class);
-        try (FPSClock clock = new FPSClock(1,1)){
+        try (FPSClock clock = new FPSClock(1,1, new SystemTimeSource(), new ThreadSleeper())){
             clock.addListener(watcher);
             final Thread thread = new Thread(clock::run);
             thread.start();
@@ -111,7 +119,6 @@ public class FPSClockTest {
 
     @Test
     void stop() throws InterruptedException {
-        final FPSClock clock = new FPSClock(1,1);
         final ClockWatcher watcher = mock(ClockWatcher.class);
         clock.addListener(watcher);
 
@@ -124,7 +131,7 @@ public class FPSClockTest {
 
     @Test
     void carriesFractionalTicksAcrossFrames() {
-        final FPSClock clock = new FPSClock(10, 3);
+        final FPSClock clock = new FPSClock(10, 3, new SystemTimeSource(), new ThreadSleeper());
 
         long frame1 = clock.ticksThisFrame();
         long frame2 = clock.ticksThisFrame();
@@ -135,5 +142,27 @@ public class FPSClockTest {
         assertEquals(4, frame3);
 
         assertEquals(10, frame1 + frame2 + frame3);
+    }
+
+    @Test
+    void sleepsForRemainingFrameTime() {
+        final TimeSource timeSource = () -> 100L;
+        final Sleeper sleeper = mock(Sleeper.class);
+        final FPSClock clock = new FPSClock(1, 1, timeSource, sleeper);
+
+        clock.throttle(0L);
+
+        verify(sleeper).sleepFor(999_999_900L);
+    }
+
+    @Test
+    void doesNotSleepWhenFrameAlreadyExceeded() {
+        final TimeSource timeSource = () -> 1_000_000_001L;
+        final Sleeper sleeper = mock(Sleeper.class);
+        final FPSClock clock = new FPSClock(1, 1, timeSource, sleeper);
+
+        clock.throttle(0L);
+
+        verifyNoInteractions(sleeper);
     }
 }
