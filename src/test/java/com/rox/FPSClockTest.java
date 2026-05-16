@@ -34,7 +34,8 @@ public class FPSClockTest {
     @ParameterizedTest(name = "{0}: {2}Hz at {1}fps")
     @CsvSource({
             "NES_NTSC,60,1789773,",
-            "NES_PAL,50,1789773"
+            "NES_PAL,50,1789773",
+            //"GAMEBOY_DMG, 59.7275, 4194304" //Requires fractional framerate
     })
     public void testRealWorldExamples(final String description, final int fps, final long hz) {
         final FPSClock clock = new FPSClock(hz, fps);
