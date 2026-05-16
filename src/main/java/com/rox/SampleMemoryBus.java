@@ -1,9 +1,9 @@
 package com.rox;
 
-public class TestMemoryBus implements MemoryBus {
+public class SampleMemoryBus implements MemoryBus {
     private final Memory memory;
 
-    TestMemoryBus(final Memory memory){
+    SampleMemoryBus(final Memory memory){
         this.memory = memory;
     }
 
