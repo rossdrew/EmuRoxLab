@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+import java.util.Arrays;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -17,7 +19,34 @@ public class FPSClockTest {
     }
 
     @Test
-    public void testUnitClock() {
+    public void addListener(){
+        final Clock clock = new FPSClock(1,1);
+
+        clock.addListener(mock(ClockWatcher.class));
+        clock.addListener(mock(ClockWatcher.class));
+
+        assertEquals(2, clock.listeners());
+    }
+
+    @Test
+    public void removeListener(){
+        final Clock clock = new FPSClock(1,1);
+
+        final ClockWatcher a = mock(ClockWatcher.class);
+        final ClockWatcher b = mock(ClockWatcher.class);
+        final ClockWatcher c = mock(ClockWatcher.class);
+        final ClockWatcher d = mock(ClockWatcher.class);
+
+        Arrays.asList(a,b,c,d).forEach(clock::addListener);
+        assert clock.listeners() == 4 : "Test not setup properly: Expected 4 test ClockWatchers";
+
+        clock.removeListener(b);
+
+        assertEquals(3, clock.listeners());
+    }
+
+    @Test
+    public void unitClock() {
         final ClockWatcher watcher = mock(ClockWatcher.class);
         try (FPSClock clock = new FPSClock(1,1)){
             clock.addListener(watcher);
@@ -37,7 +66,7 @@ public class FPSClockTest {
             "NES_PAL,50,1789773",
             //"GAMEBOY_DMG, 59.7275, 4194304" //Requires fractional framerate
     })
-    public void testRealWorldExamples(final String description, final int fps, final long hz) {
+    public void realWorldExamples(final String description, final int fps, final long hz) {
         final FPSClock clock = new FPSClock(hz, fps);
         final CountingClockWatcher watcher = new CountingClockWatcher();
 
@@ -49,7 +78,7 @@ public class FPSClockTest {
     }
 
     @Test
-    void testRun() throws InterruptedException {
+    void run() throws InterruptedException {
         final ClockWatcher watcher = mock(ClockWatcher.class);
         try (FPSClock clock = new FPSClock(1,1)){
             clock.addListener(watcher);
@@ -64,7 +93,7 @@ public class FPSClockTest {
     }
 
     @Test
-    void testRunWhenAlreadyRunning(){
+    void runWhenAlreadyRunning(){
         final ClockWatcher watcher = mock(ClockWatcher.class);
         try (FPSClock clock = new FPSClock(1,1)){
             clock.addListener(watcher);
@@ -81,7 +110,7 @@ public class FPSClockTest {
     }
 
     @Test
-    void testStop() throws InterruptedException {
+    void stop() throws InterruptedException {
         final FPSClock clock = new FPSClock(1,1);
         final ClockWatcher watcher = mock(ClockWatcher.class);
         clock.addListener(watcher);

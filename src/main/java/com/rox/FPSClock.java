@@ -86,7 +86,7 @@ public class FPSClock implements Clock, AutoCloseable {
      *
      * @param frameStartTime used to calculate when the frame is expected to end.
      */
-    private void throttle(long frameStartTime) {
+    private void throttle(final long frameStartTime) {
         long elapsedSinceFrameStart = System.nanoTime() - frameStartTime;
         long timeRemainingInFrame = FRAME_TIME_NS - elapsedSinceFrameStart;
 
@@ -102,7 +102,7 @@ public class FPSClock implements Clock, AutoCloseable {
         running = false;
     }
 
-    private void sleepFor(long nanos) {
+    private void sleepFor(final long nanos) {
         long millis = nanos / 1_000_000;
         int remainingNanos = (int) (nanos % 1_000_000);
 

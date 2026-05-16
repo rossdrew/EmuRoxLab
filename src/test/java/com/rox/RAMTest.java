@@ -33,7 +33,7 @@ public class RAMTest {
     }
 
     @Test
-    public void testWrite(){
+    public void testWriteAndRead(){
         final RAM ram = new RAM(16);
         ram.write(0, 16);
 
