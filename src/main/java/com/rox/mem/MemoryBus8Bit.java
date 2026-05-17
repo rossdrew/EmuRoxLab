@@ -1,9 +1,10 @@
-package com.rox;
+package com.rox.mem;
 
-public class SampleMemoryBus implements MemoryBus {
+public class MemoryBus8Bit implements MemoryBus {
     private final Memory memory;
+    private int addressBus;
 
-    SampleMemoryBus(final Memory memory){
+    public MemoryBus8Bit(final Memory memory){
         this.memory = memory;
     }
 
@@ -14,6 +15,6 @@ public class SampleMemoryBus implements MemoryBus {
 
     @Override
     public void write(int address, int value) {
-
+        memory.write(address & 0xFF, value & 0xFF);
     }
 }

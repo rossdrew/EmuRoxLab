@@ -1,5 +1,7 @@
 package com.rox;
 
+import com.rox.mem.LatchedMemoryBus;
+
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Deque;
@@ -8,7 +10,7 @@ import java.util.List;
 import static com.rox.MOS6502.MicroOp.*;
 
 public class MOS6502 implements ClockWatcher {
-    private final MemoryBus memoryBus;
+    private final LatchedMemoryBus latchedMemory;
 
     private int pc;
 
@@ -52,8 +54,8 @@ public class MOS6502 implements ClockWatcher {
         }
     }
 
-    public MOS6502(final MemoryBus memoryBus) {
-        this.memoryBus = memoryBus;
+    public MOS6502(final LatchedMemoryBus latchedMemory) {
+        this.latchedMemory = latchedMemory;
         pc = 0;
     }
 
@@ -68,10 +70,11 @@ public class MOS6502 implements ClockWatcher {
     public void tick() {
         if (opStack.isEmpty()){
             //Load opcode into opstack
-            rInstruction = memoryBus.read(pc()); //read
+            latchedMemory.loadMemoryAddress(pc());
+            rInstruction = latchedMemory.fetch(); //read
             final OpCode opcode = OpCode.of(rInstruction); //decode
             opcode.microOperations.reversed().forEach(microop -> opStack.push(microop)); //schedule
-        }else {
+        } else {
             //Execute opcode/opstack
             final MicroOp op = opStack.pop();
 

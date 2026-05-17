@@ -1,4 +1,4 @@
-package com.rox;
+package com.rox.mem;
 
 public class RAM implements Memory {
     private static final int BYTE_MASK = 0xFF;

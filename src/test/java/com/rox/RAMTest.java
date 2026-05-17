@@ -1,5 +1,6 @@
 package com.rox;
 
+import com.rox.mem.RAM;
 import net.jqwik.api.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;

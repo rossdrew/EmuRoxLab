@@ -1,4 +1,4 @@
-package com.rox;
+package com.rox.mem;
 
 public interface Memory {
     /** Return the contents of memory at the given <cc>address</cc> **/

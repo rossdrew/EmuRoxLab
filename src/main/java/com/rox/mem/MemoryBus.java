@@ -1,4 +1,4 @@
-package com.rox;
+package com.rox.mem;
 
 /**
  * The path to reading from and writing to memory
