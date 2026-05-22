@@ -2,7 +2,7 @@ package com.rox.mem;
 
 import net.jqwik.api.*;
 import net.jqwik.api.constraints.IntRange;
-import org.junit.jupiter.api.BeforeEach;
+import net.jqwik.api.lifecycle.BeforeTry;
 
 import static org.mockito.Mockito.*;
 
@@ -11,12 +11,11 @@ public class Latched8BitMemoryBusTest {
     private Latched8BitMemoryBus memBus;
 
     @Provide
-    private Arbitrary<Integer> nonByteValue() {
-        return Arbitraries.integers()
-                .filter(i -> i < 0 || i > 255);
+    Arbitrary<Integer> nonByteValue() {
+        return Arbitraries.integers().filter(i -> i < 0 || i > 255);
     }
 
-    @BeforeEach
+    @BeforeTry
     public void setup(){
         subBus = mock(MemoryBus.class);
         memBus = new Latched8BitMemoryBus(subBus);
@@ -24,11 +23,7 @@ public class Latched8BitMemoryBusTest {
 
     @Property
     public void fetchValidAddress(@ForAll @IntRange(min = 0, max = 255) int address){
-        final MemoryBus subBus = mock(MemoryBus.class);
-        final Latched8BitMemoryBus memBus = new Latched8BitMemoryBus(subBus);
-
         memBus.loadMemoryAddress(address);
-
         memBus.fetch();
 
         verify(subBus, times(1)).read(address);
@@ -36,11 +31,7 @@ public class Latched8BitMemoryBusTest {
 
     @Property
     public void fetchInvalidAddress(@ForAll("nonByteValue") int address){
-        final MemoryBus subBus = mock(MemoryBus.class);
-        final Latched8BitMemoryBus memBus = new Latched8BitMemoryBus(subBus);
-
         memBus.loadMemoryAddress(address);
-
         memBus.fetch();
 
         verify(subBus, times(1)).read(0xFF & address);
@@ -49,15 +40,37 @@ public class Latched8BitMemoryBusTest {
     @Property
     public void storeValidValueAtValidLocation(@ForAll @IntRange(min = 0, max = 255) int address,
                                                @ForAll @IntRange(min = 0, max = 255) int value){
-        final MemoryBus subBus = mock(MemoryBus.class);
-        final Latched8BitMemoryBus memBus = new Latched8BitMemoryBus(subBus);
-
         memBus.loadMemoryAddress(address);
-
         memBus.store(value);
 
+        //Neither value should change/wrap
         verify(subBus, times(1)).write(address, value);
     }
 
-    //TODO invalid storage of values
+    @Property
+    public void invalidValueStorageWrapsIt(@ForAll @IntRange(min = 0, max = 255) int address,
+                                           @ForAll("nonByteValue") int value){
+        memBus.loadMemoryAddress(address);
+        memBus.store(value);
+
+        verify(subBus, times(1)).write(address, 0xFF & value);
+    }
+
+    @Property
+    public void invalidLocationWraps(@ForAll("nonByteValue") int address,
+                                     @ForAll @IntRange(min = 0, max = 255) int value){
+        memBus.loadMemoryAddress(address);
+        memBus.store(value);
+
+        verify(subBus, times(1)).write(0xFF & address, value);
+    }
+
+    @Property
+    public void invalidValueAndLocationBothWrap(@ForAll("nonByteValue") int address,
+                                                @ForAll("nonByteValue") int value){
+        memBus.loadMemoryAddress(address);
+        memBus.store(value);
+
+        verify(subBus, times(1)).write(0xFF & address, 0xFF & value);
+    }
 }
