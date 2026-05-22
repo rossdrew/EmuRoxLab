@@ -2,7 +2,6 @@ package com.rox.mem;
 
 public class MemoryBus8Bit implements MemoryBus {
     private final Memory memory;
-    private int addressBus;
 
     public MemoryBus8Bit(final Memory memory){
         this.memory = memory;
@@ -10,11 +9,11 @@ public class MemoryBus8Bit implements MemoryBus {
 
     @Override
     public int read(int address) {
-        return 0;
+        return memory.read(0xFF & address);
     }
 
     @Override
     public void write(int address, int value) {
-        memory.write(address & 0xFF, value & 0xFF);
+        memory.write(0xFF & address, 0xFF & value);
     }
 }

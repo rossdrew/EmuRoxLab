@@ -1,5 +1,6 @@
 package com.rox.mem;
 
+import com.rox.Arbitraries;
 import net.jqwik.api.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -7,21 +8,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class RAMTest {
-    @Provide
-    final Arbitrary<Integer> powersOfTwo() {
-        return Arbitraries.integers()
-                .between(1, 16)
-                .map(power -> 1 << power);
-    }
-
-    @Provide
-    Arbitrary<Integer> nonPowersOfTwo() {
-        return Arbitraries.integers()
-                .between(1, 100_000)
-                .filter(n -> (n & (n - 1)) != 0);
-    }
-
+public class RAMTest extends Arbitraries {
     @Property(/*seed = x*/)
     void testValidAMSizes(@ForAll("powersOfTwo") int size) {
         assertDoesNotThrow(() -> new RAM(size));

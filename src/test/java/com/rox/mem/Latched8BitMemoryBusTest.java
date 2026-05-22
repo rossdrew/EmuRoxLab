@@ -3,17 +3,13 @@ package com.rox.mem;
 import net.jqwik.api.*;
 import net.jqwik.api.constraints.IntRange;
 import net.jqwik.api.lifecycle.BeforeTry;
+import com.rox.Arbitraries;
 
 import static org.mockito.Mockito.*;
 
-public class Latched8BitMemoryBusTest {
+public class Latched8BitMemoryBusTest extends Arbitraries {
     private MemoryBus subBus;
     private Latched8BitMemoryBus memBus;
-
-    @Provide
-    Arbitrary<Integer> nonByteValue() {
-        return Arbitraries.integers().filter(i -> i < 0 || i > 255);
-    }
 
     @BeforeTry
     public void setup(){
@@ -22,7 +18,7 @@ public class Latched8BitMemoryBusTest {
     }
 
     @Property
-    public void fetchValidAddress(@ForAll @IntRange(min = 0, max = 255) int address){
+    public void fetchValidAddress(@ForAll("byteValues") int address){
         memBus.loadMemoryAddress(address);
         memBus.fetch();
 
@@ -38,8 +34,8 @@ public class Latched8BitMemoryBusTest {
     }
 
     @Property
-    public void storeValidValueAtValidLocation(@ForAll @IntRange(min = 0, max = 255) int address,
-                                               @ForAll @IntRange(min = 0, max = 255) int value){
+    public void storeValidValueAtValidLocation(@ForAll("byteValues") int address,
+                                               @ForAll("byteValues") int value){
         memBus.loadMemoryAddress(address);
         memBus.store(value);
 
@@ -48,7 +44,7 @@ public class Latched8BitMemoryBusTest {
     }
 
     @Property
-    public void invalidValueStorageWrapsIt(@ForAll @IntRange(min = 0, max = 255) int address,
+    public void invalidValueStorageWrapsIt(@ForAll("byteValues") int address,
                                            @ForAll("nonByteValue") int value){
         memBus.loadMemoryAddress(address);
         memBus.store(value);
@@ -58,7 +54,7 @@ public class Latched8BitMemoryBusTest {
 
     @Property
     public void invalidLocationWraps(@ForAll("nonByteValue") int address,
-                                     @ForAll @IntRange(min = 0, max = 255) int value){
+                                     @ForAll("byteValues") int value){
         memBus.loadMemoryAddress(address);
         memBus.store(value);
 
