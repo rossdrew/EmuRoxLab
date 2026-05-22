@@ -39,7 +39,7 @@ tasks.jacocoTestReport {
 
     reports {
         html.required = true
-        xml.required = false
+        xml.required = true
         csv.required = false
     }
 }
