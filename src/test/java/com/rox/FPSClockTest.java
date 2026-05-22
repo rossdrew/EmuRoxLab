@@ -145,7 +145,7 @@ public class FPSClockTest {
     }
 
     @Test
-    void sleepsForRemainingFrameTime() {
+    void sleepsForRemainingFrameTime() throws InterruptedException {
         final TimeSource timeSource = () -> 100L;
         final Sleeper sleeper = mock(Sleeper.class);
         final FPSClock clock = new FPSClock(1, 1, timeSource, sleeper);
@@ -156,7 +156,7 @@ public class FPSClockTest {
     }
 
     @Test
-    void doesNotSleepWhenFrameAlreadyExceeded() {
+    void doesNotSleepWhenFrameAlreadyExceeded() throws InterruptedException {
         final TimeSource timeSource = () -> 1_000_000_001L;
         final Sleeper sleeper = mock(Sleeper.class);
         final FPSClock clock = new FPSClock(1, 1, timeSource, sleeper);
@@ -164,5 +164,31 @@ public class FPSClockTest {
         clock.throttle(0L);
 
         verifyNoInteractions(sleeper);
+    }
+
+    @Test
+    void gracefullyHandlesThreadSleepExceptions() {
+        final TimeSource timeSource = () -> 100L;
+        final Sleeper sleeper = mock(Sleeper.class);
+        final FPSClock clock = new FPSClock(1, 1, timeSource, sleeper);
+
+        try {
+            doThrow(new InterruptedException("Interrupted during sleep"))
+                    .when(sleeper)
+                    .sleepFor(anyLong());
+        } catch (InterruptedException e) {
+            fail("God knows how this could happen");
+        }
+
+        try {
+            clock.throttle(0L);
+            fail("Thread.sleep() threw an exception, expected that to be passed on");
+        } catch (InterruptedException e) {
+            try {
+                verify(sleeper).sleepFor(999_999_900L);
+            } catch (InterruptedException ex) {
+                fail("God knows how this could happen");
+            }
+        }
     }
 }

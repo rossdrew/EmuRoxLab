@@ -80,7 +80,12 @@ public class FPSClock implements Clock, AutoCloseable {
             //XXX This could be wrapped in a executeWithinFrame(()->{})
             long frameStartTime = System.nanoTime();
             runFrame();
-            throttle(frameStartTime);
+            try {
+                throttle(frameStartTime);
+            } catch (InterruptedException e) {
+                /* LOG */System.out.println("Encountered issues using Thread.sleep(), terminating clock!");
+                running = false;
+            }
         }
     }
 
@@ -96,11 +101,13 @@ public class FPSClock implements Clock, AutoCloseable {
      *
      * @param frameStartTime used to calculate when the frame is expected to end.
      */
-    void throttle(final long frameStartTime) {
+    void throttle(final long frameStartTime) throws InterruptedException {
         long elapsedSinceFrameStart = timeSource.nanoTime() - frameStartTime;
         long timeRemainingInFrame = FRAME_TIME_NS - elapsedSinceFrameStart;
 
         if (timeRemainingInFrame > 0) {
+
+            //XXX Do we want to just throw the exception here?
             sleeper.sleepFor(timeRemainingInFrame);
         }
     }
