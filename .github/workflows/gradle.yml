@@ -32,6 +32,15 @@ jobs:
       - name: Run tests
         run: ./gradlew clean test
 
+      - name: Generate JaCoCo report
+        run: ./gradlew jacocoTestReport
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: build/reports/jacoco/test/jacocoTestReport.xml
+
   dependency-submission:
     runs-on: ubuntu-latest
 
