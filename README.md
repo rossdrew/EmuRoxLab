@@ -1,5 +1,7 @@
 # EmuRox Lab
 
+[![GitHub Actions CI](https://github.com/rossdrew/EmuRoxLab/actions/workflows/gradle.yml/badge.svg)](https://github.com/rossdrew/EmuRoxLab/actions/workflows/gradle.yml)
+
 EmuRox has gotten a little behind the times and I'm now faced with two issues on that repo
  1. Bringing everything up to date so that it works
  2. Developing it
