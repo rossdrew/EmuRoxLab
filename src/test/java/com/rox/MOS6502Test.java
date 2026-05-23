@@ -8,20 +8,25 @@ import static org.mockito.Mockito.*;
 
 public class MOS6502Test {
     private LatchedMemoryBus bus;
-    private MOS6502 cp;
+    private MOS6502 cpu;
 
     @BeforeEach
     public void setup(){
         bus = mock(LatchedMemoryBus.class);
-        cp = new MOS6502(bus);
+        cpu = new MOS6502(bus);
     }
 
     @Test
     public void initialTick(){
-        cp.tick();
+        cpu.tick();
 
         verify(bus, times(1)).loadMemoryAddress(0);
         verify(bus, times(1)).fetch();
+    }
+
+    @Test
+    public void testyTest(){
+
     }
 
 // Doesn't make sense for the current iteration, since it's not determanistic without a program

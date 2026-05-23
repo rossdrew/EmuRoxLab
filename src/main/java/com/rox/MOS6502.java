@@ -1,6 +1,7 @@
 package com.rox;
 
 import com.rox.mem.LatchedMemoryBus;
+import com.rox.mem.MemoryBus;
 
 import java.util.ArrayDeque;
 import java.util.Arrays;
@@ -12,26 +13,95 @@ import static com.rox.MOS6502.MicroOp.*;
 public class MOS6502 implements ClockWatcher {
     private final LatchedMemoryBus latchedMemory;
 
-    private int pc;
-
-    private int rInstruction = 0;
-    private int rAccumulator = 0;
     private boolean fCarry = false;
 
     private Deque<MicroOp> opStack = new ArrayDeque<>();
 
-    enum MicroOp {
-        IR_FROM_PC_ADDRESS, //IMPLICIT!! PC -> r_instruction
+    //XX Temporary environment structure
+    class Environment {
+        public boolean carry; //FLAG: Carry
+        public boolean z; //FLAG: Zero
+        public boolean n; //FLAG: Negative
+        public boolean v; //FLAG: Signed Overflow
 
-        Z_ADDRESS_FROM_PC_ADDRESS,
-        Z_ADDRESS_READ,
+        private int pc; //program counter
+        private int ir; //instruction register
+        private int adl; //(1/2) address data low byte
+        private int adh; //(2/2) address data high byte
+        private int a; //accumulator
 
-        OP,
-        LOW_ADDRESS_FROM_PC_ADDRESS, //PC -> low address
-        HIGH_ADDRESS_FROM_PC_ADDRESS, //PC -> high address
+        public void setIR(final int value){
+            this.ir = 0xFF & value;
+        }
 
-        ADJUSTED_ADDRESS, // read adjusted address
-        PAGE_CROSS_CYCLE // optional extra page-cross cycle
+        public void setADL(final int value){
+            this.adl = 0xFF & value;
+        }
+
+        public void setA(final int value){
+            this.a = 0xFF & value;
+        }
+
+        public int getA() {
+            return 0xFF & a;
+        }
+
+        /** Overflow safe PC + increment */
+        public int pc(){
+            int cached_pc = environment.pc;
+            environment.pc = (environment.pc + 1) & 0xFFFF;
+            return cached_pc;
+        }
+    }
+
+    private Environment environment;
+    private MOS6502ALU alu;
+
+    @FunctionalInterface
+    interface Operation {
+        void execute(final Environment environment,
+                     final LatchedMemoryBus memory,
+                     final MOS6502ALU alu);
+    }
+
+    enum MicroOp implements Operation {
+        /* Implicit fetch cycle.  IR = mem[pc] */
+        IR_FROM_PC_ADDRESS((env, mem, alu) -> {
+            mem.loadMemoryAddress(env.pc());
+            env.setIR(mem.fetch());
+        }),
+
+        /* ADL = mem[pc] */
+        Z_ADDRESS_FROM_PC_ADDRESS((env, mem, alu) -> {
+            mem.loadMemoryAddress(env.pc());
+            env.setADL(mem.fetch());
+        }),
+
+        /* A = alu.ADC(A, mem[adl]) */
+        Z_ADDRESS_READ((env, mem, alu) -> {
+            mem.loadMemoryAddress(env.adl);
+            //XXX execute is done in the same step but that doesn't work with this microop name
+            int result = alu.adc(env.getA(), mem.fetch());
+            env.setA(result);
+        }),
+
+        OP((env, mem, alu) -> {}),
+        LOW_ADDRESS_FROM_PC_ADDRESS((env, mem, alu) -> {}), //PC -> low address
+        HIGH_ADDRESS_FROM_PC_ADDRESS((env, mem, alu) -> {}), //PC -> high address
+
+        ADJUSTED_ADDRESS((env, mem, alu) -> {}), // read adjusted address
+        PAGE_CROSS_CYCLE((env, mem, alu) -> {}); // optional extra page-cross cycle
+
+        private final Operation op;
+
+        @Override
+        public void execute(Environment environment, LatchedMemoryBus memory, MOS6502ALU alu) {
+            op.execute(environment, memory, alu);
+        }
+
+        MicroOp(final Operation op) {
+            this.op = op;
+        }
     }
 
     public enum OpCode {
@@ -52,28 +122,26 @@ public class MOS6502 implements ClockWatcher {
 
     public MOS6502(final LatchedMemoryBus latchedMemory) {
         this.latchedMemory = latchedMemory;
-        pc = 0;
-    }
+        this.environment = new Environment();
+        this.environment.pc = 0;
+        this.alu = new MOS6502ALU(this.environment);
 
-    /** Overflow safe PC + increment */
-    private int pc(){
-        int cached_pc = pc;
-        pc = (pc + 1) & 0xFFFF;
-        return cached_pc;
     }
 
     @Override
     public void tick() {
         if (opStack.isEmpty()){
+            IR_FROM_PC_ADDRESS.execute(environment, latchedMemory, alu);
             //Load opcode into opstack
-            latchedMemory.loadMemoryAddress(pc());
-            rInstruction = latchedMemory.fetch(); //read
-            final OpCode opcode = OpCode.of(rInstruction); //decode
+//            latchedMemory.loadMemoryAddress(environment.pc());
+//            environment.ir = latchedMemory.fetch(); //read
+            final OpCode opcode = OpCode.of(environment.ir); //decode
             opcode.microOperations.reversed().forEach(microop -> opStack.push(microop)); //schedule
         } else {
             //Execute opcode/opstack
             final MicroOp op = opStack.pop();
 
+            op.execute(environment, latchedMemory, alu);
             //1. getmemory at pc, 2. increment pc
 
             System.out.println(op.name());

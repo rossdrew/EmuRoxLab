@@ -4,8 +4,10 @@ import com.rox.Arbitraries;
 import net.jqwik.api.*;
 import net.jqwik.api.lifecycle.BeforeTry;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class MemoryBus8BitTest extends Arbitraries {
     private Memory underlyingMemory;
@@ -49,4 +51,7 @@ public class MemoryBus8BitTest extends Arbitraries {
 
         verify(underlyingMemory, times(1)).write(address & 0xFF, value & 0xFF);
     }
+
+
+    //TODO Test read operations
 }
