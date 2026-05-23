@@ -167,7 +167,7 @@ public class FPSClockTest {
     }
 
     @Test
-    void gracefullyHandlesThreadSleepExceptions() {
+    void throttleGracefullyHandlesThreadSleepExceptions() {
         final TimeSource timeSource = () -> 100L;
         final Sleeper sleeper = mock(Sleeper.class);
         final FPSClock clock = new FPSClock(1, 1, timeSource, sleeper);
@@ -190,5 +190,24 @@ public class FPSClockTest {
                 fail("God knows how this could happen");
             }
         }
+    }
+
+    @Test
+    void runGracefullyHandlesThreadSleepExceptions() throws InterruptedException {
+        final TimeSource timeSource = () -> 100L;
+        final Sleeper sleeper = mock(Sleeper.class);
+        final FPSClock clock = new FPSClock(1, 1, timeSource, sleeper);
+
+        try {
+            doThrow(new InterruptedException("Interrupted during sleep"))
+                    .when(sleeper)
+                    .sleepFor(anyLong());
+        } catch (InterruptedException e) {
+            fail("God knows how this could happen");
+        }
+
+        assertDoesNotThrow(clock::run);
+        assertFalse(clock.isRunning());
+        verify(sleeper).sleepFor(anyLong());
     }
 }
