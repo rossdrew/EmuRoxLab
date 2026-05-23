@@ -45,10 +45,6 @@ public class MOS6502 implements ClockWatcher {
             this.microOperations = microOperations;
         }
 
-        public int id(){
-            return id;
-        }
-
         public static OpCode of(final int id) {
             return ADC_Z;
         }
