@@ -1,4 +1,4 @@
-name: Java CI with Gradle
+name: EmuRoxLab CI
 
 on:
   push:
@@ -41,8 +41,8 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: build/reports/jacoco/test/jacocoTestReport.xml
 
-      - name: Generate PIT badge JSON
-        run: kotlin scripts/PitestBadge.kts
+      - name: Generate PIT badge
+        run: ./gradlew pitestBadge
 
   dependency-submission:
     runs-on: ubuntu-latest
