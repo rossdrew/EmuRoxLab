@@ -14,6 +14,12 @@ So far
 1. We have a CPU clock that can run at a given Hz and Frame Rate
 2. We have some memory structures in place so that instructions work on something sensible
 
+In addition, the build system
+1. Builds the code using Gradle and Kotlin
+2. Uses JaCoCo to build code coverage data and Codecov to build a report from it
+3. Uses pitest and a custom embedded Kotlin script to build a badge and only runs manually or when '+fullBuild' is in the commit message
+4. Will skip builds on non code changes
+
 
 Next up
 1. Working on a good abstraction for Opcodes, Micro Operations and ALU operations
