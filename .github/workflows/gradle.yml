@@ -41,6 +41,9 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: build/reports/jacoco/test/jacocoTestReport.xml
 
+      - name: Generate PIT badge JSON
+        run: kotlin scripts/PitestBadge.kts
+
   dependency-submission:
     runs-on: ubuntu-latest
 
