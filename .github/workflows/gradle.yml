@@ -44,6 +44,15 @@ jobs:
       - name: Generate PIT badge
         run: ./gradlew pitestBadge
 
+      - name: Upload PIT badge to Pages
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: badges
+
+      - name: Deploy PIT badge to Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
   dependency-submission:
     runs-on: ubuntu-latest
 
