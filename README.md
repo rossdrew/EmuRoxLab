@@ -15,4 +15,4 @@ So far
 
 
 Next up
-1. Write a simple CPU & cycle accurate-ish opcode.
+1. Working on a good abstraction for Opcodes, Micro Operations and ALU operations
