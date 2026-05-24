@@ -1,4 +1,4 @@
-name: EmuRoxLab CI
+name: Build
 
 on:
   push:
@@ -80,6 +80,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     continue-on-error: true
+    if: contains(github.event.head_commit.message, '+fullBuild') || github.event_name == 'workflow_dispatch'
 
     permissions:
       contents: read
