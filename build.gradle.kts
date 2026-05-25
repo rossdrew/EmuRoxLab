@@ -1,3 +1,6 @@
+import javax.xml.parsers.DocumentBuilderFactory
+import kotlin.math.roundToInt
+
 plugins {
     id("java")
     id("jacoco") //test coverage
@@ -61,29 +64,23 @@ tasks.register("pitestBadge") {
     dependsOn("pitest")
 
     doLast {
-        val xmlFile = file("build/reports/pitest/mutations.xml")
-        val mutations = javax.xml.parsers.DocumentBuilderFactory.newInstance()
+        val mutations = DocumentBuilderFactory.newInstance()
             .newDocumentBuilder()
-            .parse(xmlFile)
+            .parse(file("build/reports/pitest/mutations.xml"))
             .getElementsByTagName("mutation")
 
-        var total = 0
-        var killed = 0
-
-        for (i in 0 until mutations.length) {
-            val mutation = mutations.item(i)
-            val status = mutation.attributes
-                .getNamedItem("status")
-                .nodeValue
-
-            total++
-
-            if (status == "KILLED") {
-                killed++
+        val statuses = (0 until mutations.length)
+            .map { mutations.item(it) }
+            .map {
+                it.attributes
+                    .getNamedItem("status")
+                    .nodeValue
             }
-        }
 
-        val score = if (total == 0) 0 else Math.round((killed.toDouble() / total) * 100).toInt()
+        val total = statuses.size
+        val killed = statuses.count { it == "KILLED" }
+
+        val score = if (total == 0) 0 else ((killed.toDouble() / total) * 100).roundToInt()
 
         val color = when {
             score >= 80 -> "brightgreen"
