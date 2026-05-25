@@ -18,12 +18,12 @@ public class MOS6502ALU {
         this.environment = environment;
     }
 
-    public int adc(final int a, final int b){
+    public void adc(final int a, final int b){
         int result = a + b + (environment.carry?1:0);
         environment.n = (result & BIT[7]) != 0; //bit 7 is set
         environment.z = result == 0; //result is zero
         environment.v = (~(a ^ b) & (a ^ result) & BIT[7]) != 0; //matching signs result in mismatched sign
         environment.carry = result > 0xFF; //result is > 255
-        return result & 0xFF;
+        environment.setA(result & 0xFF);
     }
 }

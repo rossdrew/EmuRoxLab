@@ -4,10 +4,10 @@ import com.rox.Arbitraries;
 import net.jqwik.api.*;
 import net.jqwik.api.lifecycle.BeforeTry;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 
+import static com.rox.mem.MemoryBus8Bit.ADDRESS_MASK;
+import static com.rox.mem.MemoryBus8Bit.DATA_MASK;
 import static org.mockito.Mockito.*;
-import static org.junit.jupiter.api.Assertions.*;
 
 public class MemoryBus8BitTest extends Arbitraries {
     private Memory underlyingMemory;
@@ -33,7 +33,7 @@ public class MemoryBus8BitTest extends Arbitraries {
                                   @ForAll("nonByteValue") int value){
         memoryBus.write(address, value);
 
-        verify(underlyingMemory, times(1)).write(address, 0xFF & value);
+        verify(underlyingMemory, times(1)).write(address, value & DATA_MASK);
     }
 
     @Property
@@ -41,7 +41,7 @@ public class MemoryBus8BitTest extends Arbitraries {
                                      @ForAll("byteValues") int value){
         memoryBus.write(address, value);
 
-        verify(underlyingMemory, times(1)).write(address & 0xFF, value);
+        verify(underlyingMemory, times(1)).write(address & ADDRESS_MASK, value);
     }
 
     @Property
@@ -49,7 +49,7 @@ public class MemoryBus8BitTest extends Arbitraries {
                                            @ForAll("nonByteValue") int value){
         memoryBus.write(address, value);
 
-        verify(underlyingMemory, times(1)).write(address & 0xFF, value & 0xFF);
+        verify(underlyingMemory, times(1)).write(address & ADDRESS_MASK, value & DATA_MASK);
     }
 
 

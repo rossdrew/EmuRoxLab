@@ -26,7 +26,8 @@ public class MOS6502Test {
 
     @Test
     public void testyTest(){
-
+        bus = mock(LatchedMemoryBus.class);
+        cpu = new MOS6502(bus);
     }
 
 // Doesn't make sense for the current iteration, since it's not determanistic without a program

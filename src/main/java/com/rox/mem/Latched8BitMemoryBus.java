@@ -1,8 +1,14 @@
 package com.rox.mem;
 
+/**
+ * 16bit addressed, 8bit data memory
+ */
 public class Latched8BitMemoryBus implements LatchedMemoryBus {
     private final MemoryBus memoryBus;
     private int addressedMemory;
+
+    public final static int ADDRESS_MASK = 0xFFFF;
+    public final static int DATA_MASK = 0xFF;
 
     public Latched8BitMemoryBus(final MemoryBus memoryBus){
         this.memoryBus = memoryBus;
@@ -10,7 +16,7 @@ public class Latched8BitMemoryBus implements LatchedMemoryBus {
 
     @Override
     public void loadMemoryAddress(final int memory) {
-        this.addressedMemory = memory & 0xFF;
+        this.addressedMemory = memory & ADDRESS_MASK;
     }
 
     @Override
@@ -20,6 +26,6 @@ public class Latched8BitMemoryBus implements LatchedMemoryBus {
 
     @Override
     public void store(final int value) {
-        memoryBus.write(addressedMemory, value & 0xFF);
+        memoryBus.write(addressedMemory, value & DATA_MASK);
     }
 }

@@ -1,10 +1,11 @@
 package com.rox.mem;
 
 import net.jqwik.api.*;
-import net.jqwik.api.constraints.IntRange;
 import net.jqwik.api.lifecycle.BeforeTry;
 import com.rox.Arbitraries;
 
+import static com.rox.mem.Latched8BitMemoryBus.ADDRESS_MASK;
+import static com.rox.mem.Latched8BitMemoryBus.DATA_MASK;
 import static org.mockito.Mockito.*;
 
 public class Latched8BitMemoryBusTest extends Arbitraries {
@@ -30,7 +31,7 @@ public class Latched8BitMemoryBusTest extends Arbitraries {
         memBus.loadMemoryAddress(address);
         memBus.fetch();
 
-        verify(subBus, times(1)).read(0xFF & address);
+        verify(subBus, times(1)).read(address & ADDRESS_MASK);
     }
 
     @Property
@@ -49,7 +50,7 @@ public class Latched8BitMemoryBusTest extends Arbitraries {
         memBus.loadMemoryAddress(address);
         memBus.store(value);
 
-        verify(subBus, times(1)).write(address, 0xFF & value);
+        verify(subBus, times(1)).write(address, value & DATA_MASK);
     }
 
     @Property
@@ -58,7 +59,7 @@ public class Latched8BitMemoryBusTest extends Arbitraries {
         memBus.loadMemoryAddress(address);
         memBus.store(value);
 
-        verify(subBus, times(1)).write(0xFF & address, value);
+        verify(subBus, times(1)).write(address & ADDRESS_MASK, value);
     }
 
     @Property
@@ -67,6 +68,6 @@ public class Latched8BitMemoryBusTest extends Arbitraries {
         memBus.loadMemoryAddress(address);
         memBus.store(value);
 
-        verify(subBus, times(1)).write(0xFF & address, 0xFF & value);
+        verify(subBus, times(1)).write(address & ADDRESS_MASK, value & DATA_MASK);
     }
 }

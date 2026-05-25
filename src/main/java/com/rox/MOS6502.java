@@ -1,12 +1,9 @@
 package com.rox;
 
-import com.rox.mem.LatchedMemoryBus;
-import com.rox.mem.MemoryBus;
+import com.rox.mem.*;
 
-import java.util.ArrayDeque;
-import java.util.Arrays;
-import java.util.Deque;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import static com.rox.MOS6502.MicroOp.*;
 
@@ -15,7 +12,7 @@ public class MOS6502 implements ClockWatcher {
 
     private boolean fCarry = false;
 
-    private Deque<MicroOp> opStack = new ArrayDeque<>();
+    private Deque<Operation> opStack = new ArrayDeque<>();
 
     //XX Temporary environment structure
     class Environment {
@@ -52,6 +49,11 @@ public class MOS6502 implements ClockWatcher {
             environment.pc = (environment.pc + 1) & 0xFFFF;
             return cached_pc;
         }
+
+        @Override
+        public String toString() {
+            return "pc:"+pc+", ir:"+ir+", ad["+adh+":"+adl+"], a:"+a+" | F[c:"+carry+", z:"+z+", n:"+n+", v:"+v+"]";
+        }
     }
 
     private Environment environment;
@@ -66,7 +68,7 @@ public class MOS6502 implements ClockWatcher {
 
     enum MicroOp implements Operation {
         /* Implicit fetch cycle.  IR = mem[pc] */
-        IR_FROM_PC_ADDRESS((env, mem, alu) -> {
+        FETCH((env, mem, alu) -> {
             mem.loadMemoryAddress(env.pc());
             env.setIR(mem.fetch());
         }),
@@ -77,15 +79,16 @@ public class MOS6502 implements ClockWatcher {
             env.setADL(mem.fetch());
         }),
 
-        /* A = alu.ADC(A, mem[adl]) */
+        /* addr_mem[adl] */
         Z_ADDRESS_READ((env, mem, alu) -> {
-            mem.loadMemoryAddress(env.adl);
-            //XXX execute is done in the same step but that doesn't work with this microop name
-            int result = alu.adc(env.getA(), mem.fetch());
-            env.setA(result);
+            mem.loadMemoryAddress(env.adl & 0xFF);
         }),
 
-        OP((env, mem, alu) -> {}),
+        /* A = adc(mem[addr]) */
+        ADC((env, mem, alu) -> {
+            alu.adc(env.getA(), mem.fetch());
+        }),
+
         LOW_ADDRESS_FROM_PC_ADDRESS((env, mem, alu) -> {}), //PC -> low address
         HIGH_ADDRESS_FROM_PC_ADDRESS((env, mem, alu) -> {}), //PC -> high address
 
@@ -105,18 +108,29 @@ public class MOS6502 implements ClockWatcher {
     }
 
     public enum OpCode {
-        ADC_Z (0x65, Arrays.asList(Z_ADDRESS_FROM_PC_ADDRESS, Z_ADDRESS_READ, OP));
+        ADC_Z (0x65, Arrays.asList(Z_ADDRESS_FROM_PC_ADDRESS, Z_ADDRESS_READ, ADC)),
+        ADC_I (0x69, Arrays.asList(Z_ADDRESS_READ, ADC));
 
         private final int id;
-        private final List<MicroOp> microOperations;
+        private final List<Operation> ops;
 
-        OpCode(final int id, final List<MicroOp> microOperations) {
+        private static final Map<Integer, OpCode> BY_ID =
+                Arrays.stream(values())
+                        .collect(Collectors.toMap(op -> op.id, op -> op));
+
+        OpCode(final int id, final List<Operation> ops) {
             this.id = id;
-            this.microOperations = microOperations;
+            this.ops = ops;
         }
 
         public static OpCode of(final int id) {
-            return ADC_Z;
+            final OpCode opCode = BY_ID.get(id);
+
+            if (opCode == null) {
+                throw new IllegalArgumentException(String.format("Unknown opcode: 0x%02X", id));
+            }
+
+            return opCode;
         }
     }
 
@@ -131,21 +145,39 @@ public class MOS6502 implements ClockWatcher {
     @Override
     public void tick() {
         if (opStack.isEmpty()){
-            IR_FROM_PC_ADDRESS.execute(environment, latchedMemory, alu);
-            //Load opcode into opstack
-//            latchedMemory.loadMemoryAddress(environment.pc());
-//            environment.ir = latchedMemory.fetch(); //read
+            FETCH.execute(environment, latchedMemory, alu);
             final OpCode opcode = OpCode.of(environment.ir); //decode
-            opcode.microOperations.reversed().forEach(microop -> opStack.push(microop)); //schedule
+            System.out.println("(!) Fetched next opcode: " + opcode + "\t - " + environment);
+            opcode.ops.reversed().forEach(microop -> opStack.push(microop)); //schedule
         } else {
-            //Execute opcode/opstack
-            final MicroOp op = opStack.pop();
-
+            final Operation op = opStack.pop();
             op.execute(environment, latchedMemory, alu);
-            //1. getmemory at pc, 2. increment pc
-
-            System.out.println(op.name());
-            //TODO execute microop
+            System.out.println(op + "\t - " + environment);
         }
+    }
+
+    static void main(String[] args){
+        final Memory ram = new RAM(1024);
+        ram.write(0x00, OpCode.ADC_Z.id);
+        ram.write(0x01, 4);
+        ram.write(0x02, OpCode.ADC_I.id);
+        ram.write(0x03, 8);
+        final MemoryBus subMemoryBus = new MemoryBus8Bit(ram);
+        final LatchedMemoryBus memoryBus = new Latched8BitMemoryBus(subMemoryBus);;
+        final MOS6502 cpu = new MOS6502(memoryBus);
+        System.out.println("Starting >>>>");
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();  //The actual ADC is costing one byte!!!
+
+        cpu.tick();
+        cpu.tick();
+        try {
+            cpu.tick(); //0x0 is an unknown upcode
+            System.out.println("FAILURE!!");
+        }catch (RuntimeException e){
+
+        }
+        System.out.println(">>>> Ending!");
     }
 }
