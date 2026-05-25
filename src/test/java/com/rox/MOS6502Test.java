@@ -18,6 +18,8 @@ public class MOS6502Test {
 
     @Test
     public void initialTick(){
+        when(bus.fetch()).thenReturn(MOS6502.OpCode.ADC_Z.getId());
+        
         cpu.tick();
 
         verify(bus, times(1)).loadMemoryAddress(0);

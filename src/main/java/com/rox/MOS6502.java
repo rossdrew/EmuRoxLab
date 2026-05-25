@@ -80,9 +80,12 @@ public class MOS6502 implements ClockWatcher {
         }),
 
         /* addr_mem[adl] */
-        Z_ADDRESS_READ((env, mem, alu) -> {
+        Z_ADDRESS((env, mem, alu) -> {
+            //this part costs
             mem.loadMemoryAddress(env.adl & 0xFF);
         }),
+
+        //TODO These two ops needs done in the same cycle
 
         /* A = adc(mem[addr]) */
         ADC((env, mem, alu) -> {
@@ -108,8 +111,8 @@ public class MOS6502 implements ClockWatcher {
     }
 
     public enum OpCode {
-        ADC_Z (0x65, Arrays.asList(Z_ADDRESS_FROM_PC_ADDRESS, Z_ADDRESS_READ, ADC)),
-        ADC_I (0x69, Arrays.asList(Z_ADDRESS_READ, ADC));
+        ADC_Z (0x65, Arrays.asList(Z_ADDRESS_FROM_PC_ADDRESS, Z_ADDRESS, ADC)),
+        ADC_I (0x69, Arrays.asList(Z_ADDRESS, ADC));
 
         private final int id;
         private final List<Operation> ops;
@@ -131,6 +134,10 @@ public class MOS6502 implements ClockWatcher {
             }
 
             return opCode;
+        }
+
+        public Integer getId() {
+            return id;
         }
     }
 
