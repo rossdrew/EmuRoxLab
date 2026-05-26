@@ -92,6 +92,11 @@ public class MOS6502 implements ClockWatcher {
             alu.adc(env.getA(), mem.fetch());
         }),
 
+        /* addr_mem[pc] */
+        VALUE_FROM_PC_ADDRESS((env, mem, alu)->{
+            mem.loadMemoryAddress(env.pc());
+        }),
+
         LOW_ADDRESS_FROM_PC_ADDRESS((env, mem, alu) -> {}), //PC -> low address
         HIGH_ADDRESS_FROM_PC_ADDRESS((env, mem, alu) -> {}), //PC -> high address
 
@@ -110,18 +115,32 @@ public class MOS6502 implements ClockWatcher {
         }
     }
 
+    static Operation[] opsInTick(final Operation... ops) {
+        return ops;
+    }
+
+    static Operation[][] clockTick(final Operation[]... ticks) {
+        return ticks;
+    }
+
     public enum OpCode {
-        ADC_Z (0x65, Arrays.asList(Z_ADDRESS_FROM_PC_ADDRESS, Z_ADDRESS, ADC)),
-        ADC_I (0x69, Arrays.asList(Z_ADDRESS, ADC));
+        ADC_Z (0x65, clockTick(
+                opsInTick(Z_ADDRESS_FROM_PC_ADDRESS),
+                opsInTick(Z_ADDRESS, ADC))
+        ),
+
+        ADC_I (0x69, clockTick(
+                opsInTick(VALUE_FROM_PC_ADDRESS, ADC))
+        );
 
         private final int id;
-        private final List<Operation> ops;
+        private final Operation[][] ops;
 
         private static final Map<Integer, OpCode> BY_ID =
                 Arrays.stream(values())
                         .collect(Collectors.toMap(op -> op.id, op -> op));
 
-        OpCode(final int id, final List<Operation> ops) {
+        OpCode(final int id, final Operation[][] ops) {
             this.id = id;
             this.ops = ops;
         }
@@ -155,7 +174,13 @@ public class MOS6502 implements ClockWatcher {
             FETCH.execute(environment, latchedMemory, alu);
             final OpCode opcode = OpCode.of(environment.ir); //decode
             System.out.println("(!) Fetched next opcode: " + opcode + "\t - " + environment);
-            opcode.ops.reversed().forEach(microop -> opStack.push(microop)); //schedule
+
+            //Schedule (reversed) to stack
+            for (int i=opcode.ops.length-1; i>=0; i--){
+                for (int j=opcode.ops[i].length-1; j>=0; j--){
+                    opStack.push(opcode.ops[i][j]);
+                }
+            }
         } else {
             final Operation op = opStack.pop();
             op.execute(environment, latchedMemory, alu);
@@ -173,12 +198,12 @@ public class MOS6502 implements ClockWatcher {
         final LatchedMemoryBus memoryBus = new Latched8BitMemoryBus(subMemoryBus);;
         final MOS6502 cpu = new MOS6502(memoryBus);
         System.out.println("Starting >>>>");
-        cpu.tick();
-        cpu.tick();
-        cpu.tick();  //The actual ADC is costing one byte!!!
+        cpu.tick(); //fetch adc z
+        cpu.tick(); //fetch zero page address argument -> ADL
+        cpu.tick(); //read databus and perform ADC
 
-        cpu.tick();
-        cpu.tick();
+        cpu.tick(); //fetch adc i
+        cpu.tick(); //fetch value argument and perform ADC
         try {
             cpu.tick(); //0x0 is an unknown upcode
             System.out.println("FAILURE!!");
