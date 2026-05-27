@@ -13,7 +13,7 @@ public class MOS6502 implements ClockWatcher {
 
     private boolean fCarry = false;
 
-    private Deque<Operation> opStack = new ArrayDeque<>();
+    private Deque<Operation[]> opStack = new ArrayDeque<>();
 
     private MOS6502Environment environment;
     private MOS6502ALU alu;
@@ -47,8 +47,6 @@ public class MOS6502 implements ClockWatcher {
             //this part costs
             mem.loadMemoryAddress(env.getADL());
         }),
-
-        //TODO These two ops needs done in the same cycle
 
         /* A = adc(mem[addr]) */
         ADC((env, mem, alu) -> {
@@ -134,43 +132,18 @@ public class MOS6502 implements ClockWatcher {
         if (opStack.isEmpty()){
             FETCH.execute(environment, latchedMemory, alu);
             final OpCode opcode = OpCode.of(environment.getIR()); //decode
-            System.out.println("(!) Fetched next opcode: " + opcode + "\t - " + environment);
+            /*DEBUG*///System.out.println("TICK>(!) Fetched next opcode: " + opcode + "\t - " + environment);
 
             //Schedule: push (reversed) to stack
             for (int tick=opcode.ops.length-1; tick>=0; tick--){
-                for (int op=opcode.ops[tick].length-1; op>=0; op--){
-                    opStack.push(opcode.ops[tick][op]);
-                }
+                opStack.push(opcode.ops[tick]);
             }
         } else {
-            final Operation op = opStack.pop();
-            op.execute(environment, latchedMemory, alu);
-            System.out.println(op + "\t - " + environment);
+            final Operation[] op = opStack.pop();
+            for (int i=0; i<op.length; i++){
+                op[i].execute(environment, latchedMemory, alu);
+                /*DEBUG*///System.out.println("TICK> " + op[i] + "\t - " + environment);
+            }
         }
-    }
-
-    static void main(String[] args){
-        final Memory ram = new RAM(1024);
-        ram.write(0x00, OpCode.ADC_Z.id);
-        ram.write(0x01, 4);
-        ram.write(0x02, OpCode.ADC_I.id);
-        ram.write(0x03, 8);
-        final MemoryBus subMemoryBus = new MemoryBus8Bit(ram);
-        final LatchedMemoryBus memoryBus = new Latched8BitMemoryBus(subMemoryBus);;
-        final MOS6502 cpu = new MOS6502(memoryBus);
-        System.out.println("Starting >>>>");
-        cpu.tick(); //fetch adc z
-        cpu.tick(); //fetch zero page address argument -> ADL
-        cpu.tick(); //read databus and perform ADC
-
-        cpu.tick(); //fetch adc i
-        cpu.tick(); //fetch value argument and perform ADC
-        try {
-            cpu.tick(); //0x0 is an unknown upcode
-            System.out.println("FAILURE!!");
-        }catch (RuntimeException e){
-
-        }
-        System.out.println(">>>> Ending!");
     }
 }
