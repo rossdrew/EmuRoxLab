@@ -19,7 +19,7 @@ public class MOS6502Test {
 
     @Test
     public void initialTick(){
-        when(bus.fetch()).thenReturn(MOS6502.OpCode.ADC_Z.getId());
+        when(bus.fetch()).thenReturn(MOS6502OpCode.ADC_Z.getId());
         
         cpu.tick();
 
@@ -30,9 +30,9 @@ public class MOS6502Test {
     @Test
     public void temporaryFullRun(){
         final Memory testRAM = new RAM(16);
-        testRAM.write(0x00, MOS6502.OpCode.ADC_Z.getId());
+        testRAM.write(0x00, MOS6502OpCode.ADC_Z.getId());
         testRAM.write(0x01, 4);
-        testRAM.write(0x02, MOS6502.OpCode.ADC_I.getId());
+        testRAM.write(0x02, MOS6502OpCode.ADC_I.getId());
         testRAM.write(0x03, 8);
         final MemoryBus subBus = new MemoryBus8Bit(testRAM);
         final LatchedMemoryBus memoryBus = new Latched8BitMemoryBus(subBus);
@@ -40,7 +40,7 @@ public class MOS6502Test {
 
         cpu.tick(); //Fetch opcode (ADC Z)
         MOS6502Environment env = cpu.getEnvironmentSnapshot();
-        assertEquals(MOS6502.OpCode.ADC_Z.getId(), env.getIR());
+        assertEquals(MOS6502OpCode.ADC_Z.getId(), env.getIR());
         assertEquals(1, env.getPC());
 
         cpu.tick(); //Fetch operand (ZP address)
@@ -56,7 +56,7 @@ public class MOS6502Test {
         cpu.tick(); //Fetch opcode (ADC I)
         env = cpu.getEnvironmentSnapshot();
         assertEquals(3, env.getPC());
-        assertEquals(MOS6502.OpCode.ADC_I.getId(), env.getIR());
+        assertEquals(MOS6502OpCode.ADC_I.getId(), env.getIR());
 
         cpu.tick(); //Execute ADC
         env = cpu.getEnvironmentSnapshot();
