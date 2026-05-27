@@ -1,4 +1,4 @@
-package com.rox;
+package com.rox.cpu;
 
 public class MOS6502ALU {
     private final int[] BIT = {
@@ -12,9 +12,9 @@ public class MOS6502ALU {
             0b1000_0000
     };
 
-    private final MOS6502.Environment environment;
+    private final MOS6502Environment environment;
 
-    public MOS6502ALU(final MOS6502.Environment environment){
+    public MOS6502ALU(final MOS6502Environment environment){
         this.environment = environment;
     }
 

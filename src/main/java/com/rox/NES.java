@@ -1,5 +1,6 @@
 package com.rox;
 
+import com.rox.cpu.MOS6502;
 import com.rox.mem.*;
 import com.rox.time.SystemTimeSource;
 import com.rox.time.ThreadSleeper;

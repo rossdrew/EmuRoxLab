@@ -1,11 +1,12 @@
-package com.rox;
+package com.rox.cpu;
 
+import com.rox.ClockWatcher;
 import com.rox.mem.*;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static com.rox.MOS6502.MicroOp.*;
+import static com.rox.cpu.MOS6502.MicroOp.*;
 
 public class MOS6502 implements ClockWatcher {
     private final LatchedMemoryBus latchedMemory;
@@ -14,54 +15,16 @@ public class MOS6502 implements ClockWatcher {
 
     private Deque<Operation> opStack = new ArrayDeque<>();
 
-    //XX Temporary environment structure
-    class Environment {
-        public boolean carry; //FLAG: Carry
-        public boolean z; //FLAG: Zero
-        public boolean n; //FLAG: Negative
-        public boolean v; //FLAG: Signed Overflow
-
-        private int pc; //program counter
-        private int ir; //instruction register
-        private int adl; //(1/2) address data low byte
-        private int adh; //(2/2) address data high byte
-        private int a; //accumulator
-
-        public void setIR(final int value){
-            this.ir = 0xFF & value;
-        }
-
-        public void setADL(final int value){
-            this.adl = 0xFF & value;
-        }
-
-        public void setA(final int value){
-            this.a = 0xFF & value;
-        }
-
-        public int getA() {
-            return 0xFF & a;
-        }
-
-        /** Overflow safe PC + increment */
-        public int pc(){
-            int cached_pc = environment.pc;
-            environment.pc = (environment.pc + 1) & 0xFFFF;
-            return cached_pc;
-        }
-
-        @Override
-        public String toString() {
-            return "pc:"+pc+", ir:"+ir+", ad["+adh+":"+adl+"], a:"+a+" | F[c:"+carry+", z:"+z+", n:"+n+", v:"+v+"]";
-        }
-    }
-
-    private Environment environment;
+    private MOS6502Environment environment;
     private MOS6502ALU alu;
+
+    public MOS6502Environment getEnvironmentSnapshot(){
+        return environment.clone();
+    }
 
     @FunctionalInterface
     interface Operation {
-        void execute(final Environment environment,
+        void execute(final MOS6502Environment environment,
                      final LatchedMemoryBus memory,
                      final MOS6502ALU alu);
     }
@@ -82,7 +45,7 @@ public class MOS6502 implements ClockWatcher {
         /* addr_mem[adl] */
         Z_ADDRESS((env, mem, alu) -> {
             //this part costs
-            mem.loadMemoryAddress(env.adl & 0xFF);
+            mem.loadMemoryAddress(env.getADL());
         }),
 
         //TODO These two ops needs done in the same cycle
@@ -106,7 +69,7 @@ public class MOS6502 implements ClockWatcher {
         private final Operation op;
 
         @Override
-        public void execute(Environment environment, LatchedMemoryBus memory, MOS6502ALU alu) {
+        public void execute(MOS6502Environment environment, LatchedMemoryBus memory, MOS6502ALU alu) {
             op.execute(environment, memory, alu);
         }
 
@@ -162,23 +125,21 @@ public class MOS6502 implements ClockWatcher {
 
     public MOS6502(final LatchedMemoryBus latchedMemory) {
         this.latchedMemory = latchedMemory;
-        this.environment = new Environment();
-        this.environment.pc = 0;
+        this.environment = new MOS6502Environment();
         this.alu = new MOS6502ALU(this.environment);
-
     }
 
     @Override
     public void tick() {
         if (opStack.isEmpty()){
             FETCH.execute(environment, latchedMemory, alu);
-            final OpCode opcode = OpCode.of(environment.ir); //decode
+            final OpCode opcode = OpCode.of(environment.getIR()); //decode
             System.out.println("(!) Fetched next opcode: " + opcode + "\t - " + environment);
 
-            //Schedule (reversed) to stack
-            for (int i=opcode.ops.length-1; i>=0; i--){
-                for (int j=opcode.ops[i].length-1; j>=0; j--){
-                    opStack.push(opcode.ops[i][j]);
+            //Schedule: push (reversed) to stack
+            for (int tick=opcode.ops.length-1; tick>=0; tick--){
+                for (int op=opcode.ops[tick].length-1; op>=0; op--){
+                    opStack.push(opcode.ops[tick][op]);
                 }
             }
         } else {

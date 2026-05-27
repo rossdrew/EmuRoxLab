@@ -1,9 +1,11 @@
-package com.rox;
+package com.rox.cpu;
 
-import com.rox.mem.LatchedMemoryBus;
+import com.rox.mem.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.*;
 
 public class MOS6502Test {
@@ -27,9 +29,39 @@ public class MOS6502Test {
     }
 
     @Test
-    public void testyTest(){
-        bus = mock(LatchedMemoryBus.class);
-        cpu = new MOS6502(bus);
+    public void realisticRun(){
+        final Memory testRAM = new RAM(16);
+        testRAM.write(0x00, MOS6502.OpCode.ADC_Z.getId());
+        testRAM.write(0x01, 4);
+        testRAM.write(0x02, MOS6502.OpCode.ADC_I.getId());
+        testRAM.write(0x03, 8);
+        final MemoryBus subBus = new MemoryBus8Bit(testRAM);
+        final LatchedMemoryBus memoryBus = new Latched8BitMemoryBus(subBus);
+        cpu = new MOS6502(memoryBus);
+
+//        cpu.tick();
+//        //assert state
+//        final MOS6502Environment env = cpu.getEnvironmentSnapshot();
+//        assertEquals(101, env.getIR());
+//        assertEquals(1, env.getPC());
+//        cpu.tick();
+//        //assert state
+//        assertEquals(2, env.getPC());
+//        cpu.tick();
+//        //assert state
+//        assertEquals(2, env.getPC(), "PC should not move on while doing ALU cycle");
+//        cpu.tick();
+//        //assert state
+//        assertEquals(3, env.getPC());
+//        cpu.tick();
+//        //assert state
+//        assertEquals(4, env.getPC());
+//        try {
+//            cpu.tick();
+//            fail("Expected an exception, 0x0 is not a valid opcode");
+//        } catch (Exception e) {
+//            //implicit pass?
+//        }
     }
 
 // Doesn't make sense for the current iteration, since it's not determanistic without a program
