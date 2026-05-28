@@ -10,7 +10,7 @@ import static com.rox.cpu.MOS6502MicroOp.*;
 public class MOS6502 implements ClockWatcher {
     private final LatchedMemoryBus latchedMemory;
 
-    private Deque<MOS6502Operation[]> opStack = new ArrayDeque<>();
+    private Deque<MOS6502Operation[]> opsInTicksStack = new ArrayDeque<>();
     private MOS6502Environment environment;
     private MOS6502ALU alu;
 
@@ -33,7 +33,7 @@ public class MOS6502 implements ClockWatcher {
 
     @Override
     public void tick() {
-        if (opStack.isEmpty()){
+        if (opsInTicksStack.isEmpty()){
             FETCH.execute(environment, latchedMemory, alu);
             final MOS6502OpCode opcode = MOS6502OpCode.of(environment.getIR()); //decode
             /*DEBUG*///System.out.println("TICK>(!) Fetched next opcode: " + opcode + "\t - " + environment);
@@ -41,10 +41,10 @@ public class MOS6502 implements ClockWatcher {
             //Schedule: push (reversed) to stack
             final MOS6502Operation[][] operations = opcode.getOperations();
             for (int tick=operations.length-1; tick>=0; tick--){
-                opStack.push(operations[tick]);
+                opsInTicksStack.push(operations[tick]);
             }
         } else {
-            final MOS6502Operation[] op = opStack.pop();
+            final MOS6502Operation[] op = opsInTicksStack.pop();
             for (int i=0; i<op.length; i++){
                 op[i].execute(environment, latchedMemory, alu);
                 /*DEBUG*///System.out.println("TICK> " + op[i] + "\t - " + environment);

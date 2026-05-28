@@ -9,16 +9,20 @@ import java.util.stream.Collectors;
 import static com.rox.cpu.MOS6502MicroOp.*;
 
 public enum MOS6502OpCode {
+    /** Zero Page Addressed ADC (ADd with Carry) */
     ADC_Z(0x65, clockTick(
             opsInTick(Z_ADDRESS_FROM_PC_ADDRESS),
             opsInTick(Z_ADDRESS, ADC))
     ),
 
+    /** Immediate Addressed ADC (ADd with Carry) */
     ADC_I(0x69, clockTick(
             opsInTick(VALUE_FROM_PC_ADDRESS, ADC))
     );
 
+    /** 6502 code for this OpCode */
     private final int id;
+    /** [tick][operation] */
     private final MOS6502Operation[][] ops;
 
     /** Helper method to make setting up enum arguments cleaner */
@@ -41,6 +45,10 @@ public enum MOS6502OpCode {
         this.ops = ops;
     }
 
+    /**
+     * @return the list of {@link MOS6502Operation}s that make up this opcode arranged as a 2d array where
+     * [clock tick][operation in that clock tick]
+     */
     public MOS6502Operation[][] getOperations(){
         return ops.clone();
     }
