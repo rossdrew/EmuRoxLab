@@ -9,6 +9,8 @@ import java.util.stream.Collectors;
 import static com.rox.cpu.MOS6502MicroOp.*;
 
 public enum MOS6502OpCode {
+    // NOTE: The first cycle is the FETCH cycle!!
+
     /** Zero Page Addressed ADC (ADd with Carry) */
     ADC_Z(0x65, clockTick(
             opsInTick(Z_ADDRESS_FROM_PC_ADDRESS),
@@ -18,7 +20,20 @@ public enum MOS6502OpCode {
     /** Immediate Addressed ADC (ADd with Carry) */
     ADC_I(0x69, clockTick(
             opsInTick(VALUE_FROM_PC_ADDRESS, ADC))
+    ),
+
+
+    ADC_ABS(0x6D, clockTick(
+            opsInTick(LOW_ADDRESS_FROM_PC_ADDRESS),
+            opsInTick(HIGH_ADDRESS_FROM_PC_ADDRESS),
+            opsInTick(ABS_ADDRESS, ADC))
     );
+
+    //ABS,X
+    //ABS,Y
+    //(IND, X)
+    //((IND), Y
+    //0-Page, X
 
     /** 6502 code for this OpCode */
     private final int id;

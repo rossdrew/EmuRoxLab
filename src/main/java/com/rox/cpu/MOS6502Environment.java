@@ -48,6 +48,14 @@ class MOS6502Environment {
         this.adl = value & 0xFF;
     }
 
+    public int getADH() {
+        return this.adh & 0xFF00;
+    }
+
+    public void setADH(final int value) {
+        this.adh = value & 0xFF00;
+    }
+
     public void setA(final int value){
         this.a = value & 0xFF;
     }
@@ -75,5 +83,4 @@ class MOS6502Environment {
     public String toString() {
         return "pc:"+pc+", ir:"+ir+", ad["+adh+":"+adl+"], a:"+a+" | F[c:"+carry+", z:"+z+", n:"+n+", v:"+v+"]";
     }
-
 }

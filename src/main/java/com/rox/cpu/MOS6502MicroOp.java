@@ -31,10 +31,21 @@ enum MOS6502MicroOp implements MOS6502.MOS6502Operation {
         mem.loadMemoryAddress(env.pc());
     }),
 
+    //ADL = mem[pc]
     LOW_ADDRESS_FROM_PC_ADDRESS((env, mem, alu) -> {
-    }), //PC -> low address
+        mem.loadMemoryAddress(env.pc());
+        env.setADL(mem.fetch());
+    }),
+
+    //ADH = mem[pc]
     HIGH_ADDRESS_FROM_PC_ADDRESS((env, mem, alu) -> {
-    }), //PC -> high address
+        mem.loadMemoryAddress(env.pc());
+        env.setADH(mem.fetch());
+    }),
+
+    ABS_ADDRESS((env, mem, alu) -> {
+        mem.loadMemoryAddress(env.getADH() & env.getADL());
+    }),
 
     ADJUSTED_ADDRESS((env, mem, alu) -> {
     }), // read adjusted address
