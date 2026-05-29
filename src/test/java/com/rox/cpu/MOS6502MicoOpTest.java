@@ -4,50 +4,129 @@ import com.rox.mem.Latched8BitMemoryBus;
 import com.rox.mem.LatchedMemoryBus;
 import com.rox.mem.MemoryBus8Bit;
 import com.rox.mem.RAM;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static com.rox.cpu.MOS6502MicroOp.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
 
 public class MOS6502MicoOpTest {
-    @Test
-    public void mockTestFetch(){
-        final MOS6502Environment env = mock(MOS6502Environment.class);
-        when(env.pc()).thenReturn(0);
+    private MOS6502Environment env;
+    private MemoryBus8Bit memoryBus8Bit;
+    private RAM ram;
+    private LatchedMemoryBus bus;
+    private MOS6502ALU alu;
 
-        final RAM ram = mock(RAM.class);//new RAM(1024);
-        when(ram.read(0)).thenReturn(42);
-
-        final MemoryBus8Bit memoryBus8Bit = new MemoryBus8Bit(ram);
-        final LatchedMemoryBus bus = new Latched8BitMemoryBus(memoryBus8Bit);
-        final MOS6502ALU alu = mock(MOS6502ALU.class);
-
-        FETCH.execute(env, bus, alu);
-
-        verify(env, times(1)).pc();
-        verify(ram, times(1)).read(0);
-        verify(env, times(1)).setIR(42);
+    @BeforeEach
+    public void setup(){
+        env = new MOS6502Environment();
+        ram = new RAM(65536); //2 bytes of addressable memory
+        memoryBus8Bit = new MemoryBus8Bit(ram);
+        bus = new Latched8BitMemoryBus(memoryBus8Bit);
+        alu = mock(MOS6502ALU.class);
     }
 
+//    @Test
+//    public void fetchInteractions(){
+//        final MOS6502Environment env = mock(MOS6502Environment.class);
+//        when(env.pc()).thenReturn(0);
+//
+//        final RAM ram = mock(RAM.class);//new RAM(1024);
+//        when(ram.read(0)).thenReturn(42);
+//
+//        final MemoryBus8Bit memoryBus8Bit = new MemoryBus8Bit(ram);
+//        final LatchedMemoryBus bus = new Latched8BitMemoryBus(memoryBus8Bit);
+//        final MOS6502ALU alu = mock(MOS6502ALU.class);
+//
+//            FETCH.execute(env, bus, alu);
+//
+//        verify(env, times(1)).pc();
+//        verify(ram, times(1)).read(0);
+//        verify(env, times(1)).setIR(42);
+//    }
+
     @Test
-    public void endToEndTestFetch(){
-        final MOS6502Environment env = new MOS6502Environment();
-
-        final RAM ram = new RAM(64);
+    public void fetchEndToEnd(){
         ram.write(0, 42);
-        ram.write(1, 2);
-
-        final MemoryBus8Bit memoryBus8Bit = new MemoryBus8Bit(ram);
-        final LatchedMemoryBus bus = new Latched8BitMemoryBus(memoryBus8Bit);
-        final MOS6502ALU alu = mock(MOS6502ALU.class);
 
         FETCH.execute(env, bus, alu);
 
         verifyNoInteractions(alu);
         assertEquals(42, env.getIR());
         assertEquals(1, env.getPC());
+    }
+
+    @Test
+    public void adlFromPCEndToEnd(){
+        ram.write(0, 12);
+
+        ADL_FROM_PC.execute(env, bus, alu);
+
+        verifyNoInteractions(alu);
+        assertEquals(1, env.getPC());
+        assertEquals(12, env.getADL());
+    }
+
+    @Test
+    public void adlAddressEndToEnd(){
+        ram.write(23, 99);
+        env.setADL(23);
+
+        LOAD_ADL_ADDRESS.execute(env, bus, alu);
+
+        verifyNoInteractions(alu);
+        assertEquals(0, env.getPC());
+        assertEquals(23, env.getADL());
+        assertEquals(99, bus.fetch());
+    }
+
+    @Test
+    public void pcAddressEndToEnd(){
+        ram.write(0, 33);
+
+        LOAD_PC_ADDRESS.execute(env, bus, alu);
+
+        verifyNoInteractions(alu);
+        assertEquals(1, env.getPC());
+        assertEquals(33, bus.fetch());
+    }
+
+    @Test
+    public void pcAddressToADLAddressEndToEnd(){
+        ram.write(0, 65);
+
+        ADL_FROM_PC_ADDRESS.execute(env, bus, alu);
+
+        verifyNoInteractions(alu);
+        assertEquals(1, env.getPC());
+        assertEquals(65, env.getADL());
+    }
+
+    @Test
+    public void pcAddressToADHAddressEndToEnd(){
+        ram.write(0, 56);
+
+        ADH_FROM_PC_ADDRESS.execute(env, bus, alu);
+
+        verifyNoInteractions(alu);
+        assertEquals(1, env.getPC());
+        assertEquals(56, env.getADH());
+    }
+
+    @Test
+    public void absAddressAddressEndToEnd(){
+        ram.write(0x0101, 43);
+        env.setADL(1);
+        env.setADH(1);
+
+        ABS_ADDRESS.execute(env, bus, alu);
+
+        verifyNoInteractions(alu);
+        assertEquals(0, env.getPC());
+        assertEquals(0x01, env.getADL());
+        assertEquals(0x01, env.getADH());
+        assertEquals(43, bus.fetch());
     }
 }

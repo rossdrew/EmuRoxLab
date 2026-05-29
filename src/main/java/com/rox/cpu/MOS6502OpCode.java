@@ -13,19 +13,19 @@ public enum MOS6502OpCode {
 
     /** Zero Page Addressed ADC (ADd with Carry) */
     ADC_Z(0x65, clockTick(
-            opsInTick(Z_ADDRESS_FROM_PC_ADDRESS),
-            opsInTick(Z_ADDRESS, ADC))
+            opsInTick(ADL_FROM_PC),
+            opsInTick(LOAD_ADL_ADDRESS, ADC))
     ),
 
     /** Immediate Addressed ADC (ADd with Carry) */
     ADC_I(0x69, clockTick(
-            opsInTick(VALUE_FROM_PC_ADDRESS, ADC))
+            opsInTick(LOAD_PC_ADDRESS, ADC))
     ),
 
 
     ADC_ABS(0x6D, clockTick(
-            opsInTick(LOW_ADDRESS_FROM_PC_ADDRESS),
-            opsInTick(HIGH_ADDRESS_FROM_PC_ADDRESS),
+            opsInTick(ADL_FROM_PC_ADDRESS),
+            opsInTick(ADH_FROM_PC_ADDRESS),
             opsInTick(ABS_ADDRESS, ADC))
     );
 

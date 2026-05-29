@@ -49,11 +49,11 @@ class MOS6502Environment {
     }
 
     public int getADH() {
-        return this.adh & 0xFF00;
+        return this.adh & 0xFF;
     }
 
     public void setADH(final int value) {
-        this.adh = value & 0xFF00;
+        this.adh = value & 0xFF;
     }
 
     public void setA(final int value){

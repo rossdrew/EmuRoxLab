@@ -10,14 +10,13 @@ enum MOS6502MicroOp implements MOS6502.MOS6502Operation {
     }),
 
     /* ADL = mem[pc] */
-    Z_ADDRESS_FROM_PC_ADDRESS((env, mem, alu) -> {
+    ADL_FROM_PC((env, mem, alu) -> {
         mem.loadMemoryAddress(env.pc());
         env.setADL(mem.fetch());
     }),
 
     /* addr_mem[adl] */
-    Z_ADDRESS((env, mem, alu) -> {
-        //this part costs
+    LOAD_ADL_ADDRESS((env, mem, alu) -> {
         mem.loadMemoryAddress(env.getADL());
     }),
 
@@ -27,24 +26,24 @@ enum MOS6502MicroOp implements MOS6502.MOS6502Operation {
     }),
 
     /* addr_mem[pc] */
-    VALUE_FROM_PC_ADDRESS((env, mem, alu) -> {
+    LOAD_PC_ADDRESS((env, mem, alu) -> {
         mem.loadMemoryAddress(env.pc());
     }),
 
     //ADL = mem[pc]
-    LOW_ADDRESS_FROM_PC_ADDRESS((env, mem, alu) -> {
+    ADL_FROM_PC_ADDRESS((env, mem, alu) -> {
         mem.loadMemoryAddress(env.pc());
         env.setADL(mem.fetch());
     }),
 
     //ADH = mem[pc]
-    HIGH_ADDRESS_FROM_PC_ADDRESS((env, mem, alu) -> {
+    ADH_FROM_PC_ADDRESS((env, mem, alu) -> {
         mem.loadMemoryAddress(env.pc());
         env.setADH(mem.fetch());
     }),
 
     ABS_ADDRESS((env, mem, alu) -> {
-        mem.loadMemoryAddress(env.getADH() & env.getADL());
+        mem.loadMemoryAddress((env.getADH() << 8) | env.getADL());
     }),
 
     ADJUSTED_ADDRESS((env, mem, alu) -> {
