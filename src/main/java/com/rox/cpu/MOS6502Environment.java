@@ -9,18 +9,21 @@ class MOS6502Environment {
     public boolean n; //FLAG: Negative
     public boolean v; //FLAG: Signed Overflow
 
-    private int pc; //program counter
+    private int pc; //16 bit program counter
     private int ir; //instruction register
     private int adl; //(1/2) address data low byte
     private int adh; //(2/2) address data high byte
     private int a;  //accumulator
+    private int x;  //X register
+
+    private boolean onGoingExpensiveOp = false;
 
     MOS6502Environment(){
-        this(false, false, false, false, 0,0,0,0,0);
+        this(false, false, false, false, 0,0,0,0,0, 0);
     }
 
     MOS6502Environment(boolean c, boolean z, boolean n, boolean v,
-                       int pc, int ir, int adl, int adh, int a){
+                       int pc, int ir, int adl, int adh, int a, int x){
         this.carry = c;
         this.z = z;
         this.n = n;
@@ -30,6 +33,7 @@ class MOS6502Environment {
         this.adl = adl;
         this.adh = adh;
         this.a = a;
+        this.x = x;
     }
 
     public int getIR(){
@@ -68,6 +72,29 @@ class MOS6502Environment {
         return pc;
     }
 
+    public int getX() {
+        return this.x;
+    }
+
+    public boolean additionalTickPending(){
+        //XXX (1/3) Workaround for opcodes which have varying cycles
+        return onGoingExpensiveOp;
+    }
+
+    public void requestAdditionalTick(){
+        //XXX (2/3) Workaround for opcodes which have varying cycles
+        onGoingExpensiveOp = true;
+    }
+
+    public void scheduleTick(){
+        
+    }
+
+    public void additionalTickCompleted(){
+        //XXX (3/3) Workaround for opcodes which have varying cycles
+        onGoingExpensiveOp = false;
+    }
+
     /** Overflow safe PC + increment */
     public int pc(){
         int cached_pc = pc;
@@ -76,11 +103,11 @@ class MOS6502Environment {
     }
 
     public MOS6502Environment clone(){
-        return new MOS6502Environment(carry, z, n, v, pc, ir, adl, adh, a);
+        return new MOS6502Environment(carry, z, n, v, pc, ir, adl, adh, a, x);
     }
 
     @Override
     public String toString() {
-        return "pc:"+pc+", ir:"+ir+", ad["+adh+":"+adl+"], a:"+a+" | F[c:"+carry+", z:"+z+", n:"+n+", v:"+v+"]";
+        return "pc:"+pc+", ir:"+ir+", ad["+adh+":"+adl+"], a:"+a+", x:"+x+" | F[c:"+carry+", z:"+z+", n:"+n+", v:"+v+"]";
     }
 }

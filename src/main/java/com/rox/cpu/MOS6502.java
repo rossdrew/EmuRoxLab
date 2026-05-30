@@ -44,10 +44,16 @@ public class MOS6502 implements ClockWatcher {
                 opsInTicksStack.push(operations[tick]);
             }
         } else {
-            final MOS6502Operation[] op = opsInTicksStack.pop();
-            for (int i=0; i<op.length; i++){
-                op[i].execute(environment, latchedMemory, alu);
-                /*DEBUG*///System.out.println("TICK> " + op[i] + "\t - " + environment);
+            final MOS6502Operation[] opsThisTick = opsInTicksStack.pop();
+
+            for (MOS6502Operation op : opsThisTick){
+                op.execute(environment, latchedMemory, alu);
+                /*DEBUG*///System.out.println("TICK> " + op + "\t - " + environment);
+            }
+
+            //Waste a clock tick if indicated
+            if (environment.additionalTickPending()){
+                opsInTicksStack.push(new MOS6502Operation[] { ADDITIONAL_TICK });
             }
         }
     }

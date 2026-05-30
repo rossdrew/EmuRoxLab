@@ -11,6 +11,8 @@ import static com.rox.cpu.MOS6502MicroOp.*;
 public enum MOS6502OpCode {
     // NOTE: The first cycle is the FETCH cycle!!
 
+    WASTE(0x1FFFF, clockTick(opsInTick(ADDITIONAL_TICK))),
+
     /** Zero Page Addressed ADC (ADd with Carry) */
     ADC_Z(0x65, clockTick(
             opsInTick(ADL_FROM_PC),
@@ -25,8 +27,16 @@ public enum MOS6502OpCode {
 
     ADC_ABS(0x6D, clockTick(
             opsInTick(ADL_FROM_PC_ADDRESS),
-            opsInTick(ADH_FROM_PC_ADDRESS),
+            opsInTick(ADH_FROM_PC),
             opsInTick(ABS_ADDRESS, ADC))
+    ),
+
+    /** A ← A + Memory[$1234 + X] + Carry */
+    ADC_ABS_X(0x7D, clockTick(
+            opsInTick(ADL_FROM_PC),
+            opsInTick(ADH_FROM_PC, AD_PLUS_X),
+            //There's an optional operation in here if a page cross is needed
+            opsInTick(ADC))
     );
 
     //ABS,X
