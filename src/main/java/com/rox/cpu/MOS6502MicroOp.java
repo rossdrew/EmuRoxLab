@@ -1,8 +1,9 @@
 package com.rox.cpu;
 
+import com.rox.cpu.MOS6502.MOS6502Operation;
 import com.rox.mem.LatchedMemoryBus;
 
-enum MOS6502MicroOp implements MOS6502.MOS6502Operation {
+enum MOS6502MicroOp implements MOS6502Operation {
     //Temporary
     NOP((e,m,a) -> {}),
 
@@ -47,7 +48,7 @@ enum MOS6502MicroOp implements MOS6502.MOS6502Operation {
 
     //addr_mem[adh:adl]
     ABS_ADDRESS((env, mem, alu) -> {
-        mem.loadMemoryAddress((env.getADH() << 8) | env.getADL());
+        mem.loadMemoryAddress(env.getAD());
     }),
 
     //addr_mem[(adh:adl)+x]
@@ -59,14 +60,20 @@ enum MOS6502MicroOp implements MOS6502.MOS6502Operation {
 
         if (low > 0xFF) {
             env.requestAdditionalTick();
+            env.requestAdditionalOp((environment, m, a) -> {
+                //ADDITIONAL_TICK
+                env.additionalTickCompleted();
+            });
             env.setADH((originalHigh + 1) & 0xFF);
         }
+
+        mem.loadMemoryAddress(env.getAD());
     }),
 
     //Used to waste an additional tick
-    ADDITIONAL_TICK((env, mem, alu)->{
-        env.additionalTickCompleted();
-    }),
+//    ADDITIONAL_TICK((env, mem, alu)->{
+//        env.additionalTickCompleted();
+//    }),
 
     DUMMY_READ((env,mem,alu) -> {
         mem.fetch(); //read that goes nowhere
@@ -77,14 +84,14 @@ enum MOS6502MicroOp implements MOS6502.MOS6502Operation {
     PAGE_CROSS_CYCLE((env, mem, alu) -> {
     }); // optional extra page-cross cycle
 
-    private final MOS6502.MOS6502Operation op;
+    private final MOS6502Operation op;
 
     @Override
     public void execute(MOS6502Environment environment, LatchedMemoryBus memory, MOS6502ALU alu) {
         op.execute(environment, memory, alu);
     }
 
-    MOS6502MicroOp(final MOS6502.MOS6502Operation op) {
+    MOS6502MicroOp(final MOS6502Operation op) {
         this.op = op;
     }
 }

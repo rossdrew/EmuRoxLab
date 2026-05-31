@@ -11,8 +11,6 @@ import static com.rox.cpu.MOS6502MicroOp.*;
 public enum MOS6502OpCode {
     // NOTE: The first cycle is the FETCH cycle!!
 
-    WASTE(0x1FFFF, clockTick(opsInTick(ADDITIONAL_TICK))),
-
     /** Zero Page Addressed ADC (ADd with Carry) */
     ADC_Z(0x65, clockTick(
             opsInTick(ADL_FROM_PC),

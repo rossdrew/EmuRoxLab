@@ -53,7 +53,7 @@ public class MOS6502 implements ClockWatcher {
 
             //Waste a clock tick if indicated
             if (environment.additionalTickPending()){
-                opsInTicksStack.push(new MOS6502Operation[] { ADDITIONAL_TICK });
+                opsInTicksStack.push(new MOS6502Operation[] { environment.getPendingOperation() });
             }
         }
     }

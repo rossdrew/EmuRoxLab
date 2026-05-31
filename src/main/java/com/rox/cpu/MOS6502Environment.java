@@ -1,5 +1,8 @@
 package com.rox.cpu;
 
+import com.rox.cpu.MOS6502.MOS6502Operation;
+import jdk.dynalink.Operation;
+
 /**
  * WIP
  */
@@ -56,6 +59,10 @@ class MOS6502Environment {
         return this.adh & 0xFF;
     }
 
+    public int getAD(){
+        return (getADH() << 8 | getADL()) & 0xFFFF;
+    }
+
     public void setADH(final int value) {
         this.adh = value & 0xFF;
     }
@@ -76,6 +83,10 @@ class MOS6502Environment {
         return this.x;
     }
 
+    public void setX(int newX) {
+        this.x = newX;
+    }
+
     public boolean additionalTickPending(){
         //XXX (1/3) Workaround for opcodes which have varying cycles
         return onGoingExpensiveOp;
@@ -86,13 +97,18 @@ class MOS6502Environment {
         onGoingExpensiveOp = true;
     }
 
-    public void scheduleTick(){
-        
-    }
-
     public void additionalTickCompleted(){
         //XXX (3/3) Workaround for opcodes which have varying cycles
         onGoingExpensiveOp = false;
+    }
+
+    private MOS6502Operation pendingOperation;
+    public void requestAdditionalOp(MOS6502Operation operation) {
+        this.pendingOperation = operation;
+    }
+
+    public MOS6502Operation getPendingOperation(){
+        return this.pendingOperation;
     }
 
     /** Overflow safe PC + increment */
