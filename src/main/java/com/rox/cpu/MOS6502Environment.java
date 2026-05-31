@@ -18,6 +18,7 @@ class MOS6502Environment {
     private int adh; //(2/2) address data high byte
     private int a;  //accumulator
     private int x;  //X register
+    private int y;  //Y registers
 
     private boolean onGoingExpensiveOp = false;
 
@@ -87,29 +88,36 @@ class MOS6502Environment {
         this.x = newX;
     }
 
+    public void setY(int newY) {
+        this.y = newY;
+    }
+
+    public int getY() {
+        return y;
+    }
+
     public boolean additionalTickPending(){
-        //XXX (1/3) Workaround for opcodes which have varying cycles
+        //XXX (1/4) Workaround for opcodes which have varying cycles
         return onGoingExpensiveOp;
-    }
-
-    public void requestAdditionalTick(){
-        //XXX (2/3) Workaround for opcodes which have varying cycles
-        onGoingExpensiveOp = true;
-    }
-
-    public void additionalTickCompleted(){
-        //XXX (3/3) Workaround for opcodes which have varying cycles
-        onGoingExpensiveOp = false;
     }
 
     private MOS6502Operation pendingOperation;
     public void requestAdditionalOp(MOS6502Operation operation) {
+        //XXX (2/4) Workaround for opcodes which have varying cycles
+        onGoingExpensiveOp = true;
         this.pendingOperation = operation;
     }
 
     public MOS6502Operation getPendingOperation(){
+        //XXX (3/4) Workaround for opcodes which have varying cycles
         return this.pendingOperation;
     }
+
+    public void additionalTickCompleted(){
+        //XXX (4/4) Workaround for opcodes which have varying cycles
+        onGoingExpensiveOp = false;
+    }
+
 
     /** Overflow safe PC + increment */
     public int pc(){

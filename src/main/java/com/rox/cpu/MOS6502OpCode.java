@@ -35,13 +35,18 @@ public enum MOS6502OpCode {
             opsInTick(ADH_FROM_PC, AD_PLUS_X),
             //There's an optional operation in here if a page cross is needed
             opsInTick(ADC))
-    );
+    ),
 
-    //ABS,X
-    //ABS,Y
-    //(IND, X)
-    //((IND), Y
-    //0-Page, X
+    ADC_ABS_Y(0x79, clockTick(
+            opsInTick(ADL_FROM_PC),
+            opsInTick(ADH_FROM_PC, AD_PLUS_Y),
+            //There's an optional operation in here if a page cross is needed
+            opsInTick(ADC))
+    ),
+
+    ADC_IND_X(0x61, clockTick(opsInTick())),
+    ADC_IND_Y(0x71, clockTick(opsInTick())),
+    ADC_ZP_X(0x75, clockTick(opsInTick()));
 
     /** 6502 code for this OpCode */
     private final int id;

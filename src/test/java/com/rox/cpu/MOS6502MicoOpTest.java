@@ -143,4 +143,18 @@ public class MOS6502MicoOpTest {
         assertEquals(0x0101+3, env.getAD());
         assertEquals(72, bus.fetch());
     }
+
+    @Test
+    public void adPlusYAddressEndToEnd(){
+        memoryBus8Bit.write(0x0105 + 5, 27);
+        env.setADL(0x05);
+        env.setADH(0x01);
+        env.setY(5);
+
+        AD_PLUS_Y.execute(env, bus, alu);
+
+        verifyNoInteractions(alu);
+        assertEquals(0x0105+5, env.getAD());
+        assertEquals(27, bus.fetch());
+    }
 }
