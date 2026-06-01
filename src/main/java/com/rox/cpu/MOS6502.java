@@ -35,7 +35,7 @@ public class MOS6502 implements ClockWatcher {
     public void tick() {
         if (opsInTicksStack.isEmpty()){
             FETCH.execute(environment, latchedMemory, alu);
-            final MOS6502OpCode opcode = MOS6502OpCode.of(environment.getIR()); //decode
+            final MOS6502OpCode opcode = MOS6502OpCode.from(environment.getIR()); //decode
             /*DEBUG*///System.out.println("TICK>(!) Fetched next opcode: " + opcode + "\t - " + environment);
 
             //Schedule: push (reversed) to stack

@@ -20,6 +20,11 @@ public class Latched8BitMemoryBus implements LatchedMemoryBus {
     }
 
     @Override
+    public int getAddressedMemory(){
+        return this.addressedMemory & ADDRESS_MASK;
+    }
+
+    @Override
     public int fetch() {
         return memoryBus.read(addressedMemory);
     }

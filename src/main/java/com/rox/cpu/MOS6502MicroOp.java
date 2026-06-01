@@ -34,6 +34,24 @@ enum MOS6502MicroOp implements MOS6502Operation {
         mem.loadMemoryAddress(env.pc());
     }),
 
+    /* ADL = mem[addr] */
+    ADL_FETCH((env, mem, alu)->{
+        env.setADL(mem.fetch());
+    }),
+
+    /* ADL = mem[addr+1] */
+    ADH_INC_FETCH((env, mem, alu)->{
+        int incrementedMemoryLocation = (mem.getAddressedMemory() + 1 & 0xFF);
+        mem.loadMemoryAddress(incrementedMemoryLocation);
+        env.setADH(mem.fetch());
+    }),
+
+    /* addr_mem = addre_mem + x */
+    X_OFFSET_ADDRESS((env, mem, alu)->{
+        int tmp = mem.getAddressedMemory();
+        mem.loadMemoryAddress((tmp + env.getX()) & 0xFF);
+    }),
+
     //ADL = mem[pc]
     ADL_FROM_PC_ADDRESS((env, mem, alu) -> {
         mem.loadMemoryAddress(env.pc());

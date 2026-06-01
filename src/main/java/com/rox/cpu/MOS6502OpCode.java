@@ -22,7 +22,7 @@ public enum MOS6502OpCode {
             opsInTick(LOAD_PC_ADDRESS, ADC))
     ),
 
-
+    /** A ← A + Memory[ADH:ADL] + Carry */
     ADC_ABS(0x6D, clockTick(
             opsInTick(ADL_FROM_PC_ADDRESS),
             opsInTick(ADH_FROM_PC),
@@ -44,9 +44,28 @@ public enum MOS6502OpCode {
             opsInTick(ADC))
     ),
 
-    ADC_IND_X(0x61, clockTick(opsInTick())),
-    ADC_IND_Y(0x71, clockTick(opsInTick())),
-    ADC_ZP_X(0x75, clockTick(opsInTick()));
+    ADC_IND_X(0x61, clockTick(
+            //get zero page pointer operand
+            opsInTick(LOAD_PC_ADDRESS), //XXX store in temporary location we can add to?
+            //add X to operand & read low byte of effective address from zero page
+            opsInTick(X_OFFSET_ADDRESS),
+            //read high byte of address from zero page
+            opsInTick(ADL_FETCH),
+            //read operand from effective address
+            opsInTick(ADH_INC_FETCH),
+            //perform adc
+            opsInTick(ADC))
+    ),
+
+    ADC_IND_Y(0x71, clockTick(
+            //TODO
+            opsInTick(ADC))
+    ),
+
+    ADC_ZP_X(0x75, clockTick(
+            //TODO
+            opsInTick(ADC))
+    );
 
     /** 6502 code for this OpCode */
     private final int id;
@@ -86,7 +105,7 @@ public enum MOS6502OpCode {
      * @return the {@link MOS6502OpCode} associated with the given ID
      * @throws IllegalArgumentException if the ID is unknown
      */
-    public static MOS6502OpCode of(final int id) {
+    public static MOS6502OpCode from(final int id) {
         final MOS6502OpCode opCode = BY_ID.get(id);
 
         if (opCode == null) {

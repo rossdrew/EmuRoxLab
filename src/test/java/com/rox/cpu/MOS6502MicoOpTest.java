@@ -157,4 +157,27 @@ public class MOS6502MicoOpTest {
         assertEquals(0x0105+5, env.getAD());
         assertEquals(27, bus.fetch());
     }
+
+    @Test
+    public void ONEEndToEnd(){
+        memoryBus8Bit.write(10, 77);
+        bus.loadMemoryAddress(10);
+
+        ADL_FETCH.execute(env, bus, alu);
+
+        verifyNoInteractions(alu);
+        assertEquals(77, env.getADL());
+    }
+
+    @Test
+    public void TWOEndToEnd(){
+        memoryBus8Bit.write(10, 77);
+        memoryBus8Bit.write(11, 88);
+        bus.loadMemoryAddress(10);
+
+        ADH_INC_FETCH.execute(env, bus, alu);
+
+        verifyNoInteractions(alu);
+        assertEquals(88, env.getADH());
+    }
 }
