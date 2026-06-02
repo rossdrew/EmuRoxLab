@@ -94,6 +94,20 @@ public class MOS6502MicoOpTest {
     }
 
     @Test
+    public void xOffSetAddressEndToEnd(){
+        ram.write(0x22+5, 65);
+        bus.loadMemoryAddress(0x22);
+
+        env.setX(5);
+
+        X_OFFSET_ADDRESS.execute(env, bus, alu);
+
+        verifyNoInteractions(alu);
+        assertEquals(0x22+5, bus.getAddressedMemory());
+        assertEquals(65, bus.fetch());
+    }
+
+    @Test
     public void pcAddressToADLAddressEndToEnd(){
         ram.write(0, 65);
 
