@@ -1,7 +1,6 @@
 package com.rox.cpu;
 
 import com.rox.cpu.MOS6502.MOS6502Operation;
-import jdk.dynalink.Operation;
 
 /**
  * WIP
@@ -94,6 +93,22 @@ class MOS6502Environment {
 
     public int getY() {
         return y;
+    }
+
+    public boolean getCarry() {
+        return carry;
+    }
+
+    public boolean getV() {
+        return v;
+    }
+
+    public boolean getN() {
+        return n;
+    }
+
+    public void setCarry(boolean carry) {
+        this.carry = carry;
     }
 
     public boolean additionalTickPending(){

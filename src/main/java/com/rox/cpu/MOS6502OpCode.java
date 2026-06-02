@@ -45,15 +45,10 @@ public enum MOS6502OpCode {
     ),
 
     ADC_IND_X(0x61, clockTick(
-            //get zero page pointer operand
             opsInTick(LOAD_PC_ADDRESS), //XXX store in temporary location we can add to?
-            //add X to operand & read low byte of effective address from zero page
             opsInTick(X_OFFSET_ADDRESS),
-            //read high byte of address from zero page
             opsInTick(ADL_FETCH),
-            //read operand from effective address
             opsInTick(ADH_INC_FETCH),
-            //perform adc
             opsInTick(ADC))
     ),
 
