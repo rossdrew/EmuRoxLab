@@ -53,7 +53,9 @@ public enum MOS6502OpCode {
     ),
 
     ADC_IND_Y(0x71, clockTick(
-            //TODO
+            opsInTick(LOAD_PC_ADDRESS),
+            opsInTick(ADL_FETCH),
+            opsInTick(ADH_INC_FETCH, AD_PLUS_Y),
             opsInTick(ADC))
     ),
 

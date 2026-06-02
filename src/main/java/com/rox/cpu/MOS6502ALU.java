@@ -19,7 +19,6 @@ public class MOS6502ALU {
     }
 
     public void adc(final int b){
-        //TODO make A the accumulator?
         int a = environment.getA();
         int result = a + b + (environment.carry?1:0);
         environment.n = (result & BIT[7]) != 0; //bit 7 is set

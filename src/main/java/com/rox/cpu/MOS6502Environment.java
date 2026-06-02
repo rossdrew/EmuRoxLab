@@ -79,6 +79,10 @@ class MOS6502Environment {
         return pc;
     }
 
+    public void setPC(final int newPC) {
+        this.pc = newPC;
+    }
+
     public int getX() {
         return this.x;
     }

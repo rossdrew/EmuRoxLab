@@ -25,9 +25,13 @@ public class MOS6502 implements ClockWatcher {
         return environment.clone();
     }
 
-    public MOS6502(final LatchedMemoryBus latchedMemory) {
+    public MOS6502(final LatchedMemoryBus latchedMemory){
+        this(latchedMemory, new MOS6502Environment());
+    }
+
+    public MOS6502(final LatchedMemoryBus latchedMemory, final MOS6502Environment environment) {
         this.latchedMemory = latchedMemory;
-        this.environment = new MOS6502Environment();
+        this.environment = environment;
         this.alu = new MOS6502ALU(this.environment);
     }
 

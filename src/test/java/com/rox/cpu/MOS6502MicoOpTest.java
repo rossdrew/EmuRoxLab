@@ -159,7 +159,7 @@ public class MOS6502MicoOpTest {
     }
 
     @Test
-    public void ONEEndToEnd(){
+    public void adlFetchEndToEnd(){
         memoryBus8Bit.write(10, 77);
         bus.loadMemoryAddress(10);
 
@@ -170,7 +170,7 @@ public class MOS6502MicoOpTest {
     }
 
     @Test
-    public void TWOEndToEnd(){
+    public void adhIncAndFetchEndToEnd(){
         memoryBus8Bit.write(10, 77);
         memoryBus8Bit.write(11, 88);
         bus.loadMemoryAddress(10);

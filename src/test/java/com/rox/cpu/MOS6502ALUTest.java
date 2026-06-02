@@ -1,14 +1,24 @@
 package com.rox.cpu;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class MOS6502ALUTest {
+    MOS6502Environment env;
+    MOS6502ALU alu;
+
+    @BeforeEach
+    public void setup(){
+        env = new MOS6502Environment();
+        alu = new MOS6502ALU(env);
+    }
+
     @ParameterizedTest(name = "ADC: A({0})+M({1})+C({2}) = {3}")
     @CsvSource({
-          // A,     M,    C,      Result, V,     N,     C
+          // A,     O,    C,      Result, V,     N,     C
             "0,     0,    false,  0,      false, false, false",
             "0,     1,    false,  1,      false, false, false",
             "1,     1,    false,  2,      false, false, false",
@@ -45,9 +55,6 @@ public class MOS6502ALUTest {
                         final boolean expectedOverflowFlag,
                         final boolean expectedNegativeFlag,
                         final boolean expectedCarryFlag){
-        final MOS6502Environment env = new MOS6502Environment();
-        final MOS6502ALU alu = new MOS6502ALU(env);
-
         env.setA(accumulator);
         env.setCarry(carryIn);
 
