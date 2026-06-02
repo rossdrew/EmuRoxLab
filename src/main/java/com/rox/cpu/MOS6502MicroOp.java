@@ -24,11 +24,6 @@ enum MOS6502MicroOp implements MOS6502Operation {
         mem.loadMemoryAddress(env.getADL());
     }),
 
-    /* A = adc(mem[addr]) */
-    ADC((env, mem, alu) -> {
-        alu.adc(env.getA(), mem.fetch());
-    }),
-
     /* addr_mem[pc] */
     LOAD_PC_ADDRESS((env, mem, alu) -> {
         mem.loadMemoryAddress(env.pc());
@@ -105,19 +100,10 @@ enum MOS6502MicroOp implements MOS6502Operation {
         mem.loadMemoryAddress(env.getAD());
     }),
 
-    //Used to waste an additional tick
-//    ADDITIONAL_TICK((env, mem, alu)->{
-//        env.additionalTickCompleted();
-//    }),
-
-    DUMMY_READ((env,mem,alu) -> {
-        mem.fetch(); //read that goes nowhere
-    }),
-
-    ADJUSTED_ADDRESS((env, mem, alu) -> {
-    }), // read adjusted address
-    PAGE_CROSS_CYCLE((env, mem, alu) -> {
-    }); // optional extra page-cross cycle
+    /* A = adc(mem[addr]) */
+    ADC((env, mem, alu) -> {
+        alu.adc(mem.fetch());
+    });
 
     private final MOS6502Operation op;
 
