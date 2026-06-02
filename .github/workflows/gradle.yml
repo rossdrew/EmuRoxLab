@@ -107,15 +107,21 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
 
-      - name: Generate PIT badge
+      - name: Generate PIT badge and report
         run: ./gradlew pitestBadge
 
-      - name: Upload PIT badge to Pages
+      - name: Prepare PIT Pages site
+        run: |
+          mkdir -p public/pitest
+          cp badges/pitest.json public/pitest.json
+          cp -r build/reports/pitest/* public/pitest/
+
+      - name: Upload PIT report to Pages
         uses: actions/upload-pages-artifact@v4
         with:
-          path: badges
+          path: public
 
-      - name: Deploy PIT badge to Pages
+      - name: Deploy PIT report to Pages
         id: deployment
         uses: actions/deploy-pages@v4
 
