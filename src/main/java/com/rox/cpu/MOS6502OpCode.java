@@ -48,7 +48,7 @@ public enum MOS6502OpCode {
             opsInTick(LOAD_PC_ADDRESS), //XXX store in temporary location we can add to?
             opsInTick(X_OFFSET_ADDRESS),
             opsInTick(ADL_FETCH),
-            opsInTick(ADH_INC_FETCH),
+            opsInTick(ADH_INC_FETCH, ABS_ADDRESS),
             opsInTick(ADC))
     ),
 
