@@ -250,12 +250,101 @@ public class MOS6502OpCodeTest {
     }
 
     @Test
-    void adcIndirectY(){
-        ram.write(0x8000, ADC_IND_Y.getId());
+    void adcIndirectYReadsFromIndirectIndexedAddressAndAddsWithCarry() {
+        ram.write(0x8000, ADC_IND_Y.getId());       // opcode: ADC_IND_Y
+        ram.write(0x8001, 0x44);              // zero-page pointer
+
+        ram.write(0x0044, 0x34);              // low byte
+        ram.write(0x0045, 0x12);              // high byte
+
+        ram.write(0x1239, 0x20);              // $1234 + Y(5)
+
+        env.setPC(0x8000);
+        env.setA(0x10);
+        env.setY(0x05);
+        env.setCarry(true);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch zero-page pointer
+        cpu.tick(); // read effective address low byte
+        cpu.tick(); // read effective address high byte + add Y
+        cpu.tick(); // read operand + ADC
+
+        assertEquals(0x31, env.getA());
+        assertEquals(0x8002, env.getPC());
     }
 
     @Test
-    void adcZeroPageX() {
-        ram.write(0x8000, ADC_ZP_X.getId());
+    void adcIndirectYUsesExtraCycleWhenPageCrosses() {
+        ram.write(0x8000, ADC_IND_Y.getId());
+        ram.write(0x8001, 0x44);
+
+        ram.write(0x0044, 0xFF); // base low
+        ram.write(0x0045, 0x12); // base high
+
+        ram.write(0x1304, 0x20); // $12FF + Y(5)
+
+        env.setPC(0x8000);
+        env.setA(0x10);
+        env.setY(0x05);
+        env.setCarry(true);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch zero-page pointer
+        cpu.tick(); // read effective address low byte
+        cpu.tick(); // read effective address high byte + add Y
+
+        assertEquals(0x10, env.getA());
+
+        cpu.tick(); // dummy read / page-cross fix
+
+        assertEquals(0x10, env.getA());
+
+        cpu.tick(); // read operand + ADC
+
+        assertEquals(0x31, env.getA());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @Test
+    void adcZeroPageXReadsFromZeroPageOffsetByXAndAddsWithCarry() {
+        ram.write(0x8000, ADC_Z_X.getId());     // opcode: ADC_Z_X
+        ram.write(0x8001, 0x44);          // zero-page base address
+
+        ram.write(0x0049, 0x20);          // $44 + X(5)
+
+        env.setPC(0x8000);
+        env.setA(0x10);
+        env.setX(0x05);
+        env.setCarry(true);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch zero-page address
+        cpu.tick(); // add X to address
+        cpu.tick(); // read operand + ADC
+
+        assertEquals(0x31, env.getA());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @Test
+    void adcZeroPageXWrapsAroundZeroPage() {
+        ram.write(0x8000, ADC_Z_X.getId());
+        ram.write(0x8001, 0xFE);
+
+        ram.write(0x0003, 0x20); // ($FE + X(5)) & $FF = $03
+
+        env.setPC(0x8000);
+        env.setA(0x10);
+        env.setX(0x05);
+        env.setCarry(true);
+
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+
+        assertEquals(0x31, env.getA());
+        assertEquals(0x8002, env.getPC());
     }
 }

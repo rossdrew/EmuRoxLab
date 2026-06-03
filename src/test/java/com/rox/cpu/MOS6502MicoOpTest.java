@@ -217,7 +217,7 @@ public class MOS6502MicoOpTest {
         memoryBus8Bit.write(10, 77);
         bus.loadMemoryAddress(10);
 
-        ADL_FETCH.execute(env, bus, alu);
+        FETCH_TO_ADL.execute(env, bus, alu);
 
         verifyNoInteractions(alu);
         assertEquals(77, env.getADL());

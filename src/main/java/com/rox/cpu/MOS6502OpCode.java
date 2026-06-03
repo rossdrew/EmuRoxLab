@@ -47,20 +47,21 @@ public enum MOS6502OpCode {
     ADC_IND_X(0x61, clockTick(
             opsInTick(LOAD_PC_ADDRESS), //XXX store in temporary location we can add to?
             opsInTick(X_OFFSET_ADDRESS),
-            opsInTick(ADL_FETCH),
+            opsInTick(FETCH_TO_ADL),
             opsInTick(ADH_INC_FETCH, ABS_ADDRESS),
             opsInTick(ADC))
     ),
 
     ADC_IND_Y(0x71, clockTick(
             opsInTick(LOAD_PC_ADDRESS),
-            opsInTick(ADL_FETCH),
+            opsInTick(CONVERT_TO_POINTER, FETCH_TO_ADL),
             opsInTick(ADH_INC_FETCH, AD_PLUS_Y),
             opsInTick(ADC))
     ),
 
-    ADC_ZP_X(0x75, clockTick(
-            //TODO
+    ADC_Z_X(0x75, clockTick(
+            opsInTick(LOAD_PC_ADDRESS),
+            opsInTick(X_OFFSET_ADDRESS),
             opsInTick(ADC))
     );
 

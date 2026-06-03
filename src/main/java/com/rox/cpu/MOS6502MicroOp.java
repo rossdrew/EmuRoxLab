@@ -3,6 +3,7 @@ package com.rox.cpu;
 import com.rox.cpu.MOS6502.MOS6502Operation;
 import com.rox.mem.LatchedMemoryBus;
 
+//XXX There's probably a fair bit of redundancy here, do we need ADL_FROM_PC if we have CONVERT_TO_POINT and FETCH_TO_ADL for example
 enum MOS6502MicroOp implements MOS6502Operation {
     //Temporary
     NOP((e,m,a) -> {}),
@@ -29,8 +30,13 @@ enum MOS6502MicroOp implements MOS6502Operation {
         mem.loadMemoryAddress(env.pc());
     }),
 
+    /* addr_mem[addr] */
+    CONVERT_TO_POINTER((env, mem, alu) -> {
+        mem.loadMemoryAddress(mem.fetch());
+    }),
+
     /* ADL = mem[addr] */
-    ADL_FETCH((env, mem, alu)->{
+    FETCH_TO_ADL((env, mem, alu)->{
         env.setADL(mem.fetch());
     }),
 
@@ -43,10 +49,7 @@ enum MOS6502MicroOp implements MOS6502Operation {
 
     /* addr_mem = addre_mem + x */
     X_OFFSET_ADDRESS((env, mem, alu)->{
-        int pointerLocation = mem.getAddressedMemory();
-        //get the value at pointerlocation
         int basePointer = mem.fetch();
-        //add offset to the base pointer and load
         mem.loadMemoryAddress((basePointer + env.getX()) & 0xFF);
     }),
 
