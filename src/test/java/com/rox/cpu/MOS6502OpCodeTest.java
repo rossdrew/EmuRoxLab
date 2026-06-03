@@ -148,7 +148,55 @@ public class MOS6502OpCodeTest {
         assertEquals(0x31, env.getA());
     }
 
-    //TODO ADC_ABS_Y
+    @Test
+    void adcAbsoluteYReadsFromAbsoluteYAddressAndAddsWithCarry() {
+        ram.write(0x8000, ADC_ABS_Y.getId());       // opcode: ADC_ABS_Y
+        ram.write(0x8001, 0x34);              // low byte
+        ram.write(0x8002, 0x12);              // high byte
+        ram.write(0x1239, 0x20);              // $1234 + Y(5)
+
+        env.setPC(0x8000);
+        env.setA(0x10);
+        env.setY(0x05);
+        env.setCarry(true);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // ADL_FROM_PC
+        cpu.tick(); // ADH_FROM_PC + AD_PLUS_Y
+        cpu.tick(); // LOAD_ADDRESS + ADC
+
+        assertEquals(0x31, env.getA());
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @Test
+    void adcAbsoluteYUsesExtraCycleWhenPageCrosses() {
+        ram.write(0x8000, ADC_ABS_Y.getId());
+        ram.write(0x8001, 0xFF);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1304, 0x20); // $12FF + Y(5)
+
+        env.setPC(0x8000);
+        env.setA(0x10);
+        env.setY(0x05);
+        env.setCarry(true);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // ADL_FROM_PC
+        cpu.tick(); // ADH_FROM_PC + AD_PLUS_Y
+
+        assertEquals(0x10, env.getA()); // not executed yet
+
+        cpu.tick(); // dummy read / page-cross fix
+
+        assertEquals(0x10, env.getA()); // still not executed
+
+        cpu.tick(); // LOAD_ADDRESS + ADC
+
+        assertEquals(0x31, env.getA());
+        assertEquals(0x8003, env.getPC());
+    }
+
     //TODO ADC_IND_X
     //TODO ADC_IND_Y
     //TODO ADC_ZP_X
