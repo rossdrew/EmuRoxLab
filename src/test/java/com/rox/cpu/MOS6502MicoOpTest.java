@@ -95,7 +95,8 @@ public class MOS6502MicoOpTest {
 
     @Test
     public void xOffSetAddressEndToEnd(){
-        ram.write(0x22+5, 65);
+        ram.write(0x22, 0x50); //pointer stored at x22
+        ram.write(0x55, 65);   //value stored at pointer + x
         bus.loadMemoryAddress(0x22);
 
         env.setX(5);
@@ -103,7 +104,7 @@ public class MOS6502MicoOpTest {
         X_OFFSET_ADDRESS.execute(env, bus, alu);
 
         verifyNoInteractions(alu);
-        assertEquals(0x22+5, bus.getAddressedMemory());
+        assertEquals(0x50+5, bus.getAddressedMemory());
         assertEquals(65, bus.fetch());
     }
 

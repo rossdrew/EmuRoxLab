@@ -12,39 +12,37 @@ public enum MOS6502OpCode {
     // NOTE: The first cycle is the FETCH cycle!!
 
     /** Zero Page Addressed ADC (ADd with Carry) */
-    ADC_Z(0x65, clockTick(
+    ADC_Z(0x65, clockTicks(
             opsInTick(ADL_FROM_PC),
             opsInTick(LOAD_ADL_ADDRESS, ADC))
     ),
 
     /** Immediate Addressed ADC (ADd with Carry) */
-    ADC_I(0x69, clockTick(
+    ADC_I(0x69, clockTicks(
             opsInTick(LOAD_PC_ADDRESS, ADC))
     ),
 
     /** A ← A + Memory[ADH:ADL] + Carry */
-    ADC_ABS(0x6D, clockTick(
+    ADC_ABS(0x6D, clockTicks(
             opsInTick(ADL_FROM_PC_ADDRESS),
             opsInTick(ADH_FROM_PC),
             opsInTick(ABS_ADDRESS, ADC))
     ),
 
     /** A ← A + Memory[$1234 + X] + Carry */
-    ADC_ABS_X(0x7D, clockTick(
+    ADC_ABS_X(0x7D, clockTicks(
             opsInTick(ADL_FROM_PC),
             opsInTick(ADH_FROM_PC, AD_PLUS_X),
-            //There's an optional operation in here if a page cross is needed
             opsInTick(ADC))
     ),
 
-    ADC_ABS_Y(0x79, clockTick(
+    ADC_ABS_Y(0x79, clockTicks(
             opsInTick(ADL_FROM_PC),
             opsInTick(ADH_FROM_PC, AD_PLUS_Y),
-            //There's an optional operation in here if a page cross is needed
             opsInTick(ADC))
     ),
 
-    ADC_IND_X(0x61, clockTick(
+    ADC_IND_X(0x61, clockTicks(
             opsInTick(LOAD_PC_ADDRESS), //XXX store in temporary location we can add to?
             opsInTick(X_OFFSET_ADDRESS),
             opsInTick(FETCH_TO_ADL),
@@ -52,14 +50,14 @@ public enum MOS6502OpCode {
             opsInTick(ADC))
     ),
 
-    ADC_IND_Y(0x71, clockTick(
+    ADC_IND_Y(0x71, clockTicks(
             opsInTick(LOAD_PC_ADDRESS),
             opsInTick(CONVERT_TO_POINTER, FETCH_TO_ADL),
             opsInTick(ADH_INC_FETCH, AD_PLUS_Y),
             opsInTick(ADC))
     ),
 
-    ADC_Z_X(0x75, clockTick(
+    ADC_Z_X(0x75, clockTicks(
             opsInTick(LOAD_PC_ADDRESS),
             opsInTick(X_OFFSET_ADDRESS),
             opsInTick(ADC))
@@ -76,7 +74,7 @@ public enum MOS6502OpCode {
     }
 
     /** Helper method to make setting up enum arguments cleaner */
-    private static MOS6502Operation[][] clockTick(final MOS6502Operation[]... ticks) {
+    private static MOS6502Operation[][] clockTicks(final MOS6502Operation[]... ticks) {
         return ticks;
     }
 

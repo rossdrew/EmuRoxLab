@@ -47,7 +47,7 @@ enum MOS6502MicroOp implements MOS6502Operation {
         env.setADH(mem.fetch());
     }),
 
-    /* addr_mem = addre_mem + x */
+    /* addr_mem = addr_mem + x */
     X_OFFSET_ADDRESS((env, mem, alu)->{
         int basePointer = mem.fetch();
         mem.loadMemoryAddress((basePointer + env.getX()) & 0xFF);
