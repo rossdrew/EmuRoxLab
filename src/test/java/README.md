@@ -25,7 +25,9 @@ Testing methods and classes as standalone units and asserting outcomes based on 
     }
 ```
 
-## Mocking dependencies to isolate the unit under test and control its behavior.
+## Mocking
+
+Creating mock dependencies in order to isolate the unit under test and control its behavior.
 
 ```java
     @Test
