@@ -61,7 +61,20 @@ public enum MOS6502OpCode {
             opsInTick(LOAD_PC_ADDRESS),
             opsInTick(X_OFFSET_ADDRESS),
             opsInTick(ADC))
-    );
+    ),
+
+    LDA_I(0xA9, clockTicks(
+            opsInTick(A_FROM_PC)
+    ));
+
+    //LDA_I
+    //LDA_Z
+    //LDA_Z_X
+    //LDA_ABS
+    //LDA_ABS_X
+    //LDA_ABS_Y
+    //LDA_IND_X
+    //LDA_IND_Y
 
     /** 6502 code for this OpCode */
     private final int id;

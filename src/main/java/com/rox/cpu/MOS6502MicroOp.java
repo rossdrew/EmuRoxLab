@@ -109,6 +109,17 @@ enum MOS6502MicroOp implements MOS6502Operation {
     /* A = adc(mem[addr]) */
     ADC((env, mem, alu) -> {
         alu.adc(mem.fetch());
+    }),
+
+    SET_FLAGS_ON_A((env, mem, alu)->{
+        env.setZ(env.getA() == 0);
+    }),
+
+    A_FROM_PC((env, mem, alu)->{
+        mem.loadMemoryAddress(env.pc());
+        final int newValue = mem.fetch();
+        env.setA(newValue);
+        alu.setStaticFlags(newValue);
     });
 
     private final MOS6502Operation op;

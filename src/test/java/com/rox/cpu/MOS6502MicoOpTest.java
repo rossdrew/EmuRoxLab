@@ -6,6 +6,8 @@ import com.rox.mem.MemoryBus8Bit;
 import com.rox.mem.RAM;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import static com.rox.cpu.MOS6502MicroOp.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -234,5 +236,26 @@ public class MOS6502MicoOpTest {
 
         verifyNoInteractions(alu);
         assertEquals(88, env.getADH());
+    }
+
+    @ParameterizedTest(name = "PC={0}: Z={1}, N={2}")
+    @CsvSource({
+            //Value  Z      N
+            "0x20, false, false",
+            "0x00, true,  false",
+            "0x80, false, true",
+            "0x7F, false, false"
+    })
+    public void aFromPC(int value,
+                        boolean expectedZero,
+                        boolean expectedNegative){
+        alu = new MOS6502ALU(env);
+        memoryBus8Bit.write(0, value);
+
+        A_FROM_PC.execute(env, bus, alu);
+
+        assertEquals(value, env.getA());
+        assertEquals(expectedZero, env.getZ());
+        assertEquals(expectedNegative, env.getN());
     }
 }

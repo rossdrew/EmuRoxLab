@@ -103,12 +103,28 @@ class MOS6502Environment {
         return carry;
     }
 
+    public void setV(final boolean newV){
+        this.v = newV;
+    }
+
     public boolean getV() {
         return v;
     }
 
+    public void setN(final boolean newN){
+        this.n = newN;
+    }
+
     public boolean getN() {
         return n;
+    }
+
+    public void setZ(final boolean newZ) {
+        this.z = newZ;
+    }
+
+    public boolean getZ() {
+        return z;
     }
 
     public void setCarry(boolean carry) {

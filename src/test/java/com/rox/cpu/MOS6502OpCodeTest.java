@@ -3,6 +3,8 @@ package com.rox.cpu;
 import com.rox.mem.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import static com.rox.cpu.MOS6502OpCode.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -345,6 +347,32 @@ public class MOS6502OpCodeTest {
         cpu.tick();
 
         assertEquals(0x31, env.getA());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @ParameterizedTest(name = "LDA_I #{index}: value={0}, Z={1}, N={2}")
+    @CsvSource({
+          //Value  Z      N
+            "0x20, false, false",
+            "0x00, true,  false",
+            "0x80, false, true",
+            "0xFF, false, true",
+            "0x7F, false, false"
+    })
+    void ldaImmediateLoadsAccumulatorAndSetsFlags(int value,
+                                                  boolean expectedZero,
+                                                  boolean expectedNegative) {
+        ram.write(0x8000, LDA_I.getId());
+        ram.write(0x8001, value);
+
+        env.setPC(0x8000);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // load A
+
+        assertEquals(value & 0xFF, env.getA());
+        assertEquals(expectedZero, env.getZ());
+        assertEquals(expectedNegative, env.getN());
         assertEquals(0x8002, env.getPC());
     }
 }

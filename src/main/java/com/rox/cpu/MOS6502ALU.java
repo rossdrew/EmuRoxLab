@@ -21,10 +21,15 @@ public class MOS6502ALU {
     public void adc(final int b){
         int a = environment.getA();
         int result = a + b + (environment.carry?1:0);
-        environment.n = (result & BIT[7]) != 0; //bit 7 is set
-        environment.z = result == 0; //result is zero
-        environment.v = (~(a ^ b) & (a ^ result) & BIT[7]) != 0; //matching signs result in mismatched sign
-        environment.carry = result > 0xFF; //result is > 255
+
+        setStaticFlags(result);
+        environment.setV((~(a ^ b) & (a ^ result) & BIT[7]) != 0); //matching signs result in mismatched sign
+        environment.setCarry(result > 0xFF); //result is > 255
         environment.setA(result & 0xFF);
+    }
+
+    public void setStaticFlags(final int basedOn) {
+        environment.setN((basedOn & BIT[7]) != 0); //bit 7 is set
+        environment.setZ(basedOn == 0); //result is zero
     }
 }
