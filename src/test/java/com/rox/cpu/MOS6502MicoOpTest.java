@@ -238,6 +238,16 @@ public class MOS6502MicoOpTest {
         assertEquals(88, env.getADH());
     }
 
+    @Test
+    public void aFromPC(){
+        alu = new MOS6502ALU(env);
+        memoryBus8Bit.write(0,34);
+
+        A_FROM_PC.execute(env, bus, alu);
+
+        assertEquals(34, env.getA());
+    }
+
     @ParameterizedTest(name = "PC={0}: Z={1}, N={2}")
     @CsvSource({
             //Value  Z      N
@@ -246,13 +256,13 @@ public class MOS6502MicoOpTest {
             "0x80, false, true",
             "0x7F, false, false"
     })
-    public void aFromPC(int value,
-                        boolean expectedZero,
-                        boolean expectedNegative){
+    public void setFlagsOnA(int value,
+                            boolean expectedZero,
+                            boolean expectedNegative){
         alu = new MOS6502ALU(env);
-        memoryBus8Bit.write(0, value);
+        env.setA(value);
 
-        A_FROM_PC.execute(env, bus, alu);
+        SET_FLAGS_ON_A.execute(env, bus, alu);
 
         assertEquals(value, env.getA());
         assertEquals(expectedZero, env.getZ());

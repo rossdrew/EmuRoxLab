@@ -112,14 +112,18 @@ enum MOS6502MicroOp implements MOS6502Operation {
     }),
 
     SET_FLAGS_ON_A((env, mem, alu)->{
-        env.setZ(env.getA() == 0);
+        alu.setStaticFlags(env.getA());
+    }),
+
+    A_FROM_AD((env, mem, alu) -> {
+        final int newValue = mem.fetch();
+        env.setA(newValue);
     }),
 
     A_FROM_PC((env, mem, alu)->{
         mem.loadMemoryAddress(env.pc());
         final int newValue = mem.fetch();
         env.setA(newValue);
-        alu.setStaticFlags(newValue);
     });
 
     private final MOS6502Operation op;

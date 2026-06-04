@@ -64,7 +64,12 @@ public enum MOS6502OpCode {
     ),
 
     LDA_I(0xA9, clockTicks(
-            opsInTick(A_FROM_PC)
+            opsInTick(A_FROM_PC, SET_FLAGS_ON_A)
+    )),
+
+    LDA_Z(0xA5, clockTicks(
+            opsInTick(ADL_FROM_PC),
+            opsInTick(LOAD_ADL_ADDRESS, A_FROM_AD, SET_FLAGS_ON_A)
     ));
 
     //LDA_I
