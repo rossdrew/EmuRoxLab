@@ -3,7 +3,7 @@ package com.rox.cpu;
 import com.rox.cpu.MOS6502.MOS6502Operation;
 import com.rox.mem.LatchedMemoryBus;
 
-//XXX There's probably a fair bit of redundancy here, do we need ADL_FROM_PC if we have CONVERT_TO_POINT and FETCH_TO_ADL for example
+//XXX There's probably a fair bit of redundancy here
 enum MOS6502MicroOp implements MOS6502Operation {
     //Temporary
     NOP((e,m,a) -> {}),
@@ -15,33 +15,34 @@ enum MOS6502MicroOp implements MOS6502Operation {
     }),
 
     /* ADL = mem[pc] */
-    ADL_FROM_PC((env, mem, alu) -> {
+    ADL_FROM_PC_POINTER((env, mem, alu) -> {
+        //XXX could be replaced with (ADDRESS_PC, MEM_TO_ADL)
         mem.loadMemoryAddress(env.pc());
         env.setADL(mem.fetch());
     }),
 
     /* addr_mem[adl] */
-    LOAD_ADL_ADDRESS((env, mem, alu) -> {
+    ADDRESS_ADL((env, mem, alu) -> {
         mem.loadMemoryAddress(env.getADL());
     }),
 
     /* addr_mem[pc] */
-    LOAD_PC_ADDRESS((env, mem, alu) -> {
+    ADDRESS_PC((env, mem, alu) -> {
         mem.loadMemoryAddress(env.pc());
     }),
 
     /* addr_mem[addr] */
-    CONVERT_TO_POINTER((env, mem, alu) -> {
+    ADDRESS_MEM_POINTER((env, mem, alu) -> {
         mem.loadMemoryAddress(mem.fetch());
     }),
 
     /* ADL = mem[addr] */
-    FETCH_TO_ADL((env, mem, alu)->{
+    MEM_TO_ADL((env, mem, alu)->{
         env.setADL(mem.fetch());
     }),
 
     /* ADL = mem[addr+1] */
-    ADH_INC_FETCH((env, mem, alu)->{
+    MEM_INC_TO_ADH((env, mem, alu)->{
         int incrementedMemoryLocation = (mem.getAddressedMemory() + 1) & 0xFF;
         mem.loadMemoryAddress(incrementedMemoryLocation);
         env.setADH(mem.fetch());
@@ -53,14 +54,9 @@ enum MOS6502MicroOp implements MOS6502Operation {
         mem.loadMemoryAddress((basePointer + env.getX()) & 0xFF);
     }),
 
-    //ADL = mem[pc]
-    ADL_FROM_PC_ADDRESS((env, mem, alu) -> {
-        mem.loadMemoryAddress(env.pc());
-        env.setADL(mem.fetch());
-    }),
-
     //ADH = mem[pc]
     ADH_FROM_PC((env, mem, alu) -> {
+        //XXX Could be replaced with (ADDRESS_PC, MEM_TO_ADH)
         mem.loadMemoryAddress(env.pc());
         env.setADH(mem.fetch());
     }),
@@ -106,11 +102,6 @@ enum MOS6502MicroOp implements MOS6502Operation {
         mem.loadMemoryAddress(env.getAD());
     }),
 
-    /* A = adc(mem[addr]) */
-    ADC((env, mem, alu) -> {
-        alu.adc(mem.fetch());
-    }),
-
     SET_FLAGS_ON_A((env, mem, alu)->{
         alu.setStaticFlags(env.getA());
     }),
@@ -124,6 +115,11 @@ enum MOS6502MicroOp implements MOS6502Operation {
         mem.loadMemoryAddress(env.pc());
         final int newValue = mem.fetch();
         env.setA(newValue);
+    }),
+
+    /* A = adc(mem[addr]) */
+    ADC((env, mem, alu) -> {
+        alu.adc(mem.fetch());
     });
 
     private final MOS6502Operation op;
