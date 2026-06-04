@@ -54,8 +54,7 @@ Unit testing where you want to make sure that a property holds for a wide range 
 ```java
     @Provide //Values between 0-255
     Arbitrary<Integer> byteValues() {
-        return integers()
-                .between(0, 0xFF);
+        return integers().between(0, 0xFF);
     }
 
     @Property
@@ -73,7 +72,7 @@ Unit testing where you want to make sure that a property holds for a wide range 
             "10, 1,  11",
             "10, -1, 9"
     })
-    void ldaZeroPageLoadsAccumulatorAndSetsFlags(int a, boolean b, boolean result) {
+    void additionEdgeCases(int a, boolean b, boolean result) {
         assertEquals(result, add(a,b));
     }
 ```
