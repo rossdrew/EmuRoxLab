@@ -6,7 +6,9 @@
 - Jqwick: A property testing framework for Java
 - Pitest: A mutation testing framework for Java that helps evaluate the effectiveness of tests.
 
-## Unit Testing
+## Testing Strategies
+
+### Unit Testing
 
 Testing methods and classes as standalone units and asserting outcomes based on given inputs.
 
@@ -25,7 +27,7 @@ Testing methods and classes as standalone units and asserting outcomes based on 
     }
 ```
 
-## Mocking
+### Mocking
 
 Creating mock dependencies in order to isolate the unit under test and control its behavior.
 
@@ -47,7 +49,7 @@ Creating mock dependencies in order to isolate the unit under test and control i
     }
 ```
 
-## Property Testing
+### Property Testing
 
 Unit testing where you want to make sure that a property holds for a wide range of inputs, rather than just specific cases.
 
@@ -63,7 +65,7 @@ Unit testing where you want to make sure that a property holds for a wide range 
     }
 ```
 
-## Data-Driven/Parameterized Testing
+### Data-Driven/Parameterized Testing
 
 ```java
     @ParameterizedTest(name = "ADD: {0}+{1}={2}")
@@ -77,7 +79,7 @@ Unit testing where you want to make sure that a property holds for a wide range 
     }
 ```
 
-## Mutation Testing
+### Mutation Testing
 
 Evaluate the effectiveness of tests by introducing changes (mutations) to the code and checking if tests fail as expected.
 
