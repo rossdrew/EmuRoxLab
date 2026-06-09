@@ -237,6 +237,24 @@ public class MOS6502MicoOpTest {
         assertEquals(34, env.getA());
     }
 
+    @ParameterizedTest(name = "AD[{0}:{1}] + X({3} = {4}")
+    @CsvSource({
+          // ADH    ADL    X   Expected
+            "0x0,   0x1,   1,  0x02",
+            "0x1,   0x1,   1,  0x02",
+            "0x0,   0xFF,  2,  0x01",
+    })
+    public void adlPlusX(final int adh, final int adl, final int x, final int expected){
+        env.setADH(adh);
+        env.setADL(adl);
+        env.setX(x);
+
+        ADL_PLUS_X.execute(env, bus, alu);
+
+        assertEquals(expected, env.getADL());
+        assertEquals(expected, env.getAD());
+    }
+
     @ParameterizedTest(name = "PC={0}: Z={1}, N={2}")
     @CsvSource({
             //Value  Z      N

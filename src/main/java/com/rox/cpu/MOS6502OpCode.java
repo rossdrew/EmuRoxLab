@@ -70,11 +70,14 @@ public enum MOS6502OpCode {
     LDA_Z(0xA5, clockTicks(
             opsInTick(ADL_FROM_PC_POINTER),
             opsInTick(ADDRESS_ADL, A_FROM_AD, SET_FLAGS_ON_A)
+    )),
+
+    LDA_Z_X(0xB5, clockTicks(
+            opsInTick(ADL_FROM_PC_POINTER),
+            opsInTick(ADL_PLUS_X),
+            opsInTick(ADDRESS_ADL, A_FROM_AD, SET_FLAGS_ON_A)
     ));
 
-    //LDA_I
-    //LDA_Z
-    //LDA_Z_X
     //LDA_ABS
     //LDA_ABS_X
     //LDA_ABS_Y

@@ -431,90 +431,53 @@ public class MOS6502OpCodeTest {
         cpu.tick();
         assertEquals(0x20, env.getA());
     }
+
+    @ParameterizedTest(name = "LDA_Z_X value={0}")
+    @CsvSource({
+            "0x20, false, false",
+            "0x00, true,  false",
+            "0x80, false, true",
+            "0xFF, false, true"
+    })
+    void ldaZeroPageXLoadsAccumulatorAndSetsFlags(int value, boolean zero, boolean negative) {
+        ram.write(0x8000, LDA_Z_X.getId());
+        ram.write(0x8001, 0x44);
+        ram.write(0x0049, value);
+
+        env.setPC(0x8000);
+        env.setX(0x05);
+
+        cpu.tick(); //Fetch opcode
+        cpu.tick(); //Fetch zero page address to ADL
+        cpu.tick(); //Add X to ADL (wrapping)
+        cpu.tick(); //Read value at $00:ADL to A and set flags
+
+        assertEquals(value & 0xFF, env.getA());
+        assertEquals(zero, env.getZ());
+        assertEquals(negative, env.getN());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @Test
+    void ldaZeroPageXWrapsZeroPage() {
+        ram.write(0x8000, LDA_Z_X.getId());
+        ram.write(0x8001, 0xFE);
+        ram.write(0x0003, 0x20);
+
+        env.setPC(0x8000);
+        env.setX(0x05);
+
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+
+        assertEquals(0x20, env.getA());
+        assertEquals(0x8002, env.getPC());
+    }
 }
-//    @ParameterizedTest(name = "LDA_Z value={0}")
-//    @CsvSource({
-//            "0x20, false, false",
-//            "0x00, true,  false",
-//            "0x80, false, true",
-//            "0xFF, false, true"
-//    })
-//    void ldaZeroPageLoadsAccumulatorAndSetsFlags(int value, boolean zero, boolean negative) {
-//        ram.write(0x8000, LDA_Z.getId());
-//        ram.write(0x8001, 0x44);
-//        ram.write(0x0044, value);
-//
-//        env.setPC(0x8000);
-//
-//        cpu.tick();
-//        cpu.tick();
-//        cpu.tick();
-//
-//        assertEquals(value & 0xFF, env.getA());
-//        assertEquals(zero, env.isZero());
-//        assertEquals(negative, env.isNegative());
-//        assertEquals(0x8002, env.getPC());
-//    }
-//
-//    @Test
-//    void ldaZeroPageDoesNotLoadUntilThirdTick() {
-//        ram.write(0x8000, LDA_Z.getId());
-//        ram.write(0x8001, 0x44);
-//        ram.write(0x0044, 0x20);
-//
-//        env.setPC(0x8000);
-//
-//        cpu.tick();
-//        cpu.tick();
-//        assertEquals(0x00, env.getA());
-//
-//        cpu.tick();
-//        assertEquals(0x20, env.getA());
-//    }
-//    @ParameterizedTest(name = "LDA_Z_X value={0}")
-//    @CsvSource({
-//            "0x20, false, false",
-//            "0x00, true,  false",
-//            "0x80, false, true",
-//            "0xFF, false, true"
-//    })
-//    void ldaZeroPageXLoadsAccumulatorAndSetsFlags(int value, boolean zero, boolean negative) {
-//        ram.write(0x8000, LDA_Z_X.getId());
-//        ram.write(0x8001, 0x44);
-//        ram.write(0x0049, value);
-//
-//        env.setPC(0x8000);
-//        env.setX(0x05);
-//
-//        cpu.tick();
-//        cpu.tick();
-//        cpu.tick();
-//        cpu.tick();
-//
-//        assertEquals(value & 0xFF, env.getA());
-//        assertEquals(zero, env.isZero());
-//        assertEquals(negative, env.isNegative());
-//        assertEquals(0x8002, env.getPC());
-//    }
-//
-//        @Test
-//        void ldaZeroPageXWrapsZeroPage() {
-//            ram.write(0x8000, LDA_Z_X.getId());
-//            ram.write(0x8001, 0xFE);
-//            ram.write(0x0003, 0x20);
-//
-//            env.setPC(0x8000);
-//            env.setX(0x05);
-//
-//            cpu.tick();
-//            cpu.tick();
-//            cpu.tick();
-//            cpu.tick();
-//
-//            assertEquals(0x20, env.getA());
-//            assertEquals(0x8002, env.getPC());
-//        }
-//    }
+
+
 //    @ParameterizedTest(name = "LDA_ABS value={0}")
 //    @CsvSource({
 //            "0x20, false, false",
