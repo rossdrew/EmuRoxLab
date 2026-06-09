@@ -67,6 +67,8 @@ Unit testing where you want to make sure that a property holds for a wide range 
 
 ### Data-Driven/Parameterized Testing
 
+Unit testing where the same test is done on a given set of data points. Useful for testing specific edge cases such as boundary values.
+
 ```java
     @ParameterizedTest(name = "ADD: {0}+{1}={2}")
     @CsvSource({
