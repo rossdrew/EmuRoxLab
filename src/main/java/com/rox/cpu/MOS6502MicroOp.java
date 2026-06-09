@@ -14,13 +14,6 @@ enum MOS6502MicroOp implements MOS6502Operation {
         env.setIR(mem.fetch());
     }),
 
-    /* ADL = mem[pc] */
-    ADL_FROM_PC_POINTER((env, mem, alu) -> {
-        //XXX could be replaced with (ADDRESS_PC, MEM_TO_ADL)
-        mem.loadMemoryAddress(env.pc());
-        env.setADL(mem.fetch());
-    }),
-
     /* addr_mem[adl] */
     ADDRESS_ADL((env, mem, alu) -> {
         mem.loadMemoryAddress(env.getADL());
@@ -42,7 +35,7 @@ enum MOS6502MicroOp implements MOS6502Operation {
     }),
 
     /* ADL = mem[addr+1] */
-    MEM_INC_TO_ADH((env, mem, alu)->{
+    NEXT_MEM_TO_ADH((env, mem, alu)->{
         int incrementedMemoryLocation = (mem.getAddressedMemory() + 1) & 0xFF;
         mem.loadMemoryAddress(incrementedMemoryLocation);
         env.setADH(mem.fetch());
@@ -62,7 +55,7 @@ enum MOS6502MicroOp implements MOS6502Operation {
     }),
 
     //addr_mem[adh:adl]
-    ABS_ADDRESS((env, mem, alu) -> {
+    ADDRESS_AD((env, mem, alu) -> {
         mem.loadMemoryAddress(env.getAD());
     }),
 

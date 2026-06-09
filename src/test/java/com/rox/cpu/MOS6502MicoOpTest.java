@@ -61,17 +61,6 @@ public class MOS6502MicoOpTest {
     }
 
     @Test
-    public void adlFromPCEndToEnd(){
-        ram.write(0, 12);
-
-        ADL_FROM_PC_POINTER.execute(env, bus, alu);
-
-        verifyNoInteractions(alu);
-        assertEquals(1, env.getPC());
-        assertEquals(12, env.getADL());
-    }
-
-    @Test
     public void adlAddressEndToEnd(){
         ram.write(23, 99);
         env.setADL(23);
@@ -127,7 +116,7 @@ public class MOS6502MicoOpTest {
         env.setADL(1);
         env.setADH(1);
 
-        ABS_ADDRESS.execute(env, bus, alu);
+        ADDRESS_AD.execute(env, bus, alu);
 
         verifyNoInteractions(alu);
         assertEquals(0, env.getPC());
@@ -221,7 +210,7 @@ public class MOS6502MicoOpTest {
         memoryBus8Bit.write(11, 88);
         bus.loadMemoryAddress(10);
 
-        MEM_INC_TO_ADH.execute(env, bus, alu);
+        NEXT_MEM_TO_ADH.execute(env, bus, alu);
 
         verifyNoInteractions(alu);
         assertEquals(88, env.getADH());
