@@ -475,49 +475,269 @@ public class MOS6502OpCodeTest {
         assertEquals(0x20, env.getA());
         assertEquals(0x8002, env.getPC());
     }
+
+    @ParameterizedTest(name = "LDA_ABS value={0}")
+    @CsvSource({
+            "0x20, false, false",
+            "0x00, true,  false",
+            "0x80, false, true",
+            "0xFF, false, true"
+    })
+    void ldaAbsoluteLoadsAccumulatorAndSetsFlags(int value, boolean zero, boolean negative) {
+        ram.write(0x8000, LDA_ABS.getId());
+        ram.write(0x8001, 0x34);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1234, value);
+
+        env.setPC(0x8000);
+
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+
+        assertEquals(value & 0xFF, env.getA());
+        assertEquals(zero, env.getZ());
+        assertEquals(negative, env.getN());
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @Test
+    void ldaAbsoluteDoesNotLoadUntilFourthTick() {
+        ram.write(0x8000, LDA_ABS.getId());
+        ram.write(0x8001, 0x34);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1234, 0x20);
+
+        env.setPC(0x8000);
+
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+
+        assertEquals(0x00, env.getA());
+
+        cpu.tick();
+
+        assertEquals(0x20, env.getA());
+    }
+
+    @ParameterizedTest(name = "LDA_ABS_X value={0}")
+    @CsvSource({
+            "0x20, false, false",
+            "0x00, true,  false",
+            "0x80, false, true",
+            "0xFF, false, true"
+    })
+    void ldaAbsoluteXLoadsAccumulatorAndSetsFlags(int value, boolean zero, boolean negative) {
+        ram.write(0x8000, LDA_ABS_X.getId());
+        ram.write(0x8001, 0x34);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1239, value);
+
+        env.setPC(0x8000);
+        env.setX(0x05);
+
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+
+        assertEquals(value & 0xFF, env.getA());
+        assertEquals(zero, env.getZ());
+        assertEquals(negative, env.getN());
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @Test
+    void ldaAbsoluteXUsesExtraCycleWhenPageCrosses() {
+        ram.write(0x8000, LDA_ABS_X.getId());
+        ram.write(0x8001, 0xFF);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1304, 0x20);
+
+        env.setPC(0x8000);
+        env.setX(0x05);
+
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+
+        assertEquals(0x00, env.getA());
+
+        cpu.tick();
+
+        assertEquals(0x00, env.getA());
+
+        cpu.tick();
+
+        assertEquals(0x20, env.getA());
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @ParameterizedTest(name = "LDA_ABS_Y value={0}")
+    @CsvSource({
+            "0x20, false, false",
+            "0x00, true,  false",
+            "0x80, false, true",
+            "0xFF, false, true"
+    })
+    void ldaAbsoluteYLoadsAccumulatorAndSetsFlags(int value, boolean zero, boolean negative) {
+        ram.write(0x8000, LDA_ABS_Y.getId());
+        ram.write(0x8001, 0x34);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1239, value);
+
+        env.setPC(0x8000);
+        env.setY(0x05);
+
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+
+        assertEquals(value & 0xFF, env.getA());
+        assertEquals(zero, env.getZ());
+        assertEquals(negative, env.getN());
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @Test
+    void ldaAbsoluteYUsesExtraCycleWhenPageCrosses() {
+        ram.write(0x8000, LDA_ABS_Y.getId());
+        ram.write(0x8001, 0xFF);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1304, 0x20);
+
+        env.setPC(0x8000);
+        env.setY(0x05);
+
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+
+        assertEquals(0x00, env.getA());
+
+        cpu.tick();
+
+        assertEquals(0x00, env.getA());
+
+        cpu.tick();
+
+        assertEquals(0x20, env.getA());
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @ParameterizedTest(name = "LDA_IND_X value={0}")
+    @CsvSource({
+            "0x20, false, false",
+            "0x00, true,  false",
+            "0x80, false, true",
+            "0xFF, false, true"
+    })
+    void ldaIndirectXLoadsAccumulatorAndSetsFlags(int value, boolean zero, boolean negative) {
+        ram.write(0x8000, LDA_IND_X.getId());
+        ram.write(0x8001, 0x44);
+
+        ram.write(0x0049, 0x34);
+        ram.write(0x004A, 0x12);
+        ram.write(0x1234, value);
+
+        env.setPC(0x8000);
+        env.setX(0x05);
+
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+
+        assertEquals(value & 0xFF, env.getA());
+        assertEquals(zero, env.getZ());
+        assertEquals(negative, env.getN());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @Test
+    void ldaIndirectXWrapsZeroPagePointer() {
+        ram.write(0x8000, LDA_IND_X.getId());
+        ram.write(0x8001, 0xFE);
+
+        ram.write(0x0003, 0x34);
+        ram.write(0x0004, 0x12);
+        ram.write(0x1234, 0x20);
+
+        env.setPC(0x8000);
+        env.setX(0x05);
+
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+
+        assertEquals(0x20, env.getA());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @ParameterizedTest(name = "LDA_IND_Y value={0}")
+    @CsvSource({
+            "0x20, false, false",
+            "0x00, true,  false",
+            "0x80, false, true",
+            "0xFF, false, true"
+    })
+    void ldaIndirectYLoadsAccumulatorAndSetsFlags(int value, boolean zero, boolean negative) {
+        ram.write(0x8000, LDA_IND_Y.getId());
+        ram.write(0x8001, 0x44);
+
+        ram.write(0x0044, 0x34);
+        ram.write(0x0045, 0x12);
+        ram.write(0x1239, value);
+
+        env.setPC(0x8000);
+        env.setY(0x05);
+
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+
+        assertEquals(value & 0xFF, env.getA());
+        assertEquals(zero, env.getZ());
+        assertEquals(negative, env.getN());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @Test
+    void ldaIndirectYUsesExtraCycleWhenPageCrosses() {
+        ram.write(0x8000, LDA_IND_Y.getId());
+        ram.write(0x8001, 0x44);
+
+        ram.write(0x0044, 0xFF);
+        ram.write(0x0045, 0x12);
+        ram.write(0x1304, 0x20);
+
+        env.setPC(0x8000);
+        env.setY(0x05);
+
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+
+        assertEquals(0x00, env.getA());
+
+        cpu.tick();
+
+        assertEquals(0x00, env.getA());
+
+        cpu.tick();
+
+        assertEquals(0x20, env.getA());
+        assertEquals(0x8002, env.getPC());
+    }
 }
-
-
-//    @ParameterizedTest(name = "LDA_ABS value={0}")
-//    @CsvSource({
-//            "0x20, false, false",
-//            "0x00, true,  false",
-//            "0x80, false, true",
-//            "0xFF, false, true"
-//    })
-//    void ldaAbsoluteLoadsAccumulatorAndSetsFlags(int value, boolean zero, boolean negative) {
-//        ram.write(0x8000, LDA_ABS.getId());
-//        ram.write(0x8001, 0x34);
-//        ram.write(0x8002, 0x12);
-//        ram.write(0x1234, value);
-//
-//        env.setPC(0x8000);
-//
-//        cpu.tick();
-//        cpu.tick();
-//        cpu.tick();
-//        cpu.tick();
-//
-//        assertEquals(value & 0xFF, env.getA());
-//        assertEquals(zero, env.isZero());
-//        assertEquals(negative, env.isNegative());
-//        assertEquals(0x8003, env.getPC());
-//    }
-//
-//        @Test
-//        void ldaAbsoluteDoesNotLoadUntilFourthTick() {
-//            ram.write(0x8000, LDA_ABS.getId());
-//            ram.write(0x8001, 0x34);
-//            ram.write(0x8002, 0x12);
-//            ram.write(0x1234, 0x20);
-//
-//            env.setPC(0x8000);
-//
-//            cpu.tick();
-//            cpu.tick();
-//            cpu.tick();
-//            assertEquals(0x00, env.getA());
-//
-//            cpu.tick();
-//            assertEquals(0x20, env.getA());
-//        }

@@ -76,13 +76,40 @@ public enum MOS6502OpCode {
             opsInTick(ADL_FROM_PC_POINTER),
             opsInTick(ADL_PLUS_X),
             opsInTick(ADDRESS_ADL, A_FROM_AD, SET_FLAGS_ON_A)
-    ));
+    )),
 
-    //LDA_ABS
-    //LDA_ABS_X
-    //LDA_ABS_Y
-    //LDA_IND_X
-    //LDA_IND_Y
+    LDA_ABS(0xAD, clockTicks(
+            opsInTick(ADDRESS_PC, MEM_TO_ADL),
+            opsInTick(ADH_FROM_PC),
+            opsInTick(ABS_ADDRESS, A_FROM_AD, SET_FLAGS_ON_A)
+    )),
+
+    LDA_ABS_X(0xBD, clockTicks(
+            opsInTick(ADL_FROM_PC_POINTER),
+            opsInTick(ADH_FROM_PC, AD_PLUS_X),
+            opsInTick(A_FROM_AD, SET_FLAGS_ON_A)
+    )),
+
+    LDA_ABS_Y(0xB9, clockTicks(
+            opsInTick(ADL_FROM_PC_POINTER),
+            opsInTick(ADH_FROM_PC, AD_PLUS_Y),
+            opsInTick(A_FROM_AD, SET_FLAGS_ON_A)
+    )),
+
+    LDA_IND_X(0xA1, clockTicks(
+            opsInTick(ADDRESS_PC),
+            opsInTick(X_OFFSET_ADDRESS),
+            opsInTick(MEM_TO_ADL),
+            opsInTick(MEM_INC_TO_ADH, ABS_ADDRESS),
+            opsInTick(A_FROM_AD, SET_FLAGS_ON_A)
+    )),
+
+    LDA_IND_Y(0xB1, clockTicks(
+            opsInTick(ADDRESS_PC),
+            opsInTick(ADDRESS_MEM_POINTER, MEM_TO_ADL),
+            opsInTick(MEM_INC_TO_ADH, AD_PLUS_Y),
+            opsInTick(A_FROM_AD, SET_FLAGS_ON_A)
+    ));
 
     /** 6502 code for this OpCode */
     private final int id;
