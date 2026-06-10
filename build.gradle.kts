@@ -78,9 +78,10 @@ tasks.register("pitestBadge") {
             }
 
         val total = statuses.size
-        val killed = statuses.count { it == "KILLED" }
+        val covered = statuses.count { it != "NO_COVERAGE" }
 
-        val score = if (total == 0) 0 else ((killed.toDouble() / total) * 100).roundToInt()
+        val score = if (total == 0) 0 else
+            ((covered.toDouble() / total) * 100).roundToInt()
 
         val color = when {
             score >= 80 -> "brightgreen"
