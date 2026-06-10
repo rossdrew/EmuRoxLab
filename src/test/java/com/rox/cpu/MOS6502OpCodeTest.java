@@ -1198,4 +1198,6 @@ public class MOS6502OpCodeTest {
         cpu.tick();
         assertEquals(0x0A, env.getA());
     }
+
+    //TODO is it worht testing actual operations? ADC, AND...
 }
