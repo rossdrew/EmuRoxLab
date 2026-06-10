@@ -63,7 +63,6 @@ public class MOS6502ALUTest {
         assertEquals(expectedAnswer, env.getA());
         assertEquals(expectedAnswer, env.getA());
         assertEquals(expectedOverflowFlag, env.getV());
-        assertEquals(expectedNegativeFlag, env.getN());
         assertEquals(expectedCarryFlag, env.getCarry());
     }
 }

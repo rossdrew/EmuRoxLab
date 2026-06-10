@@ -234,12 +234,12 @@ public class MOS6502OpCodeTest {
         env.setX(0x05);
         env.setCarry(true);
 
-        cpu.tick(); // fetch opcode
-        cpu.tick(); // fetch zero-page operand
-        cpu.tick(); // add X, read effective address low byte
-        cpu.tick(); // read effective address high byte
-        cpu.tick(); // read operand
-        cpu.tick(); // ADC
+        cpu.tick(); // Fetch opcode
+        cpu.tick(); // Fetch zero-page operand
+        cpu.tick(); // Add X offset
+        cpu.tick(); // Fetch effective address low byte
+        cpu.tick(); // Fetch effective address high byte
+        cpu.tick(); // Perform ADC
 
         assertEquals(0x31, env.getA());
         assertEquals(0x8002, env.getPC());
@@ -325,6 +325,43 @@ public class MOS6502OpCodeTest {
         cpu.tick(); // read operand + ADC
 
         assertEquals(0x31, env.getA());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @ParameterizedTest(name = "ADC_Z_X A={0}, operand={1}, C={2}")
+    @CsvSource({
+         // A      Val   C-in   Expected    V       N       C
+            "0x10, 0x20, true,  0x31,       false, false, false",
+            "0x10, 0x20, false, 0x30,       false, false, false",
+            "0xFF, 0x01, false, 0x00,       false, false, true",
+            "0x7F, 0x01, false, 0x80,       true,  true,  false",
+            "0x80, 0x80, false, 0x00,       true,  false, true"
+    })
+    void adcZeroPageXAddsWithCarryAndSetsFlags(int accumulator,
+                                               int value,
+                                               boolean carryIn,
+                                               int expected,
+                                               boolean expectedOverflow,
+                                               boolean expectedNegative,
+                                               boolean expectedCarry) {
+        ram.write(0x8000, ADC_Z_X.getId());
+        ram.write(0x8001, 0x44);
+        ram.write(0x0049, value); // $44 + X(5)
+
+        env.setPC(0x8000);
+        env.setA(accumulator);
+        env.setX(0x05);
+        env.setCarry(carryIn);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // ADDRESS_PC, MEM_TO_ADL
+        cpu.tick(); // X_OFFSET_ADDRESS
+        cpu.tick(); // ADDRESS_ADL, ADC
+
+        assertEquals(expected, env.getA());
+        assertEquals(expectedOverflow, env.getV());
+        assertEquals(expectedNegative, env.getN());
+        assertEquals(expectedCarry, env.getCarry());
         assertEquals(0x8002, env.getPC());
     }
 
@@ -806,5 +843,349 @@ public class MOS6502OpCodeTest {
 
         assertEquals(0x0A, env.getA());
         assertEquals(0x8002, env.getPC());
+    }
+
+    @ParameterizedTest(name = "AND_Z A={0}, operand={1}")
+    @CsvSource({
+         // A       Op     Expected   Z      N
+            "0xAA,  0x0F,  0x0A,      false, false",
+            "0xF0,  0x0F,  0x00,      true,  false",
+            "0xFF,  0x80,  0x80,      false, true"
+    })
+    void andZeroPagePerformsAndAndSetsFlags(int a, int value, int expected, boolean z, boolean n) {
+        ram.write(0x8000, AND_Z.getId());
+        ram.write(0x8001, 0x44);
+        ram.write(0x0044, value);
+
+        env.setPC(0x8000);
+        env.setA(a);
+
+        cpu.tick(); //Get opcode
+        cpu.tick(); //Get argument
+        cpu.tick(); //Address argument and perform AND
+
+        assertEquals(expected, env.getA());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @Test
+    void andZeroPageDoesNotExecuteUntilThirdTick() {
+        ram.write(0x8000, AND_Z.getId());
+        ram.write(0x8001, 0x44);
+        ram.write(0x0044, 0x0F);
+
+        env.setPC(0x8000);
+        env.setA(0xAA);
+
+        cpu.tick();
+        cpu.tick();
+        assertEquals(0xAA, env.getA());
+
+        cpu.tick();
+        assertEquals(0x0A, env.getA());
+    }
+
+    @ParameterizedTest(name = "AND_ABS A={0}, operand={1}")
+    @CsvSource({
+         // A      Val   Expected   Z      N
+            "0xAA, 0x0F, 0x0A,      false, false",
+            "0xF0, 0x0F, 0x00,      true,  false",
+            "0xFF, 0x80, 0x80,      false, true"
+    })
+    void andAbsolutePerformsAndAndSetsFlags(int a, int value, int expected, boolean z, boolean n) {
+        ram.write(0x8000, AND_ABS.getId());
+        ram.write(0x8001, 0x34);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1234, value);
+
+        env.setPC(0x8000);
+        env.setA(a);
+
+        cpu.tick(); //Fetch opcode
+        cpu.tick(); //Fetch argument 1 (ADL)
+        cpu.tick(); //Fetch argument 2 (ADH)
+        cpu.tick(); //Address AD and perform AND
+
+        assertEquals(expected, env.getA());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @Test
+    void andAbsoluteDoesNotExecuteUntilFourthTick() {
+        ram.write(0x8000, AND_ABS.getId());
+        ram.write(0x8001, 0x34);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1234, 0x0F);
+
+        env.setPC(0x8000);
+        env.setA(0xAA);
+
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        assertEquals(0xAA, env.getA());
+
+        cpu.tick();
+        assertEquals(0x0A, env.getA());
+    }
+
+    @ParameterizedTest(name = "AND_Z_X A={0}, operand={1}")
+    @CsvSource({
+            // A      Value  Expected  Z      N
+            "0xAA, 0x0F,  0x0A,     false, false",
+            "0xF0, 0x0F,  0x00,     true,  false",
+            "0xFF, 0x80,  0x80,     false, true"
+    })
+    void andZeroPageXPerformsAndAndSetsFlags(int a, int value, int expected, boolean z, boolean n) {
+        ram.write(0x8000, AND_Z_X.getId());
+        ram.write(0x8001, 0x44);
+        ram.write(0x0049, value);
+
+        env.setPC(0x8000);
+        env.setA(a);
+        env.setX(0x05);
+
+        cpu.tick(); //Fetch opcode
+        cpu.tick(); //Fetch argument
+        cpu.tick(); //Adding X offset to address bus (XXX no temporary register used)
+        cpu.tick(); //Perform AND
+
+        assertEquals(expected, env.getA());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @Test
+    void andZeroPageXWrapsWithinZeroPage() {
+        ram.write(0x8000, AND_Z_X.getId());
+        ram.write(0x8001, 0xFE);
+        ram.write(0x0003, 0x0F);
+
+        env.setPC(0x8000);
+        env.setA(0xAA);
+        env.setX(0x05);
+
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+
+        assertEquals(0x0A, env.getA());
+    }
+
+    @ParameterizedTest(name = "AND_ABS_X A={0}, operand={1}")
+    @CsvSource({
+            // A      Val   Expected   Z      N
+            "0xAA, 0x0F, 0x0A,      false, false",
+            "0xF0, 0x0F, 0x00,      true,  false",
+            "0xFF, 0x80, 0x80,      false, true"
+    })
+    void andAbsoluteXPerformsAndAndSetsFlags(int a, int value, int expected, boolean z, boolean n) {
+        ram.write(0x8000, AND_ABS_X.getId());
+        ram.write(0x8001, 0x34);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1239, value);
+
+        env.setPC(0x8000);
+        env.setA(a);
+        env.setX(0x05);
+
+        cpu.tick(); //Fetch opcode
+        cpu.tick(); //Fetch argument 1 (ADL)
+        cpu.tick(); //Fetch argument 2 (ADH) & Add X offset
+        cpu.tick(); //Perform AND
+
+        assertEquals(expected, env.getA());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @Test
+    void andAbsoluteXUsesExtraCycleWhenPageCrosses() {
+        ram.write(0x8000, AND_ABS_X.getId());
+        ram.write(0x8001, 0xFF);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1304, 0x0F);
+
+        env.setPC(0x8000);
+        env.setA(0xAA);
+        env.setX(0x05);
+
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        assertEquals(0xAA, env.getA());
+
+        cpu.tick();
+        assertEquals(0xAA, env.getA());
+
+        cpu.tick();
+        assertEquals(0x0A, env.getA());
+    }
+
+    @ParameterizedTest(name = "AND_ABS_Y A={0}, operand={1}")
+    @CsvSource({
+            // A      Val   Expected   Z      N
+            "0xAA, 0x0F, 0x0A,      false, false",
+            "0xF0, 0x0F, 0x00,      true,  false",
+            "0xFF, 0x80, 0x80,      false, true"
+    })
+    void andAbsoluteYPerformsAndAndSetsFlags(int a, int value, int expected, boolean z, boolean n) {
+        ram.write(0x8000, AND_ABS_Y.getId());
+        ram.write(0x8001, 0x34);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1239, value);
+
+        env.setPC(0x8000);
+        env.setA(a);
+        env.setY(0x05);
+
+        cpu.tick(); //Fetch opcode
+        cpu.tick(); //Fetch argument 1 (ADL)
+        cpu.tick(); //Fetch argument 2 (ADH) and Y offset
+        cpu.tick(); //Perform AND
+
+        assertEquals(expected, env.getA());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @Test
+    void andAbsoluteYUsesExtraCycleWhenPageCrosses() {
+        ram.write(0x8000, AND_ABS_Y.getId());
+        ram.write(0x8001, 0xFF);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1304, 0x0F);
+
+        env.setPC(0x8000);
+        env.setA(0xAA);
+        env.setY(0x05);
+
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        assertEquals(0xAA, env.getA());
+
+        cpu.tick();
+        assertEquals(0xAA, env.getA());
+
+        cpu.tick();
+        assertEquals(0x0A, env.getA());
+    }
+
+    @ParameterizedTest(name = "AND_IND_X A={0}, operand={1}")
+    @CsvSource({
+            // A      Value Expected   Z      N
+            "0xAA, 0x0F, 0x0A,      false, false",
+            "0xF0, 0x0F, 0x00,      true,  false",
+            "0xFF, 0x80, 0x80,      false, true"
+    })
+    void andIndirectXPerformsAndAndSetsFlags(int a, int value, int expected, boolean z, boolean n) {
+        ram.write(0x8000, AND_IND_X.getId());
+        ram.write(0x8001, 0x44);
+
+        ram.write(0x0049, 0x34);
+        ram.write(0x004A, 0x12);
+        ram.write(0x1234, value);
+
+        env.setPC(0x8000);
+        env.setA(a);
+        env.setX(0x05);
+
+        cpu.tick(); //Fetch opcode
+        cpu.tick(); //Fetch argument 1 (Zero page address)
+        cpu.tick(); //Add X offset
+        cpu.tick(); //Fetch effective address low byte
+        cpu.tick(); //Fetch effective address high byte
+        cpu.tick(); //Perform AND
+
+        assertEquals(expected, env.getA());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @Test
+    void andIndirectXWrapsZeroPagePointer() {
+        ram.write(0x8000, AND_IND_X.getId());
+        ram.write(0x8001, 0xFE);
+
+        ram.write(0x0003, 0x34);
+        ram.write(0x0004, 0x12);
+        ram.write(0x1234, 0x0F);
+
+        env.setPC(0x8000);
+        env.setA(0xAA);
+        env.setX(0x05);
+
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+
+        assertEquals(0x0A, env.getA());
+    }
+
+    @ParameterizedTest(name = "AND_IND_Y A={0}, operand={1}")
+    @CsvSource({
+         // A      Value   Expected   Z      N
+            "0xAA, 0x0F,   0x0A,      false, false",
+            "0xF0, 0x0F,   0x00,      true,  false",
+            "0xFF, 0x80,   0x80,      false, true"
+    })
+    void andIndirectYPerformsAndAndSetsFlags(int a, int value, int expected, boolean z, boolean n) {
+        ram.write(0x8000, AND_IND_Y.getId());
+        ram.write(0x8001, 0x44);
+
+        ram.write(0x0044, 0x34);
+        ram.write(0x0045, 0x12);
+        ram.write(0x1239, value);
+
+        env.setPC(0x8000);
+        env.setA(a);
+        env.setY(0x05);
+
+        cpu.tick(); //Fetch opcode
+        cpu.tick(); //Fetch argument 1
+        cpu.tick(); //Turn argument 1 into pointer and fetch ADL
+        cpu.tick(); //Fetch argument 2 (ADH) & add Y offset
+        cpu.tick(); //Perform AND
+
+        assertEquals(expected, env.getA());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @Test
+    void andIndirectYUsesExtraCycleWhenPageCrosses() {
+        ram.write(0x8000, AND_IND_Y.getId());
+        ram.write(0x8001, 0x44);
+
+        ram.write(0x0044, 0xFF);
+        ram.write(0x0045, 0x12);
+        ram.write(0x1304, 0x0F);
+
+        env.setPC(0x8000);
+        env.setA(0xAA);
+        env.setY(0x05);
+
+        cpu.tick(); cpu.tick(); cpu.tick(); cpu.tick();
+        assertEquals(0xAA, env.getA());
+
+        cpu.tick();
+        assertEquals(0xAA, env.getA());
+
+        cpu.tick();
+        assertEquals(0x0A, env.getA());
     }
 }
