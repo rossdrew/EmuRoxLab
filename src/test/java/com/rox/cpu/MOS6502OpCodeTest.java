@@ -409,7 +409,7 @@ public class MOS6502OpCodeTest {
 
     @ParameterizedTest(name = "LDA_I #{index}: value={0}, Z={1}, N={2}")
     @CsvSource({
-            //Value  Z      N
+          // Value  Z      N
             "0x20, false, false",
             "0x00, true,  false",
             "0x80, false, true",
@@ -451,6 +451,7 @@ public class MOS6502OpCodeTest {
 
     @ParameterizedTest(name = "LDA_Z value={0}")
     @CsvSource({
+         // Val    Z      N
             "0x20, false, false",
             "0x00, true,  false",
             "0x80, false, true",
@@ -491,6 +492,7 @@ public class MOS6502OpCodeTest {
 
     @ParameterizedTest(name = "LDA_Z_X value={0}")
     @CsvSource({
+         // Val    Z      N
             "0x20, false, false",
             "0x00, true,  false",
             "0x80, false, true",
@@ -535,6 +537,7 @@ public class MOS6502OpCodeTest {
 
     @ParameterizedTest(name = "LDA_ABS value={0}")
     @CsvSource({
+         // Val    Z      N
             "0x20, false, false",
             "0x00, true,  false",
             "0x80, false, true",
@@ -581,6 +584,7 @@ public class MOS6502OpCodeTest {
 
     @ParameterizedTest(name = "LDA_ABS_X value={0}")
     @CsvSource({
+         // Val    Z      N
             "0x20, false, false",
             "0x00, true,  false",
             "0x80, false, true",
@@ -634,6 +638,7 @@ public class MOS6502OpCodeTest {
 
     @ParameterizedTest(name = "LDA_ABS_Y value={0}")
     @CsvSource({
+         // Val    Z      N
             "0x20, false, false",
             "0x00, true,  false",
             "0x80, false, true",
@@ -687,6 +692,7 @@ public class MOS6502OpCodeTest {
 
     @ParameterizedTest(name = "LDA_IND_X value={0}")
     @CsvSource({
+         // Val    Z      N
             "0x20, false, false",
             "0x00, true,  false",
             "0x80, false, true",
@@ -741,6 +747,7 @@ public class MOS6502OpCodeTest {
 
     @ParameterizedTest(name = "LDA_IND_Y value={0}")
     @CsvSource({
+         // Val    Z      N
             "0x20, false, false",
             "0x00, true,  false",
             "0x80, false, true",
@@ -800,7 +807,7 @@ public class MOS6502OpCodeTest {
 
     @ParameterizedTest(name = "AND_I A={0}, operand={1}")
     @CsvSource({
-            // A,    Operand, Result, Z,     N
+          // A,    Operand, Result, Z,     N
             "0xAA,  0x0F,    0x0A,  false, false",
             "0xF0,  0x0F,    0x00,  true,  false",
             "0xFF,  0x80,    0x80,  false, true",
@@ -935,7 +942,7 @@ public class MOS6502OpCodeTest {
 
     @ParameterizedTest(name = "AND_Z_X A={0}, operand={1}")
     @CsvSource({
-            // A      Value  Expected  Z      N
+          // A      Value  Expected  Z      N
             "0xAA, 0x0F,  0x0A,     false, false",
             "0xF0, 0x0F,  0x00,     true,  false",
             "0xFF, 0x80,  0x80,     false, true"
@@ -980,7 +987,7 @@ public class MOS6502OpCodeTest {
 
     @ParameterizedTest(name = "AND_ABS_X A={0}, operand={1}")
     @CsvSource({
-            // A      Val   Expected   Z      N
+          // A      Val   Expected   Z      N
             "0xAA, 0x0F, 0x0A,      false, false",
             "0xF0, 0x0F, 0x00,      true,  false",
             "0xFF, 0x80, 0x80,      false, true"
@@ -1031,7 +1038,7 @@ public class MOS6502OpCodeTest {
 
     @ParameterizedTest(name = "AND_ABS_Y A={0}, operand={1}")
     @CsvSource({
-            // A      Val   Expected   Z      N
+          // A      Val   Expected   Z      N
             "0xAA, 0x0F, 0x0A,      false, false",
             "0xF0, 0x0F, 0x00,      true,  false",
             "0xFF, 0x80, 0x80,      false, true"
@@ -1082,7 +1089,7 @@ public class MOS6502OpCodeTest {
 
     @ParameterizedTest(name = "AND_IND_X A={0}, operand={1}")
     @CsvSource({
-            // A      Value Expected   Z      N
+          // A      Value Expected   Z      N
             "0xAA, 0x0F, 0x0A,      false, false",
             "0xF0, 0x0F, 0x00,      true,  false",
             "0xFF, 0x80, 0x80,      false, true"
@@ -1179,7 +1186,10 @@ public class MOS6502OpCodeTest {
         env.setA(0xAA);
         env.setY(0x05);
 
-        cpu.tick(); cpu.tick(); cpu.tick(); cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
         assertEquals(0xAA, env.getA());
 
         cpu.tick();
