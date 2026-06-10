@@ -46,8 +46,8 @@ public class MOS6502OpCodeTest {
 
     @Test
     void adcImmediateReadsOperandFromPcAndAddsWithCarry() {
-        ram.write(0x8000, ADC_I.getId()); // opcode: ADC_I
-        ram.write(0x8001, 0x20);          // immediate operand value
+        ram.write(0x8000, ADC_I.getId());  // opcode: ADC_I
+        ram.write(0x8001, 0x20);     // immediate operand value
 
         env.setPC(0x8000);
         env.setA(0x10);
@@ -55,6 +55,26 @@ public class MOS6502OpCodeTest {
 
         cpu.tick(); // fetch opcode
         cpu.tick(); // LOAD_PC_ADDRESS + ADC
+
+        assertEquals(0x31, env.getA());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @Test
+    void adcImmediateCompletesOnSecondTick() {
+        ram.write(0x8000, ADC_I.getId());
+        ram.write(0x8001, 0x20);
+
+        env.setPC(0x8000);
+        env.setA(0x10);
+        env.setCarry(true);
+
+        cpu.tick();
+
+        assertEquals(0x10, env.getA());
+        assertEquals(0x8001, env.getPC());
+
+        cpu.tick();
 
         assertEquals(0x31, env.getA());
         assertEquals(0x8002, env.getPC());
@@ -738,6 +758,53 @@ public class MOS6502OpCodeTest {
         cpu.tick();
 
         assertEquals(0x20, env.getA());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @ParameterizedTest(name = "AND_I A={0}, operand={1}")
+    @CsvSource({
+            // A,    Operand, Result, Z,     N
+            "0xAA,  0x0F,    0x0A,  false, false",
+            "0xF0,  0x0F,    0x00,  true,  false",
+            "0xFF,  0x80,    0x80,  false, true",
+            "0x7F,  0x0F,    0x0F,  false, false",
+            "0x00,  0xFF,    0x00,  true,  false"
+    })
+    void andImmediatePerformsBitwiseAndAndSetsFlags(int accumulator,
+                                                    int operand,
+                                                    int expectedResult,
+                                                    boolean expectedZero,
+                                                    boolean expectedNegative) {
+        ram.write(0x8000, AND_I.getId());
+        ram.write(0x8001, operand);
+
+        env.setPC(0x8000);
+        env.setA(accumulator);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch operand + AND
+
+        assertEquals(expectedResult & 0xFF, env.getA());
+        assertEquals(expectedZero, env.getZ());
+        assertEquals(expectedNegative, env.getN());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @Test
+    void andImmediateDoesNotExecuteUntilSecondTick() {
+        ram.write(0x8000, AND_I.getId());
+        ram.write(0x8001, 0x0F);
+
+        env.setPC(0x8000);
+        env.setA(0xAA);
+
+        cpu.tick(); // fetch opcode
+
+        assertEquals(0xAA, env.getA());
+
+        cpu.tick(); // AND
+
+        assertEquals(0x0A, env.getA());
         assertEquals(0x8002, env.getPC());
     }
 }
