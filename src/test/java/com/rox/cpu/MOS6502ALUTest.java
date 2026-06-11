@@ -59,7 +59,7 @@ public class MOS6502ALUTest {
         env.setCarry(carryIn);
 
         alu.adc(operand);
-        alu.setStaticFlags(env.getA()); 
+        alu.setStaticFlags(env.getA());
 
         assertEquals(expectedAnswer, env.getA());
         assertEquals(expectedAnswer, env.getA());
@@ -133,6 +133,41 @@ public class MOS6502ALUTest {
         env.setA(accumulator);
 
         alu.eor(operand);
+        alu.setStaticFlags(env.getA());
+
+        assertEquals(expectedAnswer, env.getA());
+        assertEquals(expectedZeroFlag, env.getZ());
+        assertEquals(expectedNegativeFlag, env.getN());
+    }
+
+    @ParameterizedTest(name = "ORA: A({0}) | M({1}) = {2}")
+    @CsvSource({
+          // A      M     Result  Z      N
+            "0,     0,    0,      true,  false",
+            "0,     255,  255,    false, true",
+            "255,   0,    255,    false, true",
+            "255,   255,  255,    false, true",
+
+            "170,   15,   175,    false, true",  // AA | 0F = AF
+            "240,   15,   255,    false, true",  // F0 | 0F = FF
+            "128,   1,    129,    false, true",  // 80 | 01 = 81
+            "127,   128,  255,    false, true",  // 7F | 80 = FF
+
+            "85,    170,  255,    false, true",  // 55 | AA = FF
+            "204,   170,  238,    false, true",  // CC | AA = EE
+
+            "1,     1,    1,      false, false",
+            "2,     1,    3,      false, false",
+            "126,   1,    127,    false, false"
+    })
+    public void testORA(final int accumulator,
+                        final int operand,
+                        final int expectedAnswer,
+                        final boolean expectedZeroFlag,
+                        final boolean expectedNegativeFlag) {
+        env.setA(accumulator);
+
+        alu.ora(operand);
         alu.setStaticFlags(env.getA());
 
         assertEquals(expectedAnswer, env.getA());
