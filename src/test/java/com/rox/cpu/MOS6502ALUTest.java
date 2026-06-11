@@ -59,7 +59,7 @@ public class MOS6502ALUTest {
         env.setCarry(carryIn);
 
         alu.adc(operand);
-        alu.setStaticFlags(env.getA()); //Should the ADC do this or should I have it as a microop
+        alu.setStaticFlags(env.getA()); 
 
         assertEquals(expectedAnswer, env.getA());
         assertEquals(expectedAnswer, env.getA());
@@ -98,7 +98,42 @@ public class MOS6502ALUTest {
         env.setA(accumulator);
 
         alu.and(operand);
-        alu.setStaticFlags(env.getA()); //XXX Should the ADC do this or should I have it as a microop
+        alu.setStaticFlags(env.getA());
+
+        assertEquals(expectedAnswer, env.getA());
+        assertEquals(expectedZeroFlag, env.getZ());
+        assertEquals(expectedNegativeFlag, env.getN());
+    }
+
+    @ParameterizedTest(name = "EOR: A({0}) ^ M({1}) = {2}")
+    @CsvSource({
+          // A      M     Result  Z      N
+            "0,     0,    0,      true,  false",
+            "0,     255,  255,    false, true",
+            "255,   0,    255,    false, true",
+            "255,   255,  0,      true,  false",
+
+            "170,   15,   165,    false, true",  // AA ^ 0F = A5
+            "240,   15,   255,    false, true",  // F0 ^ 0F = FF
+            "128,   255,  127,    false, false", // 80 ^ FF = 7F
+            "127,   255,  128,    false, true",  // 7F ^ FF = 80
+
+            "85,    170,  255,    false, true",  // 55 ^ AA = FF
+            "204,   170,  102,    false, false", // CC ^ AA = 66
+
+            "1,     1,    0,      true,  false",
+            "2,     1,    3,      false, false",
+            "254,   127,  129,    false, true"
+    })
+    public void testEOR(final int accumulator,
+                        final int operand,
+                        final int expectedAnswer,
+                        final boolean expectedZeroFlag,
+                        final boolean expectedNegativeFlag) {
+        env.setA(accumulator);
+
+        alu.eor(operand);
+        alu.setStaticFlags(env.getA());
 
         assertEquals(expectedAnswer, env.getA());
         assertEquals(expectedZeroFlag, env.getZ());

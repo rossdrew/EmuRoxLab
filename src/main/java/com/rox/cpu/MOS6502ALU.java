@@ -35,6 +35,13 @@ public class MOS6502ALU {
         environment.setA(result & 0xFF);
     }
 
+    public void eor(int b) {
+        int a = environment.getA();
+        int result = a ^ b;
+
+        environment.setA(result & 0xFF);
+    }
+
     public void setStaticFlags(final int basedOn) {
         environment.setN((basedOn & BIT[7]) != 0); //bit 7 is set
         environment.setZ(basedOn == 0); //result is zero
