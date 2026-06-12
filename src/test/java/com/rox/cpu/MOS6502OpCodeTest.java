@@ -1199,5 +1199,467 @@ public class MOS6502OpCodeTest {
         assertEquals(0x0A, env.getA());
     }
 
+    // AI Generated - Needs validated...
+
+    @ParameterizedTest(name = "ORA_I A={0}, operand={1}")
+    @CsvSource({
+            "0x00, 0x00, 0x00, true,  false",
+            "0x00, 0xFF, 0xFF, false, true",
+            "0xAA, 0x0F, 0xAF, false, true",
+            "0x02, 0x01, 0x03, false, false"
+    })
+    void oraImmediatePerformsOrAndSetsFlags(int a, int operand, int expected, boolean z, boolean n) {
+        ram.write(0x8000, ORA_I.getId());
+        ram.write(0x8001, operand);
+
+        env.setPC(0x8000);
+        env.setA(a);
+
+        cpu.tick();
+        cpu.tick();
+
+        assertEquals(expected, env.getA());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @Test
+    void oraImmediateDoesNotExecuteUntilSecondTick() {
+        ram.write(0x8000, ORA_I.getId());
+        ram.write(0x8001, 0x0F);
+
+        env.setPC(0x8000);
+        env.setA(0xA0);
+
+        cpu.tick();
+
+        assertEquals(0xA0, env.getA());
+
+        cpu.tick();
+
+        assertEquals(0xAF, env.getA());
+    }
+
+    @ParameterizedTest(name = "ORA_Z A={0}, operand={1}")
+    @CsvSource({
+            "0x00, 0x00, 0x00, true,  false",
+            "0x00, 0xFF, 0xFF, false, true",
+            "0xAA, 0x0F, 0xAF, false, true",
+            "0x02, 0x01, 0x03, false, false"
+    })
+    void oraZeroPagePerformsOrAndSetsFlags(int a, int operand, int expected, boolean z, boolean n) {
+        ram.write(0x8000, ORA_Z.getId());
+        ram.write(0x8001, 0x44);
+        ram.write(0x0044, operand);
+
+        env.setPC(0x8000);
+        env.setA(a);
+
+        cpu.tick(); cpu.tick(); cpu.tick();
+
+        assertEquals(expected, env.getA());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @Test
+    void oraZeroPageDoesNotExecuteUntilThirdTick() {
+        ram.write(0x8000, ORA_Z.getId());
+        ram.write(0x8001, 0x44);
+        ram.write(0x0044, 0x0F);
+
+        env.setPC(0x8000);
+        env.setA(0xA0);
+
+        cpu.tick();
+        cpu.tick();
+
+        assertEquals(0xA0, env.getA());
+
+        cpu.tick();
+
+        assertEquals(0xAF, env.getA());
+    }
+
+    @ParameterizedTest(name = "ORA_Z_X A={0}, operand={1}")
+    @CsvSource({
+            "0x00, 0x00, 0x00, true,  false",
+            "0x00, 0xFF, 0xFF, false, true",
+            "0xAA, 0x0F, 0xAF, false, true",
+            "0x02, 0x01, 0x03, false, false"
+    })
+    void oraZeroPageXPerformsOrAndSetsFlags(int a, int operand, int expected, boolean z, boolean n) {
+        ram.write(0x8000, ORA_Z_X.getId());
+        ram.write(0x8001, 0x44);
+        ram.write(0x0049, operand);
+
+        env.setPC(0x8000);
+        env.setA(a);
+        env.setX(0x05);
+
+        cpu.tick(); cpu.tick(); cpu.tick(); cpu.tick();
+
+        assertEquals(expected, env.getA());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @Test
+    void oraZeroPageXDoesNotExecuteUntilFourthTick() {
+        ram.write(0x8000, ORA_Z_X.getId());
+        ram.write(0x8001, 0x44);
+        ram.write(0x0049, 0x0F);
+
+        env.setPC(0x8000);
+        env.setA(0xA0);
+        env.setX(0x05);
+
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+
+        assertEquals(0xA0, env.getA());
+
+        cpu.tick();
+
+        assertEquals(0xAF, env.getA());
+    }
+
+    @ParameterizedTest(name = "ORA_ABS A={0}, operand={1}")
+    @CsvSource({
+            "0x00, 0x00, 0x00, true,  false",
+            "0x00, 0xFF, 0xFF, false, true",
+            "0xAA, 0x0F, 0xAF, false, true",
+            "0x02, 0x01, 0x03, false, false"
+    })
+    void oraAbsolutePerformsOrAndSetsFlags(int a, int operand, int expected, boolean z, boolean n) {
+        ram.write(0x8000, ORA_ABS.getId());
+        ram.write(0x8001, 0x34);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1234, operand);
+
+        env.setPC(0x8000);
+        env.setA(a);
+
+        cpu.tick(); cpu.tick(); cpu.tick(); cpu.tick();
+
+        assertEquals(expected, env.getA());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @Test
+    void oraAbsoluteDoesNotExecuteUntilFourthTick() {
+        ram.write(0x8000, ORA_ABS.getId());
+        ram.write(0x8001, 0x34);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1234, 0x0F);
+
+        env.setPC(0x8000);
+        env.setA(0xA0);
+
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+
+        assertEquals(0xA0, env.getA());
+
+        cpu.tick();
+
+        assertEquals(0xAF, env.getA());
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @ParameterizedTest(name = "ORA_ABS_X A={0}, operand={1}")
+    @CsvSource({
+            "0x00, 0x00, 0x00, true,  false",
+            "0x00, 0xFF, 0xFF, false, true",
+            "0xAA, 0x0F, 0xAF, false, true",
+            "0x02, 0x01, 0x03, false, false"
+    })
+    void oraAbsoluteXPerformsOrAndSetsFlags(int a, int operand, int expected, boolean z, boolean n) {
+        ram.write(0x8000, ORA_ABS_X.getId());
+        ram.write(0x8001, 0x34);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1239, operand);
+
+        env.setPC(0x8000);
+        env.setA(a);
+        env.setX(0x05);
+
+        cpu.tick(); cpu.tick(); cpu.tick(); cpu.tick();
+
+        assertEquals(expected, env.getA());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @Test
+    void oraAbsoluteXDoesNotExecuteUntilFourthTickWithoutPageCross() {
+        ram.write(0x8000, ORA_ABS_X.getId());
+        ram.write(0x8001, 0x34);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1239, 0x0F);
+
+        env.setPC(0x8000);
+        env.setA(0xA0);
+        env.setX(0x05);
+
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+
+        assertEquals(0xA0, env.getA());
+
+        cpu.tick();
+
+        assertEquals(0xAF, env.getA());
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @Test
+    void oraAbsoluteXDoesNotExecuteUntilFifthTickWithPageCross() {
+        ram.write(0x8000, ORA_ABS_X.getId());
+        ram.write(0x8001, 0xFF);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1304, 0x0F);
+
+        env.setPC(0x8000);
+        env.setA(0xA0);
+        env.setX(0x05);
+
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+
+        assertEquals(0xA0, env.getA());
+
+        cpu.tick();
+
+        assertEquals(0xA0, env.getA());
+
+        cpu.tick();
+
+        assertEquals(0xAF, env.getA());
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @ParameterizedTest(name = "ORA_ABS_Y A={0}, operand={1}")
+    @CsvSource({
+            "0x00, 0x00, 0x00, true,  false",
+            "0x00, 0xFF, 0xFF, false, true",
+            "0xAA, 0x0F, 0xAF, false, true",
+            "0x02, 0x01, 0x03, false, false"
+    })
+    void oraAbsoluteYPerformsOrAndSetsFlags(int a, int operand, int expected, boolean z, boolean n) {
+        ram.write(0x8000, ORA_ABS_Y.getId());
+        ram.write(0x8001, 0x34);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1239, operand);
+
+        env.setPC(0x8000);
+        env.setA(a);
+        env.setY(0x05);
+
+        cpu.tick(); cpu.tick(); cpu.tick(); cpu.tick();
+
+        assertEquals(expected, env.getA());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @Test
+    void oraAbsoluteYDoesNotExecuteUntilFourthTickWithoutPageCross() {
+        ram.write(0x8000, ORA_ABS_Y.getId());
+        ram.write(0x8001, 0x34);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1239, 0x0F);
+
+        env.setPC(0x8000);
+        env.setA(0xA0);
+        env.setY(0x05);
+
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+
+        assertEquals(0xA0, env.getA());
+
+        cpu.tick();
+
+        assertEquals(0xAF, env.getA());
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @Test
+    void oraAbsoluteYDoesNotExecuteUntilFifthTickWithPageCross() {
+        ram.write(0x8000, ORA_ABS_Y.getId());
+        ram.write(0x8001, 0xFF);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1304, 0x0F);
+
+        env.setPC(0x8000);
+        env.setA(0xA0);
+        env.setY(0x05);
+
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+
+        assertEquals(0xA0, env.getA());
+
+        cpu.tick();
+
+        assertEquals(0xA0, env.getA());
+
+        cpu.tick();
+
+        assertEquals(0xAF, env.getA());
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @ParameterizedTest(name = "ORA_IND_X A={0}, operand={1}")
+    @CsvSource({
+            "0x00, 0x00, 0x00, true,  false",
+            "0x00, 0xFF, 0xFF, false, true",
+            "0xAA, 0x0F, 0xAF, false, true",
+            "0x02, 0x01, 0x03, false, false"
+    })
+    void oraIndirectXPerformsOrAndSetsFlags(int a, int operand, int expected, boolean z, boolean n) {
+        ram.write(0x8000, ORA_IND_X.getId());
+        ram.write(0x8001, 0x44);
+
+        ram.write(0x0049, 0x34);
+        ram.write(0x004A, 0x12);
+        ram.write(0x1234, operand);
+
+        env.setPC(0x8000);
+        env.setA(a);
+        env.setX(0x05);
+
+        cpu.tick(); cpu.tick(); cpu.tick(); cpu.tick(); cpu.tick(); cpu.tick();
+
+        assertEquals(expected, env.getA());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @Test
+    void oraIndirectXDoesNotExecuteUntilSixthTick() {
+        ram.write(0x8000, ORA_IND_X.getId());
+        ram.write(0x8001, 0x44);
+
+        ram.write(0x0049, 0x34);
+        ram.write(0x004A, 0x12);
+        ram.write(0x1234, 0x0F);
+
+        env.setPC(0x8000);
+        env.setA(0xA0);
+        env.setX(0x05);
+
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+
+        assertEquals(0xA0, env.getA());
+
+        cpu.tick();
+
+        assertEquals(0xAF, env.getA());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @ParameterizedTest(name = "ORA_IND_Y A={0}, operand={1}")
+    @CsvSource({
+            "0x00, 0x00, 0x00, true,  false",
+            "0x00, 0xFF, 0xFF, false, true",
+            "0xAA, 0x0F, 0xAF, false, true",
+            "0x02, 0x01, 0x03, false, false"
+    })
+    void oraIndirectYPerformsOrAndSetsFlags(int a, int operand, int expected, boolean z, boolean n) {
+        ram.write(0x8000, ORA_IND_Y.getId());
+        ram.write(0x8001, 0x44);
+
+        ram.write(0x0044, 0x34);
+        ram.write(0x0045, 0x12);
+        ram.write(0x1239, operand);
+
+        env.setPC(0x8000);
+        env.setA(a);
+        env.setY(0x05);
+
+        cpu.tick(); cpu.tick(); cpu.tick(); cpu.tick(); cpu.tick();
+
+        assertEquals(expected, env.getA());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @Test
+    void oraIndirectYDoesNotExecuteUntilFifthTickWithoutPageCross() {
+        ram.write(0x8000, ORA_IND_Y.getId());
+        ram.write(0x8001, 0x44);
+
+        ram.write(0x0044, 0x34);
+        ram.write(0x0045, 0x12);
+        ram.write(0x1239, 0x0F);
+
+        env.setPC(0x8000);
+        env.setA(0xA0);
+        env.setY(0x05);
+
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+
+        assertEquals(0xA0, env.getA());
+
+        cpu.tick();
+
+        assertEquals(0xAF, env.getA());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @Test
+    void oraIndirectYDoesNotExecuteUntilSixthTickWithPageCross() {
+        ram.write(0x8000, ORA_IND_Y.getId());
+        ram.write(0x8001, 0x44);
+
+        ram.write(0x0044, 0xFF);
+        ram.write(0x0045, 0x12);
+        ram.write(0x1304, 0x0F);
+
+        env.setPC(0x8000);
+        env.setA(0xA0);
+        env.setY(0x05);
+
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+
+        assertEquals(0xA0, env.getA());
+
+        cpu.tick();
+
+        assertEquals(0xA0, env.getA());
+
+        cpu.tick();
+
+        assertEquals(0xAF, env.getA());
+        assertEquals(0x8002, env.getPC());
+    }
+
     //TODO is it worht testing actual operations? ADC, AND...
 }

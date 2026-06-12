@@ -144,7 +144,6 @@ public enum MOS6502OpCode {
             opsInTick(AND, SET_FLAGS_ON_A)
     )),
 
-    //WIP
     AND_IND_X(0x21,clockTicks(
             opsInTick(ADDRESS_PC), //XXX store in temporary location we can add to?
             opsInTick(X_OFFSET_ADDRESS),
@@ -158,6 +157,56 @@ public enum MOS6502OpCode {
             opsInTick(ADDRESS_MEM_POINTER, MEM_TO_ADL),
             opsInTick(NEXT_MEM_TO_ADH, AD_PLUS_Y),
             opsInTick(AND, SET_FLAGS_ON_A)
+    )),
+
+    //AI generated = Needs validated...
+
+    ORA_I(0x09, clockTicks(
+            opsInTick(ADDRESS_PC, ORA, SET_FLAGS_ON_A)
+    )),
+
+    ORA_Z(0x05, clockTicks(
+            opsInTick(ADDRESS_PC, MEM_TO_ADL),
+            opsInTick(ADDRESS_ADL, ORA, SET_FLAGS_ON_A)
+    )),
+
+    ORA_Z_X(0x15, clockTicks(
+            opsInTick(ADDRESS_PC),
+            opsInTick(X_OFFSET_ADDRESS),
+            opsInTick(ORA, SET_FLAGS_ON_A)
+    )),
+
+    ORA_ABS(0x0D, clockTicks(
+            opsInTick(ADDRESS_PC, MEM_TO_ADL),
+            opsInTick(ADH_FROM_PC),
+            opsInTick(ADDRESS_AD, ORA, SET_FLAGS_ON_A)
+    )),
+
+    ORA_ABS_X(0x1D, clockTicks(
+            opsInTick(ADDRESS_PC, MEM_TO_ADL),
+            opsInTick(ADH_FROM_PC, AD_PLUS_X),
+            opsInTick(ORA, SET_FLAGS_ON_A)
+    )),
+
+    ORA_ABS_Y(0x19, clockTicks(
+            opsInTick(ADDRESS_PC, MEM_TO_ADL),
+            opsInTick(ADH_FROM_PC, AD_PLUS_Y),
+            opsInTick(ORA, SET_FLAGS_ON_A)
+    )),
+
+    ORA_IND_X(0x01, clockTicks(
+            opsInTick(ADDRESS_PC),
+            opsInTick(X_OFFSET_ADDRESS),
+            opsInTick(MEM_TO_ADL),
+            opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD),
+            opsInTick(ORA, SET_FLAGS_ON_A)
+    )),
+
+    ORA_IND_Y(0x11, clockTicks(
+            opsInTick(ADDRESS_PC),
+            opsInTick(ADDRESS_MEM_POINTER, MEM_TO_ADL),
+            opsInTick(NEXT_MEM_TO_ADH, AD_PLUS_Y),
+            opsInTick(ORA, SET_FLAGS_ON_A)
     ));
 
     /** 6502 code for this OpCode */
