@@ -1199,14 +1199,13 @@ public class MOS6502OpCodeTest {
         assertEquals(0x0A, env.getA());
     }
 
-    // AI Generated - Needs validated...
-
     @ParameterizedTest(name = "ORA_I A={0}, operand={1}")
     @CsvSource({
-            "0x00, 0x00, 0x00, true,  false",
-            "0x00, 0xFF, 0xFF, false, true",
-            "0xAA, 0x0F, 0xAF, false, true",
-            "0x02, 0x01, 0x03, false, false"
+         // A      Operand  Expected  Z      N
+            "0x00, 0x00,    0x00,     true,  false",
+            "0x00, 0xFF,    0xFF,     false, true",
+            "0xAA, 0x0F,    0xAF,     false, true",
+            "0x02, 0x01,    0x03,     false, false"
     })
     void oraImmediatePerformsOrAndSetsFlags(int a, int operand, int expected, boolean z, boolean n) {
         ram.write(0x8000, ORA_I.getId());
@@ -1215,8 +1214,8 @@ public class MOS6502OpCodeTest {
         env.setPC(0x8000);
         env.setA(a);
 
-        cpu.tick();
-        cpu.tick();
+        cpu.tick(); //Get opcode
+        cpu.tick(); //Get immediate value and perform ORA
 
         assertEquals(expected, env.getA());
         assertEquals(z, env.getZ());
@@ -1241,6 +1240,8 @@ public class MOS6502OpCodeTest {
         assertEquals(0xAF, env.getA());
     }
 
+    // AI Generated - Needs validated...
+
     @ParameterizedTest(name = "ORA_Z A={0}, operand={1}")
     @CsvSource({
             "0x00, 0x00, 0x00, true,  false",
@@ -1256,7 +1257,9 @@ public class MOS6502OpCodeTest {
         env.setPC(0x8000);
         env.setA(a);
 
-        cpu.tick(); cpu.tick(); cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
 
         assertEquals(expected, env.getA());
         assertEquals(z, env.getZ());
@@ -1299,7 +1302,10 @@ public class MOS6502OpCodeTest {
         env.setA(a);
         env.setX(0x05);
 
-        cpu.tick(); cpu.tick(); cpu.tick(); cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
 
         assertEquals(expected, env.getA());
         assertEquals(z, env.getZ());
@@ -1344,7 +1350,10 @@ public class MOS6502OpCodeTest {
         env.setPC(0x8000);
         env.setA(a);
 
-        cpu.tick(); cpu.tick(); cpu.tick(); cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
 
         assertEquals(expected, env.getA());
         assertEquals(z, env.getZ());
@@ -1391,7 +1400,10 @@ public class MOS6502OpCodeTest {
         env.setA(a);
         env.setX(0x05);
 
-        cpu.tick(); cpu.tick(); cpu.tick(); cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
 
         assertEquals(expected, env.getA());
         assertEquals(z, env.getZ());
@@ -1466,7 +1478,10 @@ public class MOS6502OpCodeTest {
         env.setA(a);
         env.setY(0x05);
 
-        cpu.tick(); cpu.tick(); cpu.tick(); cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
 
         assertEquals(expected, env.getA());
         assertEquals(z, env.getZ());
@@ -1543,7 +1558,12 @@ public class MOS6502OpCodeTest {
         env.setA(a);
         env.setX(0x05);
 
-        cpu.tick(); cpu.tick(); cpu.tick(); cpu.tick(); cpu.tick(); cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
 
         assertEquals(expected, env.getA());
         assertEquals(z, env.getZ());
@@ -1597,7 +1617,11 @@ public class MOS6502OpCodeTest {
         env.setA(a);
         env.setY(0x05);
 
-        cpu.tick(); cpu.tick(); cpu.tick(); cpu.tick(); cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
 
         assertEquals(expected, env.getA());
         assertEquals(z, env.getZ());
@@ -1661,5 +1685,5 @@ public class MOS6502OpCodeTest {
         assertEquals(0x8002, env.getPC());
     }
 
-    //TODO is it worht testing actual operations? ADC, AND...
+    //TODO is it worth testing actual operations at this level? ADC, AND...
 }

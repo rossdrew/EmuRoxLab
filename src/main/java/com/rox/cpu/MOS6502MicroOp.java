@@ -127,10 +127,21 @@ enum MOS6502MicroOp implements MOS6502Operation {
         alu.and(mem.fetch());
     }),
 
-
+    /* A = ora(mem[addr]) */
     ORA((env, mem, alu) -> {
         alu.ora(mem.fetch());
     });
+
+    //Should be easy wins
+    //TODO EOR
+    //TODO SBC
+    //TODO CMP
+
+    //TODO LDY
+    //TODO LDX
+
+    //The real test
+    //TODO JMP
 
     private final MOS6502Operation op;
 

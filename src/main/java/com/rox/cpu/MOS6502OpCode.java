@@ -159,11 +159,11 @@ public enum MOS6502OpCode {
             opsInTick(AND, SET_FLAGS_ON_A)
     )),
 
-    //AI generated = Needs validated...
-
     ORA_I(0x09, clockTicks(
             opsInTick(ADDRESS_PC, ORA, SET_FLAGS_ON_A)
     )),
+
+    //AI generated = Needs validated...
 
     ORA_Z(0x05, clockTicks(
             opsInTick(ADDRESS_PC, MEM_TO_ADL),
