@@ -1240,14 +1240,13 @@ public class MOS6502OpCodeTest {
         assertEquals(0xAF, env.getA());
     }
 
-    // AI Generated - Needs validated...
-
     @ParameterizedTest(name = "ORA_Z A={0}, operand={1}")
     @CsvSource({
-            "0x00, 0x00, 0x00, true,  false",
-            "0x00, 0xFF, 0xFF, false, true",
-            "0xAA, 0x0F, 0xAF, false, true",
-            "0x02, 0x01, 0x03, false, false"
+         // A      Value  Expected  Z       N
+            "0x00, 0x00,  0x00,     true,   false",
+            "0x00, 0xFF,  0xFF,     false,  true",
+            "0xAA, 0x0F,  0xAF,     false,  true",
+            "0x02, 0x01,  0x03,     false,  false"
     })
     void oraZeroPagePerformsOrAndSetsFlags(int a, int operand, int expected, boolean z, boolean n) {
         ram.write(0x8000, ORA_Z.getId());
@@ -1257,9 +1256,9 @@ public class MOS6502OpCodeTest {
         env.setPC(0x8000);
         env.setA(a);
 
-        cpu.tick();
-        cpu.tick();
-        cpu.tick();
+        cpu.tick(); //Get opcode
+        cpu.tick(); //Get arguemnt - zero page address
+        cpu.tick(); //Fetch value from zero page and perform ORA
 
         assertEquals(expected, env.getA());
         assertEquals(z, env.getZ());
@@ -1288,10 +1287,11 @@ public class MOS6502OpCodeTest {
 
     @ParameterizedTest(name = "ORA_Z_X A={0}, operand={1}")
     @CsvSource({
-            "0x00, 0x00, 0x00, true,  false",
-            "0x00, 0xFF, 0xFF, false, true",
-            "0xAA, 0x0F, 0xAF, false, true",
-            "0x02, 0x01, 0x03, false, false"
+         // A      Value  Expected  Z      N
+            "0x00, 0x00,  0x00,     true,  false",
+            "0x00, 0xFF,  0xFF,     false, true",
+            "0xAA, 0x0F,  0xAF,     false, true",
+            "0x02, 0x01,  0x03,     false, false"
     })
     void oraZeroPageXPerformsOrAndSetsFlags(int a, int operand, int expected, boolean z, boolean n) {
         ram.write(0x8000, ORA_Z_X.getId());
@@ -1302,10 +1302,10 @@ public class MOS6502OpCodeTest {
         env.setA(a);
         env.setX(0x05);
 
-        cpu.tick();
-        cpu.tick();
-        cpu.tick();
-        cpu.tick();
+        cpu.tick(); //Get opcode
+        cpu.tick(); //Get argument - zero page address
+        cpu.tick(); //Add X to zero page address
+        cpu.tick(); //Get offset value and perform ORA
 
         assertEquals(expected, env.getA());
         assertEquals(z, env.getZ());
@@ -1336,10 +1336,11 @@ public class MOS6502OpCodeTest {
 
     @ParameterizedTest(name = "ORA_ABS A={0}, operand={1}")
     @CsvSource({
-            "0x00, 0x00, 0x00, true,  false",
-            "0x00, 0xFF, 0xFF, false, true",
-            "0xAA, 0x0F, 0xAF, false, true",
-            "0x02, 0x01, 0x03, false, false"
+         // A      Value  Expected  Z       N
+            "0x00, 0x00,  0x00,     true,   false",
+            "0x00, 0xFF,  0xFF,     false,  true",
+            "0xAA, 0x0F,  0xAF,     false,  true",
+            "0x02, 0x01,  0x03,     false,  false"
     })
     void oraAbsolutePerformsOrAndSetsFlags(int a, int operand, int expected, boolean z, boolean n) {
         ram.write(0x8000, ORA_ABS.getId());
@@ -1350,10 +1351,10 @@ public class MOS6502OpCodeTest {
         env.setPC(0x8000);
         env.setA(a);
 
-        cpu.tick();
-        cpu.tick();
-        cpu.tick();
-        cpu.tick();
+        cpu.tick(); //get opcode
+        cpu.tick(); //Get argument 1 - ADL
+        cpu.tick(); //Get argument 2 - ADH
+        cpu.tick(); //Fetch value from AD and perform ORA
 
         assertEquals(expected, env.getA());
         assertEquals(z, env.getZ());
@@ -1382,6 +1383,8 @@ public class MOS6502OpCodeTest {
         assertEquals(0xAF, env.getA());
         assertEquals(0x8003, env.getPC());
     }
+
+    // AI Generated - Needs validated...
 
     @ParameterizedTest(name = "ORA_ABS_X A={0}, operand={1}")
     @CsvSource({

@@ -163,8 +163,6 @@ public enum MOS6502OpCode {
             opsInTick(ADDRESS_PC, ORA, SET_FLAGS_ON_A)
     )),
 
-    //AI generated = Needs validated...
-
     ORA_Z(0x05, clockTicks(
             opsInTick(ADDRESS_PC, MEM_TO_ADL),
             opsInTick(ADDRESS_ADL, ORA, SET_FLAGS_ON_A)
@@ -181,6 +179,8 @@ public enum MOS6502OpCode {
             opsInTick(ADH_FROM_PC),
             opsInTick(ADDRESS_AD, ORA, SET_FLAGS_ON_A)
     )),
+
+    //AI generated = Needs validated...
 
     ORA_ABS_X(0x1D, clockTicks(
             opsInTick(ADDRESS_PC, MEM_TO_ADL),
