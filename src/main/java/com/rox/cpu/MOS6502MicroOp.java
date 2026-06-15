@@ -8,40 +8,40 @@ enum MOS6502MicroOp implements MOS6502Operation {
     //Temporary
     NOP((e,m,a) -> {}),
 
-    /* Implicit fetch cycle.  IR = mem[pc] */
+    /** Fetch next instruction. <b>Should be implicit</b>  <code>instruction_register := mem[pc++]</code> */
     FETCH((env, mem, alu) -> {
         mem.loadMemoryAddress(env.pc());
         env.setIR(mem.fetch());
     }),
 
-    /* addr_mem[adl] */
+    /** Load address into address bus : <code>address_bus := mem[00:adl]</code> */
     ADDRESS_ADL((env, mem, alu) -> {
         mem.loadMemoryAddress(env.getADL());
     }),
 
-    /* addr_mem[pc] */
+    /** Load address from program counter into address bus : <code>address_bus := mem[pc++]</code> */
     ADDRESS_PC((env, mem, alu) -> {
         mem.loadMemoryAddress(env.pc());
     }),
 
-    /* addr_mem[addr] : Pull addressed value and load into address bus */
+    /** Pull addressed value and load into address bus : <code>address_bus := mem[address_bus]</code> */
     ADDRESS_MEM_POINTER((env, mem, alu) -> {
         mem.loadMemoryAddress(mem.fetch());
     }),
 
-    /* ADL = mem[addr] */
+    /** Load value from memory into ADL : <code>adl := mem[address_bus]</code> */
     MEM_TO_ADL((env, mem, alu)->{
         env.setADL(mem.fetch());
     }),
 
-    /* ADL = mem[addr+1] */
+    /** Load the next addressed value into ADH : <code>adl := mem[address_bus + 1]</code>*/
     NEXT_MEM_TO_ADH((env, mem, alu)->{
         int incrementedMemoryLocation = (mem.getAddressedMemory() + 1) & 0xFF;
         mem.loadMemoryAddress(incrementedMemoryLocation);
         env.setADH(mem.fetch());
     }),
 
-    /* addr_mem = addr_mem + x */
+    /** Take the currently addressed memory location and add X:  <code>address_bus := mem[address_bus + X]</code> */
     X_OFFSET_ADDRESS((env, mem, alu)->{
         int basePointer = mem.fetch();
         mem.loadMemoryAddress((basePointer + env.getX()) & 0xFF);
