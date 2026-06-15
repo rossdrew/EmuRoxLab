@@ -180,8 +180,6 @@ public enum MOS6502OpCode {
             opsInTick(ADDRESS_AD, ORA, SET_FLAGS_ON_A)
     )),
 
-    //AI generated = Needs validated...
-
     ORA_ABS_X(0x1D, clockTicks(
             opsInTick(ADDRESS_PC, MEM_TO_ADL),
             opsInTick(ADH_FROM_PC, AD_PLUS_X),

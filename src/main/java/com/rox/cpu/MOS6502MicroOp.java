@@ -24,7 +24,7 @@ enum MOS6502MicroOp implements MOS6502Operation {
         mem.loadMemoryAddress(env.pc());
     }),
 
-    /* addr_mem[addr] */
+    /* addr_mem[addr] : Pull addressed value and load into address bus */
     ADDRESS_MEM_POINTER((env, mem, alu) -> {
         mem.loadMemoryAddress(mem.fetch());
     }),

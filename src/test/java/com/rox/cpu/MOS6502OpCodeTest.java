@@ -1384,14 +1384,13 @@ public class MOS6502OpCodeTest {
         assertEquals(0x8003, env.getPC());
     }
 
-    // AI Generated - Needs validated...
-
     @ParameterizedTest(name = "ORA_ABS_X A={0}, operand={1}")
     @CsvSource({
-            "0x00, 0x00, 0x00, true,  false",
-            "0x00, 0xFF, 0xFF, false, true",
-            "0xAA, 0x0F, 0xAF, false, true",
-            "0x02, 0x01, 0x03, false, false"
+         // A      Value  Expected  Z      N
+            "0x00, 0x00,  0x00,     true,  false",
+            "0x00, 0xFF,  0xFF,     false, true",
+            "0xAA, 0x0F,  0xAF,     false, true",
+            "0x02, 0x01,  0x03,     false, false"
     })
     void oraAbsoluteXPerformsOrAndSetsFlags(int a, int operand, int expected, boolean z, boolean n) {
         ram.write(0x8000, ORA_ABS_X.getId());
@@ -1403,10 +1402,10 @@ public class MOS6502OpCodeTest {
         env.setA(a);
         env.setX(0x05);
 
-        cpu.tick();
-        cpu.tick();
-        cpu.tick();
-        cpu.tick();
+        cpu.tick(); //Fetch opcode
+        cpu.tick(); //Fetch operand 1 (ADL)
+        cpu.tick(); //Fetch operand 2 (ADH) & add X
+        cpu.tick(); //Fetch value at final address and perform ORA
 
         assertEquals(expected, env.getA());
         assertEquals(z, env.getZ());
@@ -1466,10 +1465,11 @@ public class MOS6502OpCodeTest {
 
     @ParameterizedTest(name = "ORA_ABS_Y A={0}, operand={1}")
     @CsvSource({
-            "0x00, 0x00, 0x00, true,  false",
-            "0x00, 0xFF, 0xFF, false, true",
-            "0xAA, 0x0F, 0xAF, false, true",
-            "0x02, 0x01, 0x03, false, false"
+         // A      Value  Expected Z       N
+            "0x00, 0x00,  0x00,     true,  false",
+            "0x00, 0xFF,  0xFF,     false, true",
+            "0xAA, 0x0F,  0xAF,     false, true",
+            "0x02, 0x01,  0x03,     false, false"
     })
     void oraAbsoluteYPerformsOrAndSetsFlags(int a, int operand, int expected, boolean z, boolean n) {
         ram.write(0x8000, ORA_ABS_Y.getId());
@@ -1481,10 +1481,10 @@ public class MOS6502OpCodeTest {
         env.setA(a);
         env.setY(0x05);
 
-        cpu.tick();
-        cpu.tick();
-        cpu.tick();
-        cpu.tick();
+        cpu.tick(); //Fetch opcode
+        cpu.tick(); //Fetch operand 1 (ADL)
+        cpu.tick(); //Fetch operand 2 (ADH) & add Y
+        cpu.tick(); //Fetch value at final address and perform ORA
 
         assertEquals(expected, env.getA());
         assertEquals(z, env.getZ());
@@ -1561,12 +1561,12 @@ public class MOS6502OpCodeTest {
         env.setA(a);
         env.setX(0x05);
 
-        cpu.tick();
-        cpu.tick();
-        cpu.tick();
-        cpu.tick();
-        cpu.tick();
-        cpu.tick();
+        cpu.tick(); //Fetch opcode
+        cpu.tick(); //Fetch argument 1 (Zero page address)
+        cpu.tick(); //Add X to the retrieved address
+        cpu.tick(); //Fetch effective address low byte
+        cpu.tick(); //Fetch next effective address high byte
+        cpu.tick(); //Perform ORA on the value at the final address
 
         assertEquals(expected, env.getA());
         assertEquals(z, env.getZ());
@@ -1603,10 +1603,11 @@ public class MOS6502OpCodeTest {
 
     @ParameterizedTest(name = "ORA_IND_Y A={0}, operand={1}")
     @CsvSource({
-            "0x00, 0x00, 0x00, true,  false",
-            "0x00, 0xFF, 0xFF, false, true",
-            "0xAA, 0x0F, 0xAF, false, true",
-            "0x02, 0x01, 0x03, false, false"
+         // A      Value  Expected  Z       N
+            "0x00, 0x00,  0x00,     true,   false",
+            "0x00, 0xFF,  0xFF,     false,  true",
+            "0xAA, 0x0F,  0xAF,     false,  true",
+            "0x02, 0x01,  0x03,     false,  false"
     })
     void oraIndirectYPerformsOrAndSetsFlags(int a, int operand, int expected, boolean z, boolean n) {
         ram.write(0x8000, ORA_IND_Y.getId());
@@ -1620,11 +1621,11 @@ public class MOS6502OpCodeTest {
         env.setA(a);
         env.setY(0x05);
 
-        cpu.tick();
-        cpu.tick();
-        cpu.tick();
-        cpu.tick();
-        cpu.tick();
+        cpu.tick(); //Fetch opcode
+        cpu.tick(); //Fetch argument 1 (Zero Page address) to address bus
+        cpu.tick(); //Fetch value at addressed location to ADL
+        cpu.tick(); //Fetch value at next location to ADH, add Y offset
+        cpu.tick(); //Perform ORA on addressed location
 
         assertEquals(expected, env.getA());
         assertEquals(z, env.getZ());
