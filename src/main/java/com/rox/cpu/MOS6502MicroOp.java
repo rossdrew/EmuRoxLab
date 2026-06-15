@@ -47,27 +47,27 @@ enum MOS6502MicroOp implements MOS6502Operation {
         mem.loadMemoryAddress((basePointer + env.getX()) & 0xFF);
     }),
 
-    //ADH = mem[pc]
+    /** Set ADH to the value at the address indicated by the current state of the program counter: <code>ADH := mem[pc++]</code> */
     ADH_FROM_PC((env, mem, alu) -> {
         //XXX Could be replaced with (ADDRESS_PC, MEM_TO_ADH)
         mem.loadMemoryAddress(env.pc());
         env.setADH(mem.fetch());
     }),
 
-    //addr_mem[adh:adl]
+    /** Load address register into address bus : <code>address_bus := mem[adh:adl]</code> */
     ADDRESS_AD((env, mem, alu) -> {
         mem.loadMemoryAddress(env.getAD());
     }),
 
-    //addr_mem[0x00:adl]
+    /** Add X to ADL, wrapping rather than carrying to ADH on overflow: <code>ADL := ADL + X</code> */
     ADL_PLUS_X((env, mem, alu)->{
         int low = env.getADL() + env.getX();
         env.setADL(low & 0xFF);
         env.setADH(0x00);
     }),
 
-    //addr_mem[(adh:adl)+x]
-    AD_PLUS_X((env, mem, alu)->{
+    /** Load address bus with AD + X: <code>address_bus := AD := AD + X</code> */
+    ADDRESS_AD_PLUS_X((env, mem, alu)->{
         int originalHigh = env.getADH();
 
         int low = env.getADL() + env.getX();
@@ -84,8 +84,8 @@ enum MOS6502MicroOp implements MOS6502Operation {
         mem.loadMemoryAddress(env.getAD());
     }),
 
-    //addr_mem[(adh:adl)+y]
-    AD_PLUS_Y((env, mem, alu)->{
+    /** Load address bus with AD + Y: <code>address_bus := AD := AD + Y</code> */
+    ADDRESS_AD_PLUS_Y((env, mem, alu)->{
         int originalHigh = env.getADH();
 
         int low = env.getADL() + env.getY();
@@ -102,32 +102,35 @@ enum MOS6502MicroOp implements MOS6502Operation {
         mem.loadMemoryAddress(env.getAD());
     }),
 
+    /** Set static flags (N and Z) based on the value of the accumulator */
     SET_FLAGS_ON_A((env, mem, alu)->{
         alu.setStaticFlags(env.getA());
     }),
 
+    /** Set Accumulator to the value on the data bus: <code>A := mem[address_bus]</code> */
     A_FROM_AD((env, mem, alu) -> {
         final int newValue = mem.fetch();
         env.setA(newValue);
     }),
 
+    /** Set Accumulator to the value at the location specified by the program counter: <code>A := mem[pc++]</code> */
     A_FROM_PC((env, mem, alu)->{
         mem.loadMemoryAddress(env.pc());
         final int newValue = mem.fetch();
         env.setA(newValue);
     }),
 
-    /* A = adc(mem[addr]) */
+    /** Perform {@link MOS6502ALU#adc(int)} with the value at <code>mem[address_bus]</code> */
     ADC((env, mem, alu) -> {
         alu.adc(mem.fetch());
     }),
 
-    /* A = and(mem[addr]) */
+    /** Perform {@link MOS6502ALU#and(int)} with the value at <code>mem[address_bus]</code> */
     AND((env, mem, alu) -> {
         alu.and(mem.fetch());
     }),
 
-    /* A = ora(mem[addr]) */
+    /** Perform {@link MOS6502ALU#ora(int)} with the value at <code>mem[address_bus]</code> */
     ORA((env, mem, alu) -> {
         alu.ora(mem.fetch());
     });

@@ -132,7 +132,7 @@ public class MOS6502MicoOpTest {
         env.setADH(0x01);
         env.setX(3);
 
-        AD_PLUS_X.execute(env, bus, alu);
+        ADDRESS_AD_PLUS_X.execute(env, bus, alu);
 
         verifyNoInteractions(alu);
         assertEquals(0x0101+3, env.getAD());
@@ -148,7 +148,7 @@ public class MOS6502MicoOpTest {
         env.setADH(0x01);
         env.setX(0x03);
 
-        AD_PLUS_X.execute(env, bus, alu);
+        ADDRESS_AD_PLUS_X.execute(env, bus, alu);
 
         verifyNoInteractions(alu);
 
@@ -166,7 +166,7 @@ public class MOS6502MicoOpTest {
         env.setADH(0x01);
         env.setY(5);
 
-        AD_PLUS_Y.execute(env, bus, alu);
+        ADDRESS_AD_PLUS_Y.execute(env, bus, alu);
 
         verifyNoInteractions(alu);
         assertEquals(0x0105+5, env.getAD());
@@ -183,7 +183,7 @@ public class MOS6502MicoOpTest {
         env.setADH(0x01);
         env.setY(0x03);
 
-        AD_PLUS_Y.execute(env, bus, alu);
+        ADDRESS_AD_PLUS_Y.execute(env, bus, alu);
 
         verifyNoInteractions(alu);
         assertEquals(0x02, env.getADH());

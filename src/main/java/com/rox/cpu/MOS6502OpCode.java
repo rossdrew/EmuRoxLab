@@ -32,13 +32,13 @@ public enum MOS6502OpCode {
     /** A ← A + Memory[$1234 + X] + Carry */
     ADC_ABS_X(0x7D, clockTicks(
             opsInTick(ADDRESS_PC, MEM_TO_ADL),
-            opsInTick(ADH_FROM_PC, AD_PLUS_X),
+            opsInTick(ADH_FROM_PC, ADDRESS_AD_PLUS_X),
             opsInTick(ADC, SET_FLAGS_ON_A))
     ),
 
     ADC_ABS_Y(0x79, clockTicks(
             opsInTick(ADDRESS_PC, MEM_TO_ADL),
-            opsInTick(ADH_FROM_PC, AD_PLUS_Y),
+            opsInTick(ADH_FROM_PC, ADDRESS_AD_PLUS_Y),
             opsInTick(ADC, SET_FLAGS_ON_A)
     )),
 
@@ -53,7 +53,7 @@ public enum MOS6502OpCode {
     ADC_IND_Y(0x71, clockTicks(
             opsInTick(ADDRESS_PC),
             opsInTick(ADDRESS_MEM_POINTER, MEM_TO_ADL),
-            opsInTick(NEXT_MEM_TO_ADH, AD_PLUS_Y),
+            opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD_PLUS_Y),
             opsInTick(ADC, SET_FLAGS_ON_A)
     )),
 
@@ -86,13 +86,13 @@ public enum MOS6502OpCode {
 
     LDA_ABS_X(0xBD, clockTicks(
             opsInTick(ADDRESS_PC, MEM_TO_ADL),
-            opsInTick(ADH_FROM_PC, AD_PLUS_X),
+            opsInTick(ADH_FROM_PC, ADDRESS_AD_PLUS_X),
             opsInTick(A_FROM_AD, SET_FLAGS_ON_A)
     )),
 
     LDA_ABS_Y(0xB9, clockTicks(
             opsInTick(ADDRESS_PC, MEM_TO_ADL),
-            opsInTick(ADH_FROM_PC, AD_PLUS_Y),
+            opsInTick(ADH_FROM_PC, ADDRESS_AD_PLUS_Y),
             opsInTick(A_FROM_AD, SET_FLAGS_ON_A)
     )),
 
@@ -107,7 +107,7 @@ public enum MOS6502OpCode {
     LDA_IND_Y(0xB1, clockTicks(
             opsInTick(ADDRESS_PC),
             opsInTick(ADDRESS_MEM_POINTER, MEM_TO_ADL),
-            opsInTick(NEXT_MEM_TO_ADH, AD_PLUS_Y),
+            opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD_PLUS_Y),
             opsInTick(A_FROM_AD, SET_FLAGS_ON_A)
     )),
 
@@ -134,13 +134,13 @@ public enum MOS6502OpCode {
 
     AND_ABS_X(0x3D,clockTicks(
             opsInTick(ADDRESS_PC, MEM_TO_ADL),
-            opsInTick(ADH_FROM_PC, AD_PLUS_X),
+            opsInTick(ADH_FROM_PC, ADDRESS_AD_PLUS_X),
             opsInTick(AND, SET_FLAGS_ON_A)
     )),
 
     AND_ABS_Y(0x39,clockTicks(
             opsInTick(ADDRESS_PC, MEM_TO_ADL),
-            opsInTick(ADH_FROM_PC, AD_PLUS_Y),
+            opsInTick(ADH_FROM_PC, ADDRESS_AD_PLUS_Y),
             opsInTick(AND, SET_FLAGS_ON_A)
     )),
 
@@ -155,7 +155,7 @@ public enum MOS6502OpCode {
     AND_IND_Y(0x31,clockTicks(
             opsInTick(ADDRESS_PC),
             opsInTick(ADDRESS_MEM_POINTER, MEM_TO_ADL),
-            opsInTick(NEXT_MEM_TO_ADH, AD_PLUS_Y),
+            opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD_PLUS_Y),
             opsInTick(AND, SET_FLAGS_ON_A)
     )),
 
@@ -182,13 +182,13 @@ public enum MOS6502OpCode {
 
     ORA_ABS_X(0x1D, clockTicks(
             opsInTick(ADDRESS_PC, MEM_TO_ADL),
-            opsInTick(ADH_FROM_PC, AD_PLUS_X),
+            opsInTick(ADH_FROM_PC, ADDRESS_AD_PLUS_X),
             opsInTick(ORA, SET_FLAGS_ON_A)
     )),
 
     ORA_ABS_Y(0x19, clockTicks(
             opsInTick(ADDRESS_PC, MEM_TO_ADL),
-            opsInTick(ADH_FROM_PC, AD_PLUS_Y),
+            opsInTick(ADH_FROM_PC, ADDRESS_AD_PLUS_Y),
             opsInTick(ORA, SET_FLAGS_ON_A)
     )),
 
@@ -203,7 +203,7 @@ public enum MOS6502OpCode {
     ORA_IND_Y(0x11, clockTicks(
             opsInTick(ADDRESS_PC),
             opsInTick(ADDRESS_MEM_POINTER, MEM_TO_ADL),
-            opsInTick(NEXT_MEM_TO_ADH, AD_PLUS_Y),
+            opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD_PLUS_Y),
             opsInTick(ORA, SET_FLAGS_ON_A)
     ));
 
