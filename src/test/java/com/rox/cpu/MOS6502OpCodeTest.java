@@ -1689,8 +1689,6 @@ public class MOS6502OpCodeTest {
         assertEquals(0x8002, env.getPC());
     }
 
-    //AI Generated - needs validate
-
     @ParameterizedTest(name = "EOR_I A={0}, M={1}")
     @CsvSource({
          // A      Operand  Expected  Z      N

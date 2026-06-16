@@ -207,8 +207,6 @@ public enum MOS6502OpCode {
             opsInTick(ORA, SET_FLAGS_ON_A)
     )),
 
-    //AI Generated - needs validated
-
     EOR_I(0x49, clockTicks(
             opsInTick(ADDRESS_PC, EOR, SET_FLAGS_ON_A)
     )),
