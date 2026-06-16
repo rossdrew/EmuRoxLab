@@ -22,7 +22,6 @@ public class MOS6502ALU {
         int a = environment.getA();
         int result = a + b + (environment.carry?1:0);
 
-
         environment.setV((~(a ^ b) & (a ^ result) & BIT[7]) != 0); //matching signs result in mismatched sign
         environment.setCarry(result > 0xFF); //result is > 255
         environment.setA(result & 0xFF);
@@ -35,6 +34,13 @@ public class MOS6502ALU {
         environment.setA(result & 0xFF);
     }
 
+    public void ora(int b) {
+        int a = environment.getA();
+        int result = a | b;
+
+        environment.setA(result & 0xFF);
+    }
+
     public void eor(int b) {
         int a = environment.getA();
         int result = a ^ b;
@@ -42,11 +48,8 @@ public class MOS6502ALU {
         environment.setA(result & 0xFF);
     }
 
-    public void ora(int b) {
-        int a = environment.getA();
-        int result = a | b;
-
-        environment.setA(result & 0xFF);
+    public void sbc(int b) {
+        adc(~b & 0xFF);
     }
 
     public void setStaticFlags(final int basedOn) {

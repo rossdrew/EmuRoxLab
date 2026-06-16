@@ -207,6 +207,17 @@ public enum MOS6502OpCode {
             opsInTick(ORA, SET_FLAGS_ON_A)
     ));
 
+    //Should be easy wins
+    //TODO EOR
+    //TODO SBC
+    //TODO CMP
+
+    //TODO LDY
+    //TODO LDX
+
+    //The real test
+    //TODO JMP
+
     /** 6502 code for this OpCode */
     private final int id;
     /** [tick][operation] */

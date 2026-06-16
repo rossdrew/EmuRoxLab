@@ -174,4 +174,60 @@ public class MOS6502ALUTest {
         assertEquals(expectedZeroFlag, env.getZ());
         assertEquals(expectedNegativeFlag, env.getN());
     }
+
+    @ParameterizedTest(name = "SBC: A({0})-M({1})-(1-C({2})) = {3}")
+    @CsvSource({
+          // A,     M,    C,      Result, V,     N,     C
+
+            // Basic subtraction
+            "0,     0,    true,   0,      false, false, true",
+            "1,     0,    true,   1,      false, false, true",
+            "1,     1,    true,   0,      false, false, true",
+            "2,     1,    true,   1,      false, false, true",
+
+            // Borrow cases
+            "0,     1,    true,   255,    false, true,  false",
+            "0,     0,    false,  255,    false, true,  false",
+            "1,     1,    false,  255,    false, true,  false",
+
+            // No borrow
+            "255,   1,    true,   254,    false, true,  true",
+            "200,   100,  true,   100,    true,  false, true",
+            "100,   50,   false,  49,     false, false, true",
+
+            // Zero result
+            "5,     5,    true,   0,      false, false, true",
+            "5,     4,    false,  0,      false, false, true",
+
+            // Negative result
+            "16,    32,   true,   240,    false, true,  false",
+            "127,   128,  true,   255,    true,  true,  false",
+
+            // Signed overflow
+            "128,   1,    true,   127,    true,  false, true",
+            "127,   255,  true,   128,    true,  true,  false",
+            "128,   255,  false,  128,    false, true,  false",
+
+            // Carry-in edge cases
+            "10,    3,    true,   7,      false, false, true",
+            "10,    3,    false,  6,      false, false, true"
+    })
+    public void testSBC(final int accumulator,
+                        final int operand,
+                        final boolean carryIn,
+                        final int expectedAnswer,
+                        final boolean expectedOverflowFlag,
+                        final boolean expectedNegativeFlag,
+                        final boolean expectedCarryFlag) {
+        env.setA(accumulator);
+        env.setCarry(carryIn);
+
+        alu.sbc(operand);
+        alu.setStaticFlags(env.getA());
+
+        assertEquals(expectedAnswer, env.getA());
+        assertEquals(expectedOverflowFlag, env.getV());
+        assertEquals(expectedNegativeFlag, env.getN());
+        assertEquals(expectedCarryFlag, env.getCarry());
+    }
 }

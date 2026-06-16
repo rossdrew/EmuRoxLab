@@ -133,18 +133,17 @@ enum MOS6502MicroOp implements MOS6502Operation {
     /** Perform {@link MOS6502ALU#ora(int)} with the value at <code>mem[address_bus]</code> */
     ORA((env, mem, alu) -> {
         alu.ora(mem.fetch());
+    }),
+
+    /** Perform {@link MOS6502ALU#eor(int)} with the value at <code>mem[address_bus]</code> */
+    EOR((env, mem, alu) -> {
+        alu.eor(mem.fetch());
+    }),
+
+    /** Perform {@link MOS6502ALU#sbc(int)} with the value at <code>mem[address_bus]</code> */
+    SBC((env, mem, alu) -> {
+        alu.sbc(mem.fetch());
     });
-
-    //Should be easy wins
-    //TODO EOR
-    //TODO SBC
-    //TODO CMP
-
-    //TODO LDY
-    //TODO LDX
-
-    //The real test
-    //TODO JMP
 
     private final MOS6502Operation op;
 
