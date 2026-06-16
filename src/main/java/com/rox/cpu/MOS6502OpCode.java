@@ -205,10 +205,59 @@ public enum MOS6502OpCode {
             opsInTick(ADDRESS_MEM_POINTER, MEM_TO_ADL),
             opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD_PLUS_Y),
             opsInTick(ORA, SET_FLAGS_ON_A)
+    )),
+
+    //AI Generated - needs validated
+
+    EOR_I(0x49, clockTicks(
+            opsInTick(ADDRESS_PC, EOR, SET_FLAGS_ON_A)
+    )),
+
+    EOR_Z(0x45, clockTicks(
+            opsInTick(ADDRESS_PC, MEM_TO_ADL),
+            opsInTick(ADDRESS_ADL, EOR, SET_FLAGS_ON_A)
+    )),
+
+    EOR_Z_X(0x55, clockTicks(
+            opsInTick(ADDRESS_PC),
+            opsInTick(X_OFFSET_ADDRESS),
+            opsInTick(EOR, SET_FLAGS_ON_A)
+    )),
+
+    EOR_ABS(0x4D, clockTicks(
+            opsInTick(ADDRESS_PC, MEM_TO_ADL),
+            opsInTick(ADH_FROM_PC),
+            opsInTick(ADDRESS_AD, EOR, SET_FLAGS_ON_A)
+    )),
+
+    EOR_ABS_X(0x5D, clockTicks(
+            opsInTick(ADDRESS_PC, MEM_TO_ADL),
+            opsInTick(ADH_FROM_PC, ADDRESS_AD_PLUS_X),
+            opsInTick(EOR, SET_FLAGS_ON_A)
+    )),
+
+    EOR_ABS_Y(0x59, clockTicks(
+            opsInTick(ADDRESS_PC, MEM_TO_ADL),
+            opsInTick(ADH_FROM_PC, ADDRESS_AD_PLUS_Y),
+            opsInTick(EOR, SET_FLAGS_ON_A)
+    )),
+
+    EOR_IND_X(0x41, clockTicks(
+            opsInTick(ADDRESS_PC),
+            opsInTick(X_OFFSET_ADDRESS),
+            opsInTick(MEM_TO_ADL),
+            opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD),
+            opsInTick(EOR, SET_FLAGS_ON_A)
+    )),
+
+    EOR_IND_Y(0x51, clockTicks(
+            opsInTick(ADDRESS_PC),
+            opsInTick(ADDRESS_MEM_POINTER, MEM_TO_ADL),
+            opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD_PLUS_Y),
+            opsInTick(EOR, SET_FLAGS_ON_A)
     ));
 
     //Should be easy wins
-    //TODO EOR
     //TODO SBC
     //TODO CMP
 

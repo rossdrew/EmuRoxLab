@@ -1689,5 +1689,311 @@ public class MOS6502OpCodeTest {
         assertEquals(0x8002, env.getPC());
     }
 
+    //AI Generated - needs validate
+
+    @ParameterizedTest(name = "EOR_I A={0}, M={1}")
+    @CsvSource({
+         // A      Operand  Expected  Z      N
+            "0xAA, 0x0F,    0xA5,     false, true",
+            "0xFF, 0xFF,    0x00,     true,  false",
+            "0x7F, 0xFF,    0x80,     false, true"
+    })
+    void eorImmediate(int a, int operand, int expected, boolean z, boolean n) {
+        ram.write(0x8000, EOR_I.getId());
+        ram.write(0x8001, operand);
+
+        env.setPC(0x8000);
+        env.setA(a);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch operand, EOR, set flags
+
+        assertEquals(expected, env.getA());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @ParameterizedTest(name = "EOR_Z A={0}, M={1}")
+    @CsvSource({
+         // A      Value  Expected  Z      N
+            "0xAA, 0x0F,  0xA5,     false, true",
+            "0xFF, 0xFF,  0x00,     true,  false",
+            "0x7F, 0xFF,  0x80,     false, true"
+    })
+    void eorZeroPage(int a, int operand, int expected, boolean z, boolean n) {
+        ram.write(0x8000, EOR_Z.getId());
+        ram.write(0x8001, 0x44);
+        ram.write(0x0044, operand);
+
+        env.setPC(0x8000);
+        env.setA(a);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch zero-page address
+        cpu.tick(); // read operand, EOR, set flags
+
+        assertEquals(expected, env.getA());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @ParameterizedTest(name = "EOR_Z_X A={0}, M={1}")
+    @CsvSource({
+         // A      Value  Expected  Z      N
+            "0xAA, 0x0F,  0xA5,     false, true",
+            "0xFF, 0xFF,  0x00,     true,  false",
+            "0x7F, 0xFF,  0x80,     false, true"
+    })
+    void eorZeroPageX(int a, int operand, int expected, boolean z, boolean n) {
+        ram.write(0x8000, EOR_Z_X.getId());
+        ram.write(0x8001, 0x44);
+        ram.write(0x0049, operand);
+
+        env.setPC(0x8000);
+        env.setA(a);
+        env.setX(0x05);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch zero-page base address
+        cpu.tick(); // add X to zero-page address
+        cpu.tick(); // read operand, EOR, set flags
+
+        assertEquals(expected, env.getA());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @ParameterizedTest(name = "EOR_ABS A={0}, M={1}")
+    @CsvSource({
+         // A      Value  Expected  Z       N
+            "0xAA, 0x0F,  0xA5,     false,  true",
+            "0xFF, 0xFF,  0x00,     true,   false",
+            "0x7F, 0xFF,  0x80,     false,  true"
+    })
+    void eorAbsolute(int a, int operand, int expected, boolean z, boolean n) {
+        ram.write(0x8000, EOR_ABS.getId());
+        ram.write(0x8001, 0x34);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1234, operand);
+
+        env.setPC(0x8000);
+        env.setA(a);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch low address byte
+        cpu.tick(); // fetch high address byte
+        cpu.tick(); // read operand, EOR, set flags
+
+        assertEquals(expected, env.getA());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @ParameterizedTest(name = "EOR_ABS_X A={0}, M={1}")
+    @CsvSource({
+         // A       Value   Expected  Z      N
+            "0xAA,  0x0F,   0xA5,     false, true",
+            "0xFF,  0xFF,   0x00,     true,  false",
+            "0x7F,  0xFF,   0x80,     false, true"
+    })
+    void eorAbsoluteX(int a, int operand, int expected, boolean z, boolean n) {
+        ram.write(0x8000, EOR_ABS_X.getId());
+        ram.write(0x8001, 0x34);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1239, operand);
+
+        env.setPC(0x8000);
+        env.setA(a);
+        env.setX(0x05);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch low address byte
+        cpu.tick(); // fetch high address byte, add X
+        cpu.tick(); // read operand, EOR, set flags
+
+        assertEquals(expected, env.getA());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @Test
+    void eorAbsoluteXDoesNotExecuteBeforeExtraCycleWhenPageCrosses() {
+        ram.write(0x8000, EOR_ABS_X.getId());
+        ram.write(0x8001, 0xFF);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1304, 0x0F);
+
+        env.setPC(0x8000);
+        env.setA(0xAA);
+        env.setX(0x05);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch low address byte
+        cpu.tick(); // fetch high address byte, add X
+
+        assertEquals(0xAA, env.getA());
+
+        cpu.tick(); // dummy read / page-cross fix
+
+        assertEquals(0xAA, env.getA());
+
+        cpu.tick(); // read operand, EOR, set flags
+
+        assertEquals(0xA5, env.getA());
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @ParameterizedTest(name = "EOR_ABS_Y A={0}, M={1}")
+    @CsvSource({
+         // A       Value   Expected   Z      N
+            "0xAA,  0x0F,   0xA5,      false, true",
+            "0xFF,  0xFF,   0x00,      true,  false",
+            "0x7F,  0xFF,   0x80,      false, true"
+    })
+    void eorAbsoluteY(int a, int operand, int expected, boolean z, boolean n) {
+        ram.write(0x8000, EOR_ABS_Y.getId());
+        ram.write(0x8001, 0x34);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1239, operand);
+
+        env.setPC(0x8000);
+        env.setA(a);
+        env.setY(0x05);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch low address byte
+        cpu.tick(); // fetch high address byte, add Y
+        cpu.tick(); // read operand, EOR, set flags
+
+        assertEquals(expected, env.getA());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @Test
+    void eorAbsoluteYDoesNotExecuteBeforeExtraCycleWhenPageCrosses() {
+        ram.write(0x8000, EOR_ABS_Y.getId());
+        ram.write(0x8001, 0xFF);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1304, 0x0F);
+
+        env.setPC(0x8000);
+        env.setA(0xAA);
+        env.setY(0x05);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch low address byte
+        cpu.tick(); // fetch high address byte, add Y
+
+        assertEquals(0xAA, env.getA());
+
+        cpu.tick(); // dummy read / page-cross fix
+
+        assertEquals(0xAA, env.getA());
+
+        cpu.tick(); // read operand, EOR, set flags
+
+        assertEquals(0xA5, env.getA());
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @ParameterizedTest(name = "EOR_IND_X A={0}, M={1}")
+    @CsvSource({
+         // A      Value  Expected  Z       N
+            "0xAA, 0x0F,  0xA5,     false,  true",
+            "0xFF, 0xFF,  0x00,     true,   false",
+            "0x7F, 0xFF,  0x80,     false,  true"
+    })
+    void eorIndirectX(int a, int operand, int expected, boolean z, boolean n) {
+        ram.write(0x8000, EOR_IND_X.getId());
+        ram.write(0x8001, 0x44);
+
+        ram.write(0x0049, 0x34);
+        ram.write(0x004A, 0x12);
+        ram.write(0x1234, operand);
+
+        env.setPC(0x8000);
+        env.setA(a);
+        env.setX(0x05);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch zero-page pointer operand
+        cpu.tick(); // add X to pointer address
+        cpu.tick(); // read effective address low byte
+        cpu.tick(); // read effective address high byte
+        cpu.tick(); // read operand, EOR, set flags
+
+        assertEquals(expected, env.getA());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @ParameterizedTest(name = "EOR_IND_Y A={0}, M={1}")
+    @CsvSource({
+         // A       Value  Expected  Z      N
+            "0xAA,  0x0F,  0xA5,     false, true",
+            "0xFF,  0xFF,  0x00,     true,  false",
+            "0x7F,  0xFF,  0x80,     false, true"
+    })
+    void eorIndirectY(int a, int operand, int expected, boolean z, boolean n) {
+        ram.write(0x8000, EOR_IND_Y.getId());
+        ram.write(0x8001, 0x44);
+
+        ram.write(0x0044, 0x34);
+        ram.write(0x0045, 0x12);
+        ram.write(0x1239, operand);
+
+        env.setPC(0x8000);
+        env.setA(a);
+        env.setY(0x05);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch zero-page pointer operand
+        cpu.tick(); // read effective address low byte
+        cpu.tick(); // read effective address high byte, add Y
+        cpu.tick(); // read operand, EOR, set flags
+
+        assertEquals(expected, env.getA());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @Test
+    void eorIndirectYDoesNotExecuteBeforeExtraCycleWhenPageCrosses() {
+        ram.write(0x8000, EOR_IND_Y.getId());
+        ram.write(0x8001, 0x44);
+
+        ram.write(0x0044, 0xFF);
+        ram.write(0x0045, 0x12);
+        ram.write(0x1304, 0x0F);
+
+        env.setPC(0x8000);
+        env.setA(0xAA);
+        env.setY(0x05);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch zero-page pointer
+        cpu.tick(); // read effective address low byte
+        cpu.tick(); // read effective address high byte, add Y
+
+        assertEquals(0xAA, env.getA());
+
+        cpu.tick(); // dummy read / page-cross fix
+
+        assertEquals(0xAA, env.getA());
+
+        cpu.tick(); // read operand, EOR, set flags
+
+        assertEquals(0xA5, env.getA());
+        assertEquals(0x8002, env.getPC());
+    }
     //TODO is it worth testing actual operations at this level? ADC, AND...
 }
