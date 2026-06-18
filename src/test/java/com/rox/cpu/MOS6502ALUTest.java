@@ -230,4 +230,42 @@ public class MOS6502ALUTest {
         assertEquals(expectedNegativeFlag, env.getN());
         assertEquals(expectedCarryFlag, env.getCarry());
     }
+
+
+    @ParameterizedTest(name = "CMP: A({0})-M({1})")
+    @CsvSource({
+            // A,     M,    Z,     N,     C
+            "0,      0,    true,  false, true",
+            "1,      1,    true,  false, true",
+            "2,      1,    false, false, true",
+            "1,      2,    false, true,  false",
+
+            // Equal
+            "255,    255,  true,  false, true",
+            "128,    128,  true,  false, true",
+
+            // A greater than M
+            "255,    1,    false, true,  true",
+            "127,    1,    false, false, true",
+            "128,    1,    false, false, true",
+
+            // A less than M
+            "0,      1,    false, true,  false",
+            "1,      255,  false, false, false",
+            "127,    128,  false, true,  false"
+    })
+    public void testCMP(final int accumulator,
+                        final int operand,
+                        final boolean expectedZeroFlag,
+                        final boolean expectedNegativeFlag,
+                        final boolean expectedCarryFlag) {
+        env.setA(accumulator);
+
+        alu.cmp(operand);
+
+        assertEquals(accumulator, env.getA(), "CMP appears to have modified the accumulator and it shoulnd't");
+        assertEquals(expectedZeroFlag, env.getZ());
+        assertEquals(expectedNegativeFlag, env.getN());
+        assertEquals(expectedCarryFlag, env.getCarry());
+    }
 }

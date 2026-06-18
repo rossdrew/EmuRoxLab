@@ -313,7 +313,7 @@ public enum MOS6502OpCode {
     JMP_I(0x6C, clockTicks(
             opsInTick(ADDRESS_PC, MEM_TO_ADL),
             opsInTick(ADDRESS_PC, MEM_TO_ADH),
-            opsInTick(ADDRESS_AD, MEM_TO_PCL), 
+            opsInTick(ADDRESS_AD, MEM_TO_PCL),
             opsInTick(INC_ADL, ADDRESS_AD , MEM_TO_PCH)
     ));
 
@@ -322,6 +322,20 @@ public enum MOS6502OpCode {
 
     //TODO LDY
     //TODO LDX
+
+    /*
+    CMP (almost a copy of SBC)
+    LDX, LDY (copies of LDA)
+    STA, STX, STY (introduces writes)
+    Transfer instructions (TAX, etc.)
+    INX, DEX, INY, DEY
+    BIT
+    Branch instructions (great test of your cycle scheduling)
+    Stack instructions
+    JSR / RTS
+    Shifts and rotates
+    Interrupts (BRK, RTI)
+     */
 
     /** 6502 code for this OpCode */
     private final int id;
