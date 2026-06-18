@@ -163,7 +163,7 @@ class MOS6502Environment {
 
 
     /** Overflow safe PC + increment */
-    public int pc(){
+    public int getAndIncrementPC(){
         int cached_pc = pc;
         pc = (pc + 1) & 0xFFFF;
         return cached_pc;

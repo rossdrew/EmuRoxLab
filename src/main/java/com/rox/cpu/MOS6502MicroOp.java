@@ -10,7 +10,7 @@ enum MOS6502MicroOp implements MOS6502Operation {
 
     /** Fetch next instruction. <b>Should be implicit</b>  <code>instruction_register := mem[pc++]</code> */
     FETCH((env, mem, alu) -> {
-        mem.loadMemoryAddress(env.pc());
+        mem.loadMemoryAddress(env.getAndIncrementPC());
         env.setIR(mem.fetch());
     }),
 
@@ -21,7 +21,7 @@ enum MOS6502MicroOp implements MOS6502Operation {
 
     /** Load address from program counter into address bus : <code>address_bus := mem[pc++]</code> */
     ADDRESS_PC((env, mem, alu) -> {
-        mem.loadMemoryAddress(env.pc());
+        mem.loadMemoryAddress(env.getAndIncrementPC());
     }),
 
     /** Pull addressed value and load into address bus : <code>address_bus := mem[address_bus]</code> */
@@ -40,8 +40,10 @@ enum MOS6502MicroOp implements MOS6502Operation {
     }),
 
     /**
-     * XXX This probably needs to go in favor of [ADDRESS_PC, MEM_TO_ADH]
      * Load the next addressed value into ADH : <code>adl := mem[address_bus + 1]</code>
+     * Due to a (mimicked) hardware bug in the 6502, this wraps $00FF to $0000 rather than $01000
+     *
+     * XXX This probably needs to go in favor of [ADDRESS_PC, MEM_TO_ADH]
      * */
     NEXT_MEM_TO_ADH((env, mem, alu)->{
         int incrementedMemoryLocation = (mem.getAddressedMemory() + 1) & 0xFF;
@@ -51,7 +53,7 @@ enum MOS6502MicroOp implements MOS6502Operation {
 
     /** Increment the program counter : <code>pc := pc++</code>*/
     INC_PC((env, mem, alu)->{
-        env.pc();
+        env.getAndIncrementPC();
     }),
 
     /** Increment the address register directly with low byte wrapping : <code>adl := adl++</code>*/
@@ -78,13 +80,6 @@ enum MOS6502MicroOp implements MOS6502Operation {
     X_OFFSET_ADDRESS((env, mem, alu)->{
         int basePointer = mem.fetch();
         mem.loadMemoryAddress((basePointer + env.getX()) & 0xFF);
-    }),
-
-    /** Set ADH to the value at the address indicated by the current state of the program counter: <code>ADH := mem[pc++]</code> */
-    ADH_FROM_PC((env, mem, alu) -> {
-        //XXX Could be replaced with (ADDRESS_PC, MEM_TO_ADH)
-        mem.loadMemoryAddress(env.pc());
-        env.setADH(mem.fetch());
     }),
 
     /** Load address register into address bus : <code>address_bus := mem[adh:adl]</code> */
@@ -148,7 +143,7 @@ enum MOS6502MicroOp implements MOS6502Operation {
 
     /** Set Accumulator to the value at the location specified by the program counter: <code>A := mem[pc++]</code> */
     A_FROM_PC((env, mem, alu)->{
-        mem.loadMemoryAddress(env.pc());
+        mem.loadMemoryAddress(env.getAndIncrementPC());
         final int newValue = mem.fetch();
         env.setA(newValue);
     }),

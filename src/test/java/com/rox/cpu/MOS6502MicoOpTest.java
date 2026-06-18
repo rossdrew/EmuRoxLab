@@ -100,17 +100,6 @@ public class MOS6502MicoOpTest {
     }
 
     @Test
-    public void pcAddressToADHAddressEndToEnd(){
-        ram.write(0, 56);
-
-        ADH_FROM_PC.execute(env, bus, alu);
-
-        verifyNoInteractions(alu);
-        assertEquals(1, env.getPC());
-        assertEquals(56, env.getADH());
-    }
-
-    @Test
     public void absAddressAddressEndToEnd(){
         ram.write(0x0101, 43);
         env.setADL(1);
