@@ -83,6 +83,14 @@ class MOS6502Environment {
         this.pc = newPC;
     }
 
+    public void setPCL(final int newPCL) {
+        this.pc = (this.pc & 0xFF00) | (newPCL & 0xFF);
+    }
+
+    public void setPCH(final int newPCH) {
+        this.pc = (this.pc & 0x00FF) | ((newPCH << 8) & 0xFF00);
+    }
+
     public int getX() {
         return this.x;
     }

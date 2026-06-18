@@ -11,6 +11,8 @@ import static com.rox.cpu.MOS6502MicroOp.*;
 public enum MOS6502OpCode {
     // NOTE: The first cycle is the FETCH cycle!!
 
+    //XXX Possible bug, some instructions might not incremenet the pc, meaning the next instruction will read from the wrong place
+
     /** Zero Page Addressed ADC (ADd with Carry) */
     ADC_Z(0x65, clockTicks(
             opsInTick(ADDRESS_PC, MEM_TO_ADL),
@@ -301,17 +303,25 @@ public enum MOS6502OpCode {
             opsInTick(ADDRESS_MEM_POINTER, MEM_TO_ADL),
             opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD_PLUS_Y),
             opsInTick(SBC, SET_FLAGS_ON_A)
+    )),
+
+    JMP_ABS(0x4C, clockTicks(
+            opsInTick(ADDRESS_PC, MEM_TO_ADL),
+            opsInTick(ADDRESS_PC, MEM_TO_ADH, AD_TO_PC)
+    )),
+
+    JMP_I(0x6C, clockTicks(
+            opsInTick(ADDRESS_PC, MEM_TO_ADL),
+            opsInTick(ADDRESS_PC, MEM_TO_ADH),
+            opsInTick(ADDRESS_AD, MEM_TO_PCL), 
+            opsInTick(INC_ADL, ADDRESS_AD , MEM_TO_PCH)
     ));
 
     //Should be easy wins
-    //TODO SBC
     //TODO CMP
 
     //TODO LDY
     //TODO LDX
-
-    //The real test
-    //TODO JMP
 
     /** 6502 code for this OpCode */
     private final int id;

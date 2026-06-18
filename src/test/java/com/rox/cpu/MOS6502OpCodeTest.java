@@ -1994,8 +1994,6 @@ public class MOS6502OpCodeTest {
         assertEquals(0x8002, env.getPC());
     }
 
-    //AI generated
-
     @ParameterizedTest(name = "SBC_I A={0}, M={1}, C={2}")
     @CsvSource({
           // A     Op    C-in   Result  V      Z      N      C-out
@@ -2464,6 +2462,110 @@ public class MOS6502OpCodeTest {
 
         assertEquals(0x0B, env.getA());
         assertEquals(0x8002, env.getPC());
+    }
+
+    @Test
+    void jmpAbsoluteLoadsPcWithTargetAddress() {
+        ram.write(0x8000, JMP_ABS.getId());
+        ram.write(0x8001, 0x34); // low byte
+        ram.write(0x8002, 0x12); // high byte
+
+        env.setPC(0x8000);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch low target byte
+        cpu.tick(); // fetch high target byte, set PC
+
+        assertEquals(0x1234, env.getPC());
+    }
+    @Test
+    void jmpAbsoluteDoesNotSetPcUntilThirdTick() {
+        ram.write(0x8000, JMP_ABS.getId());
+        ram.write(0x8001, 0x34);
+        ram.write(0x8002, 0x12);
+
+        env.setPC(0x8000);
+
+        cpu.tick(); // fetch opcode
+
+        assertEquals(0x8001, env.getPC());
+
+        cpu.tick(); // fetch low target byte
+
+        assertEquals(0x8002, env.getPC());
+
+        cpu.tick(); // fetch high target byte, set PC
+
+        assertEquals(0x1234, env.getPC());
+    }
+
+    //TODO: Validate AI
+
+    @Test
+    void jmpIndirectLoadsPcFromPointerAddress() {
+        ram.write(0x8000, JMP_I.getId());
+        ram.write(0x8001, 0x34); // pointer low byte
+        ram.write(0x8002, 0x12); // pointer high byte
+
+        ram.write(0x1234, 0xCD); // target low byte
+        ram.write(0x1235, 0xAB); // target high byte
+
+        env.setPC(0x8000);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch pointer low byte
+        cpu.tick(); // fetch pointer high byte
+        cpu.tick(); // read target low byte from pointer address
+        cpu.tick(); // read target high byte from pointer+1, set PC
+
+        assertEquals(0xABCD, env.getPC());
+    }
+
+    @Test
+    void jmpIndirectSetsPcLowThenHigh() {
+        ram.write(0x8000, JMP_I.getId());
+        ram.write(0x8001, 0x34);
+        ram.write(0x8002, 0x12);
+
+        ram.write(0x1234, 0xCD);
+        ram.write(0x1235, 0xAB);
+
+        env.setPC(0x8000);
+
+        cpu.tick(); // fetch opcode
+        assertEquals(0x8001, env.getPC());
+
+        cpu.tick(); // fetch pointer low byte
+        assertEquals(0x8002, env.getPC());
+
+        cpu.tick(); // fetch pointer high byte
+        assertEquals(0x8003, env.getPC());
+
+        cpu.tick(); // read target low byte into PCL
+        assertEquals(0x80CD, env.getPC());
+
+        cpu.tick(); // read target high byte into PCH
+        assertEquals(0xABCD, env.getPC());
+    }
+
+    @Test
+    void jmpIndirectEmulatesPageBoundaryBug() {
+        ram.write(0x8000, JMP_I.getId());
+        ram.write(0x8001, 0xFF); // pointer low byte
+        ram.write(0x8002, 0x12); // pointer high byte => pointer = $12FF
+
+        ram.write(0x12FF, 0xCD); // target low byte
+        ram.write(0x1200, 0xAB); // target high byte due to 6502 bug
+
+        env.setPC(0x8000);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch pointer low byte
+        cpu.tick(); // fetch pointer high byte
+        cpu.tick(); // read target low byte from $12FF
+        cpu.tick(); // read target high byte from $1200, set PC
+
+        assertEquals(0xABCD, env.getPC());
     }
 
     //TODO is it worth testing actual operations at this level? ADC, AND...

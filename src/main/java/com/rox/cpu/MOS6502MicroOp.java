@@ -34,11 +34,44 @@ enum MOS6502MicroOp implements MOS6502Operation {
         env.setADL(mem.fetch());
     }),
 
-    /** Load the next addressed value into ADH : <code>adl := mem[address_bus + 1]</code>*/
+    /** Load value from memory into ADH : <code>adh := mem[address_bus]</code> */
+    MEM_TO_ADH((env, mem, alu)->{
+        env.setADH(mem.fetch());
+    }),
+
+    /**
+     * XXX This probably needs to go in favor of [ADDRESS_PC, MEM_TO_ADH]
+     * Load the next addressed value into ADH : <code>adl := mem[address_bus + 1]</code>
+     * */
     NEXT_MEM_TO_ADH((env, mem, alu)->{
         int incrementedMemoryLocation = (mem.getAddressedMemory() + 1) & 0xFF;
         mem.loadMemoryAddress(incrementedMemoryLocation);
         env.setADH(mem.fetch());
+    }),
+
+    /** Increment the program counter : <code>pc := pc++</code>*/
+    INC_PC((env, mem, alu)->{
+        env.pc();
+    }),
+
+    /** Increment the address register directly with low byte wrapping : <code>adl := adl++</code>*/
+    INC_ADL((env, mem, alu)->{
+        env.setADL((env.getADL() + 1) & 0xFF);
+    }),
+
+    /** Set the program counter low byte to the state of the address bus low byte : <code>pcl := adl</code>*/
+    MEM_TO_PCL((env, mem, alu)->{
+        env.setPCL(mem.fetch());
+    }),
+
+    /** Set the program counter high byte to the state of the address bus high byte : <code>pch := adh</code>*/
+    MEM_TO_PCH((env, mem, alu)->{
+        env.setPCH(mem.fetch());
+    }),
+
+    /** Set the program counter to the state of the address bus : <code>pc := ad</code>*/
+    AD_TO_PC((env, mem, alu)->{
+        env.setPC(env.getAD());
     }),
 
     /** Take the currently addressed memory location and add X:  <code>address_bus := mem[address_bus + X]</code> */
