@@ -253,6 +253,54 @@ public enum MOS6502OpCode {
             opsInTick(ADDRESS_MEM_POINTER, MEM_TO_ADL),
             opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD_PLUS_Y),
             opsInTick(EOR, SET_FLAGS_ON_A)
+    )),
+
+    SBC_I(0xE9, clockTicks(
+            opsInTick(ADDRESS_PC, SBC, SET_FLAGS_ON_A)
+    )),
+
+    SBC_Z(0xE5, clockTicks(
+            opsInTick(ADDRESS_PC, MEM_TO_ADL),
+            opsInTick(ADDRESS_ADL, SBC, SET_FLAGS_ON_A)
+    )),
+
+    SBC_Z_X(0xF5, clockTicks(
+            opsInTick(ADDRESS_PC),
+            opsInTick(X_OFFSET_ADDRESS),
+            opsInTick(SBC, SET_FLAGS_ON_A)
+    )),
+
+    SBC_ABS(0xED, clockTicks(
+            opsInTick(ADDRESS_PC, MEM_TO_ADL),
+            opsInTick(ADH_FROM_PC),
+            opsInTick(ADDRESS_AD, SBC, SET_FLAGS_ON_A)
+    )),
+
+    SBC_ABS_X(0xFD, clockTicks(
+            opsInTick(ADDRESS_PC, MEM_TO_ADL),
+            opsInTick(ADH_FROM_PC, ADDRESS_AD_PLUS_X),
+            opsInTick(SBC, SET_FLAGS_ON_A)
+    )),
+
+    SBC_ABS_Y(0xF9, clockTicks(
+            opsInTick(ADDRESS_PC, MEM_TO_ADL),
+            opsInTick(ADH_FROM_PC, ADDRESS_AD_PLUS_Y),
+            opsInTick(SBC, SET_FLAGS_ON_A)
+    )),
+
+    SBC_IND_X(0xE1, clockTicks(
+            opsInTick(ADDRESS_PC),
+            opsInTick(X_OFFSET_ADDRESS),
+            opsInTick(MEM_TO_ADL),
+            opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD),
+            opsInTick(SBC, SET_FLAGS_ON_A)
+    )),
+
+    SBC_IND_Y(0xF1, clockTicks(
+            opsInTick(ADDRESS_PC),
+            opsInTick(ADDRESS_MEM_POINTER, MEM_TO_ADL),
+            opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD_PLUS_Y),
+            opsInTick(SBC, SET_FLAGS_ON_A)
     ));
 
     //Should be easy wins

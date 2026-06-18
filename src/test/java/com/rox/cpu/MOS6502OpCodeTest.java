@@ -1993,5 +1993,478 @@ public class MOS6502OpCodeTest {
         assertEquals(0xA5, env.getA());
         assertEquals(0x8002, env.getPC());
     }
+
+    //AI generated
+
+    @ParameterizedTest(name = "SBC_I A={0}, M={1}, C={2}")
+    @CsvSource({
+          // A     Op    C-in   Result  V      Z      N      C-out
+            "0x10, 0x05, true,  0x0B,   false, false, false, true",
+            "0x10, 0x05, false, 0x0A,   false, false, false, true",
+            "0x00, 0x01, true,  0xFF,   false, false, true,  false",
+            "0x80, 0x01, true,  0x7F,   true,  false, false, true",
+            "0x05, 0x05, true,  0x00,   false, true,  false, true"
+    })
+    void sbcImmediate(int a, int operand, boolean carryIn, int expected,
+                      boolean v, boolean z, boolean n, boolean c) {
+        ram.write(0x8000, SBC_I.getId());
+        ram.write(0x8001, operand);
+
+        env.setPC(0x8000);
+        env.setA(a);
+        env.setCarry(carryIn);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch operand, SBC, set flags
+
+        assertEquals(expected, env.getA());
+        assertEquals(v, env.getV());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(c, env.getCarry());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @Test
+    void sbcImmediateDoesNotExecuteUntilSecondTick() {
+        ram.write(0x8000, SBC_I.getId());
+        ram.write(0x8001, 0x05);
+
+        env.setPC(0x8000);
+        env.setA(0x10);
+        env.setCarry(true);
+
+        cpu.tick(); // fetch opcode
+
+        assertEquals(0x10, env.getA());
+
+        cpu.tick(); // fetch operand, SBC, set flags
+
+        assertEquals(0x0B, env.getA());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @ParameterizedTest(name = "SBC_Z A={0}, M={1}, C={2}")
+    @CsvSource({
+          // A     Val   C-in   Result  V      Z      N      C-out
+            "0x10, 0x05, true,  0x0B,   false, false, false, true",
+            "0x10, 0x05, false, 0x0A,   false, false, false, true",
+            "0x00, 0x01, true,  0xFF,   false, false, true,  false",
+            "0x80, 0x01, true,  0x7F,   true,  false, false, true",
+            "0x05, 0x05, true,  0x00,   false, true,  false, true"
+    })
+    void sbcZeroPage(int a, int operand, boolean carryIn, int expected,
+                     boolean v, boolean z, boolean n, boolean c) {
+        ram.write(0x8000, SBC_Z.getId());
+        ram.write(0x8001, 0x44);
+        ram.write(0x0044, operand);
+
+        env.setPC(0x8000);
+        env.setA(a);
+        env.setCarry(carryIn);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch zero-page address
+        cpu.tick(); // read operand, SBC, set flags
+
+        assertEquals(expected, env.getA());
+        assertEquals(v, env.getV());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(c, env.getCarry());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @Test
+    void sbcZeroPageDoesNotExecuteUntilThirdTick() {
+        ram.write(0x8000, SBC_Z.getId());
+        ram.write(0x8001, 0x44);
+        ram.write(0x0044, 0x05);
+
+        env.setPC(0x8000);
+        env.setA(0x10);
+        env.setCarry(true);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch zero-page address
+
+        assertEquals(0x10, env.getA());
+
+        cpu.tick(); // read operand, SBC, set flags
+
+        assertEquals(0x0B, env.getA());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @ParameterizedTest(name = "SBC_Z_X A={0}, M={1}, C={2}")
+    @CsvSource({
+          // A     Val   C-in   Result  V      Z      N      C-out
+            "0x10, 0x05, true,  0x0B,   false, false, false, true",
+            "0x10, 0x05, false, 0x0A,   false, false, false, true",
+            "0x00, 0x01, true,  0xFF,   false, false, true,  false",
+            "0x80, 0x01, true,  0x7F,   true,  false, false, true",
+            "0x05, 0x05, true,  0x00,   false, true,  false, true"
+    })
+    void sbcZeroPageX(int a, int value, boolean carryIn, int expected,
+                      boolean v, boolean z, boolean n, boolean c) {
+        ram.write(0x8000, SBC_Z_X.getId());
+        ram.write(0x8001, 0x44);
+        ram.write(0x0049, value);
+
+        env.setPC(0x8000);
+        env.setA(a);
+        env.setX(0x05);
+        env.setCarry(carryIn);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch zero-page base address
+        cpu.tick(); // add X to zero-page address
+        cpu.tick(); // read operand, SBC, set flags
+
+        assertEquals(expected, env.getA());
+        assertEquals(v, env.getV());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(c, env.getCarry());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @Test
+    void sbcZeroPageXDoesNotExecuteUntilFourthTick() {
+        ram.write(0x8000, SBC_Z_X.getId());
+        ram.write(0x8001, 0x44);
+        ram.write(0x0049, 0x05);
+
+        env.setPC(0x8000);
+        env.setA(0x10);
+        env.setX(0x05);
+        env.setCarry(true);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch zero-page base address
+        cpu.tick(); // add X to zero-page address
+
+        assertEquals(0x10, env.getA());
+
+        cpu.tick(); // read operand, SBC, set flags
+
+        assertEquals(0x0B, env.getA());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @ParameterizedTest(name = "SBC_ABS A={0}, M={1}, C={2}")
+    @CsvSource({
+          // A     Val   C-in   Result  V      Z      N      C-out
+            "0x10, 0x05, true,  0x0B,   false, false, false, true",
+            "0x10, 0x05, false, 0x0A,   false, false, false, true",
+            "0x00, 0x01, true,  0xFF,   false, false, true,  false",
+            "0x80, 0x01, true,  0x7F,   true,  false, false, true",
+            "0x05, 0x05, true,  0x00,   false, true,  false, true"
+    })
+    void sbcAbsolute(int a, int value, boolean carryIn, int expected,
+                     boolean v, boolean z, boolean n, boolean c) {
+        ram.write(0x8000, SBC_ABS.getId());
+        ram.write(0x8001, 0x34);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1234, value);
+
+        env.setPC(0x8000);
+        env.setA(a);
+        env.setCarry(carryIn);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch low address byte
+        cpu.tick(); // fetch high address byte
+        cpu.tick(); // read operand, SBC, set flags
+
+        assertEquals(expected, env.getA());
+        assertEquals(v, env.getV());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(c, env.getCarry());
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @Test
+    void sbcAbsoluteDoesNotExecuteUntilFourthTick() {
+        ram.write(0x8000, SBC_ABS.getId());
+        ram.write(0x8001, 0x34);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1234, 0x05);
+
+        env.setPC(0x8000);
+        env.setA(0x10);
+        env.setCarry(true);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch low address byte
+        cpu.tick(); // fetch high address byte
+
+        assertEquals(0x10, env.getA());
+
+        cpu.tick(); // read operand, SBC, set flags
+
+        assertEquals(0x0B, env.getA());
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @ParameterizedTest(name = "SBC_ABS_X A={0}, M={1}, C={2}")
+    @CsvSource({
+          // A     Val   C-in   Result  V      Z      N      C-out
+            "0x10, 0x05, true,  0x0B,   false, false, false, true",
+            "0x10, 0x05, false, 0x0A,   false, false, false, true",
+            "0x00, 0x01, true,  0xFF,   false, false, true,  false",
+            "0x80, 0x01, true,  0x7F,   true,  false, false, true",
+            "0x05, 0x05, true,  0x00,   false, true,  false, true"
+    })
+    void sbcAbsoluteX(int a, int value, boolean carryIn, int expected,
+                      boolean v, boolean z, boolean n, boolean c) {
+        ram.write(0x8000, SBC_ABS_X.getId());
+        ram.write(0x8001, 0x34);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1239, value);
+
+        env.setPC(0x8000);
+        env.setA(a);
+        env.setX(0x05);
+        env.setCarry(carryIn);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch low address byte
+        cpu.tick(); // fetch high address byte, add X
+        cpu.tick(); // read operand, SBC, set flags
+
+        assertEquals(expected, env.getA());
+        assertEquals(v, env.getV());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(c, env.getCarry());
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @Test
+    void sbcAbsoluteXDoesNotExecuteBeforeExtraCycleWhenPageCrosses() {
+        ram.write(0x8000, SBC_ABS_X.getId());
+        ram.write(0x8001, 0xFF);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1304, 0x05);
+
+        env.setPC(0x8000);
+        env.setA(0x10);
+        env.setX(0x05);
+        env.setCarry(true);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch low address byte
+        cpu.tick(); // fetch high address byte, add X
+
+        assertEquals(0x10, env.getA());
+
+        cpu.tick(); // dummy read / page-cross fix
+
+        assertEquals(0x10, env.getA());
+
+        cpu.tick(); // read operand, SBC, set flags
+
+        assertEquals(0x0B, env.getA());
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @ParameterizedTest(name = "SBC_ABS_Y A={0}, M={1}, C={2}")
+    @CsvSource({
+          // A     Val   C-in   Result  V      Z      N      C-out
+            "0x10, 0x05, true,  0x0B,   false, false, false, true",
+            "0x10, 0x05, false, 0x0A,   false, false, false, true",
+            "0x00, 0x01, true,  0xFF,   false, false, true,  false",
+            "0x80, 0x01, true,  0x7F,   true,  false, false, true",
+            "0x05, 0x05, true,  0x00,   false, true,  false, true"
+    })
+    void sbcAbsoluteY(int a, int value, boolean carryIn, int expected,
+                      boolean v, boolean z, boolean n, boolean c) {
+        ram.write(0x8000, SBC_ABS_Y.getId());
+        ram.write(0x8001, 0x34);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1239, value);
+
+        env.setPC(0x8000);
+        env.setA(a);
+        env.setY(0x05);
+        env.setCarry(carryIn);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch low address byte
+        cpu.tick(); // fetch high address byte, add Y
+        cpu.tick(); // read operand, SBC, set flags
+
+        assertEquals(expected, env.getA());
+        assertEquals(v, env.getV());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(c, env.getCarry());
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @Test
+    void sbcAbsoluteYDoesNotExecuteBeforeExtraCycleWhenPageCrosses() {
+        ram.write(0x8000, SBC_ABS_Y.getId());
+        ram.write(0x8001, 0xFF);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1304, 0x05);
+
+        env.setPC(0x8000);
+        env.setA(0x10);
+        env.setY(0x05);
+        env.setCarry(true);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch low address byte
+        cpu.tick(); // fetch high address byte, add Y
+
+        assertEquals(0x10, env.getA());
+
+        cpu.tick(); // dummy read / page-cross fix
+
+        assertEquals(0x10, env.getA());
+
+        cpu.tick(); // read operand, SBC, set flags
+
+        assertEquals(0x0B, env.getA());
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @ParameterizedTest(name = "SBC_IND_X A={0}, M={1}, C={2}")
+    @CsvSource({
+          // A     Val   C-in   Result  V      Z      N      C-out
+            "0x10, 0x05, true,  0x0B,   false, false, false, true",
+            "0x10, 0x05, false, 0x0A,   false, false, false, true",
+            "0x00, 0x01, true,  0xFF,   false, false, true,  false",
+            "0x80, 0x01, true,  0x7F,   true,  false, false, true",
+            "0x05, 0x05, true,  0x00,   false, true,  false, true"
+    })
+    void sbcIndirectX(int a, int operand, boolean carryIn, int expected,
+                      boolean v, boolean z, boolean n, boolean c) {
+        ram.write(0x8000, SBC_IND_X.getId());
+        ram.write(0x8001, 0x44);
+
+        ram.write(0x0049, 0x34);
+        ram.write(0x004A, 0x12);
+        ram.write(0x1234, operand);
+
+        env.setPC(0x8000);
+        env.setA(a);
+        env.setX(0x05);
+        env.setCarry(carryIn);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch zero-page pointer operand
+        cpu.tick(); // add X to pointer address
+        cpu.tick(); // read effective address low byte
+        cpu.tick(); // read effective address high byte
+        cpu.tick(); // read operand, SBC, set flags
+
+        assertEquals(expected, env.getA());
+        assertEquals(v, env.getV());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(c, env.getCarry());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @Test
+    void sbcIndirectXDoesNotExecuteUntilSixthTick() {
+        ram.write(0x8000, SBC_IND_X.getId());
+        ram.write(0x8001, 0x44);
+
+        ram.write(0x0049, 0x34);
+        ram.write(0x004A, 0x12);
+        ram.write(0x1234, 0x05);
+
+        env.setPC(0x8000);
+        env.setA(0x10);
+        env.setX(0x05);
+        env.setCarry(true);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch zero-page pointer operand
+        cpu.tick(); // add X to pointer address
+        cpu.tick(); // read effective address low byte
+        cpu.tick(); // read effective address high byte
+
+        assertEquals(0x10, env.getA());
+
+        cpu.tick(); // read operand, SBC, set flags
+
+        assertEquals(0x0B, env.getA());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @ParameterizedTest(name = "SBC_IND_Y A={0}, M={1}, C={2}")
+    @CsvSource({
+         //  A     Val   C-in   Result  V      Z      N      C-out
+            "0x10, 0x05, true,  0x0B,   false, false, false, true",
+            "0x10, 0x05, false, 0x0A,   false, false, false, true",
+            "0x00, 0x01, true,  0xFF,   false, false, true,  false",
+            "0x80, 0x01, true,  0x7F,   true,  false, false, true",
+            "0x05, 0x05, true,  0x00,   false, true,  false, true"
+    })
+    void sbcIndirectY(int a, int value, boolean carryIn, int expected,
+                      boolean v, boolean z, boolean n, boolean c) {
+        ram.write(0x8000, SBC_IND_Y.getId());
+        ram.write(0x8001, 0x44);
+
+        ram.write(0x0044, 0x34);
+        ram.write(0x0045, 0x12);
+        ram.write(0x1239, value);
+
+        env.setPC(0x8000);
+        env.setA(a);
+        env.setY(0x05);
+        env.setCarry(carryIn);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch zero-page pointer operand
+        cpu.tick(); // read effective address low byte
+        cpu.tick(); // read effective address high byte, add Y
+        cpu.tick(); // read operand, SBC, set flags
+
+        assertEquals(expected, env.getA());
+        assertEquals(v, env.getV());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(c, env.getCarry());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @Test
+    void sbcIndirectYDoesNotExecuteBeforeExtraCycleWhenPageCrosses() {
+        ram.write(0x8000, SBC_IND_Y.getId());
+        ram.write(0x8001, 0x44);
+
+        ram.write(0x0044, 0xFF);
+        ram.write(0x0045, 0x12);
+        ram.write(0x1304, 0x05);
+
+        env.setPC(0x8000);
+        env.setA(0x10);
+        env.setY(0x05);
+        env.setCarry(true);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch zero-page pointer operand
+        cpu.tick(); // read effective address low byte
+        cpu.tick(); // read effective address high byte, add Y
+
+        assertEquals(0x10, env.getA());
+
+        cpu.tick(); // dummy read / page-cross fix
+
+        assertEquals(0x10, env.getA());
+
+        cpu.tick(); // read operand, SBC, set flags
+
+        assertEquals(0x0B, env.getA());
+        assertEquals(0x8002, env.getPC());
+    }
+
     //TODO is it worth testing actual operations at this level? ADC, AND...
 }
