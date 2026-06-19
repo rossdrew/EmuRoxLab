@@ -94,6 +94,13 @@ enum MOS6502MicroOp implements MOS6502Operation {
         env.setADH(0x00);
     }),
 
+    /** Add Y to ADL, wrapping rather than carrying to ADH on overflow: <code>ADL := ADL + Y</code> */
+    ADL_PLUS_Y((env, mem, alu)->{
+        int low = env.getADL() + env.getY();
+        env.setADL(low & 0xFF);
+        env.setADH(0x00);
+    }),
+
     /** Load address bus with AD + X: <code>address_bus := AD := AD + X</code> */
     ADDRESS_AD_PLUS_X((env, mem, alu)->{
         int originalHigh = env.getADH();
@@ -135,10 +142,21 @@ enum MOS6502MicroOp implements MOS6502Operation {
         alu.setStaticFlags(env.getA());
     }),
 
+    /** Set static flags (N and Z) based on the value of X */
+    SET_FLAGS_ON_X((env, mem, alu)->{
+        alu.setStaticFlags(env.getX());
+    }),
+
     /** Set Accumulator to the value on the data bus: <code>A := mem[address_bus]</code> */
     A_FROM_AD((env, mem, alu) -> {
         final int newValue = mem.fetch();
         env.setA(newValue);
+    }),
+
+    /** Set X to the value on the data bus: <code>X := mem[address_bus]</code> */
+    X_FROM_AD((env, mem, alu) -> {
+        final int newValue = mem.fetch();
+        env.setX(newValue);
     }),
 
     /** Set Accumulator to the value at the location specified by the program counter: <code>A := mem[pc++]</code> */
@@ -146,6 +164,16 @@ enum MOS6502MicroOp implements MOS6502Operation {
         mem.loadMemoryAddress(env.getAndIncrementPC());
         final int newValue = mem.fetch();
         env.setA(newValue);
+    }),
+
+    /** Set A to the value at the location specified by the address bus: <code>A := mem[AD]</code> */
+    A_FROM_MEM((env, mem, alu)->{
+        env.setA(mem.fetch());
+    }),
+
+    /** Set X to the value at the location specified by the address bus: <code>X := mem[AD]</code> */
+    X_FROM_MEM((env, mem, alu)->{
+        env.setX(mem.fetch());
     }),
 
     /** Perform {@link MOS6502ALU#adc(int)} with the value at <code>mem[address_bus]</code> */

@@ -112,7 +112,38 @@ public enum MOS6502OpCode {
             opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD_PLUS_Y),
             opsInTick(A_FROM_AD, SET_FLAGS_ON_A)
     )),
+    
+    //WIP
 
+    LDX_I(0xA2, clockTicks(
+            opsInTick(ADDRESS_PC, X_FROM_MEM, SET_FLAGS_ON_X)
+    )),
+
+    LDX_Z(0xA6, clockTicks(
+            opsInTick(ADDRESS_PC, MEM_TO_ADL),
+            opsInTick(ADDRESS_ADL, X_FROM_AD, SET_FLAGS_ON_X)
+    )),
+
+    LDX_Z_Y(0xB6, clockTicks(
+            opsInTick(ADDRESS_PC, MEM_TO_ADL),
+            opsInTick(ADL_PLUS_Y),
+            opsInTick(ADDRESS_ADL, X_FROM_AD, SET_FLAGS_ON_X)
+    )),
+
+    LDX_ABS(0xAE, clockTicks(
+            opsInTick(ADDRESS_PC, MEM_TO_ADL),
+            opsInTick(ADDRESS_PC, MEM_TO_ADH),
+            opsInTick(ADDRESS_AD, X_FROM_AD, SET_FLAGS_ON_X)
+    )),
+
+    LDX_ABS_Y(0xBE, clockTicks(
+            opsInTick(ADDRESS_PC, MEM_TO_ADL),
+            opsInTick(ADDRESS_PC, MEM_TO_ADH, ADDRESS_AD_PLUS_Y),
+            opsInTick(X_FROM_AD, SET_FLAGS_ON_X)
+    )),
+    
+    //END WIP
+    
     AND_I(0x29, clockTicks(
             opsInTick(ADDRESS_PC, AND, SET_FLAGS_ON_A)
     )),
