@@ -18,38 +18,42 @@ public class MOS6502ALU {
         this.environment = environment;
     }
 
-    public void adc(final int b){
+    public int adc(final int b){
         int a = environment.getA();
-        int result = a + b + (environment.carry?1:0);
+        int result = a + b + (environment.getCarry()?1:0);
 
         environment.setV((~(a ^ b) & (a ^ result) & BIT[7]) != 0); //matching signs result in mismatched sign
         environment.setCarry(result > 0xFF); //result is > 255
         environment.setA(result & 0xFF);
+        return (result & 0xFF);
     }
 
-    public void and(int b) {
+    public int and(int b) {
         int a = environment.getA();
         int result = a & b;
 
         environment.setA(result & 0xFF);
+        return (result & 0xFF);
     }
 
-    public void ora(int b) {
+    public int ora(int b) {
         int a = environment.getA();
         int result = a | b;
 
         environment.setA(result & 0xFF);
+        return (result & 0xFF);
     }
 
-    public void eor(int b) {
+    public int eor(int b) {
         int a = environment.getA();
         int result = a ^ b;
 
         environment.setA(result & 0xFF);
+        return (result & 0xFF);
     }
 
-    public void sbc(int b) {
-        adc(~b & 0xFF);
+    public int sbc(int b) {
+        return adc(~b & 0xFF);
     }
 
     public void cmp(int operand) {
