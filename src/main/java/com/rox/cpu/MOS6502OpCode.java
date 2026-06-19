@@ -305,6 +305,55 @@ public enum MOS6502OpCode {
             opsInTick(SBC, SET_FLAGS_ON_A)
     )),
 
+    //WIP
+    CMP_I(0xC9, clockTicks(
+            opsInTick(ADDRESS_PC, CMP)
+    )),
+
+    CMP_Z(0xC5, clockTicks(
+            opsInTick(ADDRESS_PC, MEM_TO_ADL),
+            opsInTick(ADDRESS_ADL, CMP)
+    )),
+
+    CMP_Z_X(0xD5, clockTicks(
+            opsInTick(ADDRESS_PC),
+            opsInTick(X_OFFSET_ADDRESS),
+            opsInTick(CMP)
+    )),
+
+    CMP_ABS(0xCD, clockTicks(
+            opsInTick(ADDRESS_PC, MEM_TO_ADL),
+            opsInTick(ADDRESS_PC, MEM_TO_ADH),
+            opsInTick(ADDRESS_AD, CMP)
+    )),
+
+    CMP_ABS_X(0xDD, clockTicks(
+            opsInTick(ADDRESS_PC, MEM_TO_ADL),
+            opsInTick(ADDRESS_PC, MEM_TO_ADH, ADDRESS_AD_PLUS_X),
+            opsInTick(CMP)
+    )),
+
+    CMP_ABS_Y(0xD9, clockTicks(
+            opsInTick(ADDRESS_PC, MEM_TO_ADL),
+            opsInTick(ADDRESS_PC, MEM_TO_ADH, ADDRESS_AD_PLUS_Y),
+            opsInTick(CMP)
+    )),
+
+    CMP_IND_X(0xC1, clockTicks(
+            opsInTick(ADDRESS_PC),
+            opsInTick(X_OFFSET_ADDRESS),
+            opsInTick(MEM_TO_ADL),
+            opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD),
+            opsInTick(CMP)
+    )),
+
+    CMP_IND_Y(0xD1, clockTicks(
+            opsInTick(ADDRESS_PC),
+            opsInTick(ADDRESS_MEM_POINTER, MEM_TO_ADL),
+            opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD_PLUS_Y),
+            opsInTick(CMP)
+    )),
+
     JMP_ABS(0x4C, clockTicks(
             opsInTick(ADDRESS_PC, MEM_TO_ADL),
             opsInTick(ADDRESS_PC, MEM_TO_ADH, AD_TO_PC)
@@ -316,13 +365,7 @@ public enum MOS6502OpCode {
             opsInTick(ADDRESS_AD, MEM_TO_PCL),
             opsInTick(INC_ADL, ADDRESS_AD , MEM_TO_PCH)
     ));
-
-    //Should be easy wins
-    //TODO CMP
-
-    //TODO LDY
-    //TODO LDX
-
+    
     /*
     CMP (almost a copy of SBC)
     LDX, LDY (copies of LDA)

@@ -171,6 +171,11 @@ enum MOS6502MicroOp implements MOS6502Operation {
     /** Perform {@link MOS6502ALU#sbc(int)} with the value at <code>mem[address_bus]</code> */
     SBC((env, mem, alu) -> {
         alu.sbc(mem.fetch());
+    }),
+
+    /** Perform {@link MOS6502ALU#cmp(int)} with the value at <code>mem[address_bus]</code> */
+    CMP((env, mem, alu) -> {
+        alu.cmp(mem.fetch());
     });
 
     private final MOS6502Operation op;
