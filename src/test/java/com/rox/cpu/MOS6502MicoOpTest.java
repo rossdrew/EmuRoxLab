@@ -245,4 +245,253 @@ public class MOS6502MicoOpTest {
     }
 
     //TODO A_FROM_MEM
+
+    @Test
+    public void nopDoesNothing() {
+        NOP.execute(env, bus, alu);
+
+        verifyNoInteractions(alu);
+        assertEquals(0, env.getPC());
+        assertEquals(0, env.getA());
+        assertEquals(0, env.getX());
+        assertEquals(0, env.getAD());
+    }
+
+    @Test
+    public void addressMemPointerEndToEnd() {
+        ram.write(0x10, 0x44);
+        ram.write(0x44, 0x99);
+
+        bus.loadMemoryAddress(0x10);
+
+        ADDRESS_MEM_POINTER.execute(env, bus, alu);
+
+        verifyNoInteractions(alu);
+        assertEquals(0x44, bus.getAddressedMemory());
+        assertEquals(0x99, bus.fetch());
+    }
+
+    @Test
+    public void memToAdhEndToEnd() {
+        ram.write(0x10, 0x88);
+        bus.loadMemoryAddress(0x10);
+
+        MEM_TO_ADH.execute(env, bus, alu);
+
+        verifyNoInteractions(alu);
+        assertEquals(0x88, env.getADH());
+    }
+
+    @Test
+    public void incPcEndToEnd() {
+        env.setPC(0x8000);
+
+        INC_PC.execute(env, bus, alu);
+
+        verifyNoInteractions(alu);
+        assertEquals(0x8001, env.getPC());
+    }
+
+    @Test
+    public void incAdlEndToEnd() {
+        env.setADH(0x12);
+        env.setADL(0x34);
+
+        INC_ADL.execute(env, bus, alu);
+
+        verifyNoInteractions(alu);
+        assertEquals(0x12, env.getADH());
+        assertEquals(0x35, env.getADL());
+        assertEquals(0x1235, env.getAD());
+    }
+
+    @Test
+    public void incAdlWrapsWithoutCarryingToAdh() {
+        env.setADH(0x12);
+        env.setADL(0xFF);
+
+        INC_ADL.execute(env, bus, alu);
+
+        verifyNoInteractions(alu);
+        assertEquals(0x12, env.getADH());
+        assertEquals(0x00, env.getADL());
+        assertEquals(0x1200, env.getAD());
+    }
+
+    @Test
+    public void memToPclEndToEnd() {
+        ram.write(0x10, 0xCD);
+        bus.loadMemoryAddress(0x10);
+        env.setPC(0xAB00);
+
+        MEM_TO_PCL.execute(env, bus, alu);
+
+        verifyNoInteractions(alu);
+        assertEquals(0xABCD, env.getPC());
+    }
+
+    @Test
+    public void memToPchEndToEnd() {
+        ram.write(0x10, 0xAB);
+        bus.loadMemoryAddress(0x10);
+        env.setPC(0x00CD);
+
+        MEM_TO_PCH.execute(env, bus, alu);
+
+        verifyNoInteractions(alu);
+        assertEquals(0xABCD, env.getPC());
+    }
+
+    @Test
+    public void adToPcEndToEnd() {
+        env.setADH(0x12);
+        env.setADL(0x34);
+
+        AD_TO_PC.execute(env, bus, alu);
+
+        verifyNoInteractions(alu);
+        assertEquals(0x1234, env.getPC());
+    }
+
+    @ParameterizedTest(name = "AD[{0}:{1}] + Y({2}) = {3}")
+    @CsvSource({
+          // ADH,  ADL,  Y,    Expected ADL
+            "0x00, 0x01, 0x01, 0x02",
+            "0x01, 0x01, 0x01, 0x02",
+            "0x00, 0xFF, 0x02, 0x01"
+    })
+    public void adlPlusY(final int adh, final int adl, final int y, final int expected) {
+        env.setADH(adh);
+        env.setADL(adl);
+        env.setY(y);
+
+        ADL_PLUS_Y.execute(env, bus, alu);
+
+        verifyNoInteractions(alu);
+        assertEquals(expected, env.getADL());
+        assertEquals(expected, env.getAD());
+    }
+
+    @ParameterizedTest(name = "X={0}: Z={1}, N={2}")
+    @CsvSource({
+           // Value, Z,     N
+            "0x20,   false, false",
+            "0x00,   true,  false",
+            "0x80,   false, true",
+            "0x7F,   false, false"
+    })
+    public void setFlagsOnX(int value, boolean expectedZero, boolean expectedNegative) {
+        alu = new MOS6502ALU(env);
+        env.setX(value);
+
+        SET_FLAGS_ON_X.execute(env, bus, alu);
+
+        assertEquals(value, env.getX());
+        assertEquals(expectedZero, env.getZ());
+        assertEquals(expectedNegative, env.getN());
+    }
+
+    @Test
+    public void aFromAdEndToEnd() {
+        ram.write(0x1234, 0x42);
+        bus.loadMemoryAddress(0x1234);
+
+        A_FROM_AD.execute(env, bus, alu);
+
+        verifyNoInteractions(alu);
+        assertEquals(0x42, env.getA());
+    }
+
+    @Test
+    public void xFromAdEndToEnd() {
+        ram.write(0x1234, 0x42);
+        bus.loadMemoryAddress(0x1234);
+
+        X_FROM_AD.execute(env, bus, alu);
+
+        verifyNoInteractions(alu);
+        assertEquals(0x42, env.getX());
+    }
+
+    @Test
+    public void aFromMemEndToEnd() {
+        ram.write(0x20, 0x77);
+        bus.loadMemoryAddress(0x20);
+
+        A_FROM_MEM.execute(env, bus, alu);
+
+        verifyNoInteractions(alu);
+        assertEquals(0x77, env.getA());
+    }
+
+    @Test
+    public void xFromMemEndToEnd() {
+        ram.write(0x20, 0x77);
+        bus.loadMemoryAddress(0x20);
+
+        X_FROM_MEM.execute(env, bus, alu);
+
+        verifyNoInteractions(alu);
+        assertEquals(0x77, env.getX());
+    }
+
+    @Test
+    public void adcFetchesOperandAndDelegatesToAlu() {
+        ram.write(0x20, 0x77);
+        bus.loadMemoryAddress(0x20);
+
+        ADC.execute(env, bus, alu);
+
+        verify(alu).adc(0x77);
+    }
+
+    @Test
+    public void andFetchesOperandAndDelegatesToAlu() {
+        ram.write(0x20, 0x77);
+        bus.loadMemoryAddress(0x20);
+
+        AND.execute(env, bus, alu);
+
+        verify(alu).and(0x77);
+    }
+
+    @Test
+    public void oraFetchesOperandAndDelegatesToAlu() {
+        ram.write(0x20, 0x77);
+        bus.loadMemoryAddress(0x20);
+
+        ORA.execute(env, bus, alu);
+
+        verify(alu).ora(0x77);
+    }
+
+    @Test
+    public void eorFetchesOperandAndDelegatesToAlu() {
+        ram.write(0x20, 0x77);
+        bus.loadMemoryAddress(0x20);
+
+        EOR.execute(env, bus, alu);
+
+        verify(alu).eor(0x77);
+    }
+
+    @Test
+    public void sbcFetchesOperandAndDelegatesToAlu() {
+        ram.write(0x20, 0x77);
+        bus.loadMemoryAddress(0x20);
+
+        SBC.execute(env, bus, alu);
+
+        verify(alu).sbc(0x77);
+    }
+
+    @Test
+    public void cmpFetchesOperandAndDelegatesToAlu() {
+        ram.write(0x20, 0x77);
+        bus.loadMemoryAddress(0x20);
+
+        CMP.execute(env, bus, alu);
+
+        verify(alu).cmp(0x77);
+    }
 }
