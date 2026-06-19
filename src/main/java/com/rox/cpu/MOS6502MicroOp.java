@@ -159,13 +159,6 @@ enum MOS6502MicroOp implements MOS6502Operation {
         env.setX(newValue);
     }),
 
-    /** Set Accumulator to the value at the location specified by the program counter: <code>A := mem[pc++]</code> */
-    A_FROM_PC((env, mem, alu)->{
-        mem.loadMemoryAddress(env.getAndIncrementPC());
-        final int newValue = mem.fetch();
-        env.setA(newValue);
-    }),
-
     /** Set A to the value at the location specified by the address bus: <code>A := mem[AD]</code> */
     A_FROM_MEM((env, mem, alu)->{
         env.setA(mem.fetch());

@@ -205,16 +205,6 @@ public class MOS6502MicoOpTest {
         assertEquals(88, env.getADH());
     }
 
-    @Test
-    public void aFromPC(){
-        alu = new MOS6502ALU(env);
-        memoryBus8Bit.write(0,34);
-
-        A_FROM_PC.execute(env, bus, alu);
-
-        assertEquals(34, env.getA());
-    }
-
     @ParameterizedTest(name = "AD[{0}:{1}] + X({3} = {4}")
     @CsvSource({
           // ADH    ADL    X   Expected
@@ -253,4 +243,6 @@ public class MOS6502MicoOpTest {
         assertEquals(expectedZero, env.getZ());
         assertEquals(expectedNegative, env.getN());
     }
+
+    //TODO A_FROM_MEM
 }
