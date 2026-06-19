@@ -367,7 +367,6 @@ public enum MOS6502OpCode {
     ));
     
     /*
-    CMP (almost a copy of SBC)
     LDX, LDY (copies of LDA)
     STA, STX, STY (introduces writes)
     Transfer instructions (TAX, etc.)

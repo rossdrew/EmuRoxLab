@@ -7,7 +7,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import static com.rox.cpu.MOS6502OpCode.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 //Uses the correct addressing mode and consumes the correct cycles
 public class MOS6502OpCodeTest {
@@ -2499,8 +2499,6 @@ public class MOS6502OpCodeTest {
         assertEquals(0x1234, env.getPC());
     }
 
-    //TODO: Validate AI
-
     @Test
     void jmpIndirectLoadsPcFromPointerAddress() {
         ram.write(0x8000, JMP_I.getId());
@@ -2570,7 +2568,7 @@ public class MOS6502OpCodeTest {
 
     @ParameterizedTest(name = "CMP_I A={0}, M={1}")
     @CsvSource({
-            // A,    M,    Z,     N,     C
+            // A,   Op,    Z,     N,     C
             "0x00, 0x00, true,  false, true",
             "0x10, 0x05, false, false, true",
             "0x05, 0x10, false, true,  false",
@@ -2593,19 +2591,20 @@ public class MOS6502OpCodeTest {
         assertEquals(c, env.getCarry());
         assertEquals(0x8002, env.getPC());
     }
+
     @ParameterizedTest(name = "CMP_Z A={0}, M={1}")
     @CsvSource({
-            // A,    M,    Z,     N,     C
+           // A,  Value,  Z,     N,     C
             "0x00, 0x00, true,  false, true",
             "0x10, 0x05, false, false, true",
             "0x05, 0x10, false, true,  false",
             "0x80, 0x80, true,  false, true"
     })
-    void cmpZeroPageComparesAccumulatorAndSetsFlags(int a, int operand,
+    void cmpZeroPageComparesAccumulatorAndSetsFlags(int a, int value,
                                                     boolean z, boolean n, boolean c) {
         ram.write(0x8000, CMP_Z.getId());
         ram.write(0x8001, 0x44);
-        ram.write(0x0044, operand);
+        ram.write(0x0044, value);
 
         env.setPC(0x8000);
         env.setA(a);
@@ -2620,19 +2619,20 @@ public class MOS6502OpCodeTest {
         assertEquals(c, env.getCarry());
         assertEquals(0x8002, env.getPC());
     }
+
     @ParameterizedTest(name = "CMP_Z_X A={0}, M={1}")
     @CsvSource({
-            // A,    M,    Z,     N,     C
+            // A,  Value,  Z,     N,     C
             "0x00, 0x00, true,  false, true",
             "0x10, 0x05, false, false, true",
             "0x05, 0x10, false, true,  false",
             "0x80, 0x80, true,  false, true"
     })
-    void cmpZeroPageXComparesAccumulatorAndSetsFlags(int a, int operand,
+    void cmpZeroPageXComparesAccumulatorAndSetsFlags(int a, int value,
                                                      boolean z, boolean n, boolean c) {
         ram.write(0x8000, CMP_Z_X.getId());
         ram.write(0x8001, 0x44);
-        ram.write(0x0049, operand);
+        ram.write(0x0049, value);
 
         env.setPC(0x8000);
         env.setA(a);
@@ -2649,20 +2649,21 @@ public class MOS6502OpCodeTest {
         assertEquals(c, env.getCarry());
         assertEquals(0x8002, env.getPC());
     }
+
     @ParameterizedTest(name = "CMP_ABS A={0}, M={1}")
     @CsvSource({
-            // A,    M,    Z,     N,     C
+            // A,  Value,  Z,     N,     C
             "0x00, 0x00, true,  false, true",
             "0x10, 0x05, false, false, true",
             "0x05, 0x10, false, true,  false",
             "0x80, 0x80, true,  false, true"
     })
-    void cmpAbsoluteComparesAccumulatorAndSetsFlags(int a, int operand,
+    void cmpAbsoluteComparesAccumulatorAndSetsFlags(int a, int value,
                                                     boolean z, boolean n, boolean c) {
         ram.write(0x8000, CMP_ABS.getId());
         ram.write(0x8001, 0x34);
         ram.write(0x8002, 0x12);
-        ram.write(0x1234, operand);
+        ram.write(0x1234, value);
 
         env.setPC(0x8000);
         env.setA(a);
@@ -2678,20 +2679,21 @@ public class MOS6502OpCodeTest {
         assertEquals(c, env.getCarry());
         assertEquals(0x8003, env.getPC());
     }
+
     @ParameterizedTest(name = "CMP_ABS_X A={0}, M={1}")
     @CsvSource({
-            // A,    M,    Z,     N,     C
+            // A,  Value,  Z,     N,     C
             "0x00, 0x00, true,  false, true",
             "0x10, 0x05, false, false, true",
             "0x05, 0x10, false, true,  false",
             "0x80, 0x80, true,  false, true"
     })
-    void cmpAbsoluteXComparesAccumulatorAndSetsFlags(int a, int operand,
+    void cmpAbsoluteXComparesAccumulatorAndSetsFlags(int a, int value,
                                                      boolean z, boolean n, boolean c) {
         ram.write(0x8000, CMP_ABS_X.getId());
         ram.write(0x8001, 0x34);
         ram.write(0x8002, 0x12);
-        ram.write(0x1239, operand);
+        ram.write(0x1239, value);
 
         env.setPC(0x8000);
         env.setA(a);
@@ -2708,20 +2710,21 @@ public class MOS6502OpCodeTest {
         assertEquals(c, env.getCarry());
         assertEquals(0x8003, env.getPC());
     }
+
     @ParameterizedTest(name = "CMP_ABS_Y A={0}, M={1}")
     @CsvSource({
-            // A,    M,    Z,     N,     C
+            // A,  Value,  Z,     N,     C
             "0x00, 0x00, true,  false, true",
             "0x10, 0x05, false, false, true",
             "0x05, 0x10, false, true,  false",
             "0x80, 0x80, true,  false, true"
     })
-    void cmpAbsoluteYComparesAccumulatorAndSetsFlags(int a, int operand,
+    void cmpAbsoluteYComparesAccumulatorAndSetsFlags(int a, int value,
                                                      boolean z, boolean n, boolean c) {
         ram.write(0x8000, CMP_ABS_Y.getId());
         ram.write(0x8001, 0x34);
         ram.write(0x8002, 0x12);
-        ram.write(0x1239, operand);
+        ram.write(0x1239, value);
 
         env.setPC(0x8000);
         env.setA(a);
@@ -2738,22 +2741,23 @@ public class MOS6502OpCodeTest {
         assertEquals(c, env.getCarry());
         assertEquals(0x8003, env.getPC());
     }
+
     @ParameterizedTest(name = "CMP_IND_X A={0}, M={1}")
     @CsvSource({
-            // A,    M,    Z,     N,     C
+            // A,  Value,  Z,     N,     C
             "0x00, 0x00, true,  false, true",
             "0x10, 0x05, false, false, true",
             "0x05, 0x10, false, true,  false",
             "0x80, 0x80, true,  false, true"
     })
-    void cmpIndirectXComparesAccumulatorAndSetsFlags(int a, int operand,
+    void cmpIndirectXComparesAccumulatorAndSetsFlags(int a, int value,
                                                      boolean z, boolean n, boolean c) {
         ram.write(0x8000, CMP_IND_X.getId());
         ram.write(0x8001, 0x44);
 
         ram.write(0x0049, 0x34);
         ram.write(0x004A, 0x12);
-        ram.write(0x1234, operand);
+        ram.write(0x1234, value);
 
         env.setPC(0x8000);
         env.setA(a);
@@ -2772,22 +2776,23 @@ public class MOS6502OpCodeTest {
         assertEquals(c, env.getCarry());
         assertEquals(0x8002, env.getPC());
     }
+
     @ParameterizedTest(name = "CMP_IND_Y A={0}, M={1}")
     @CsvSource({
-            // A,    M,    Z,     N,     C
+            // A,  Value,  Z,     N,     C
             "0x00, 0x00, true,  false, true",
             "0x10, 0x05, false, false, true",
             "0x05, 0x10, false, true,  false",
             "0x80, 0x80, true,  false, true"
     })
-    void cmpIndirectYComparesAccumulatorAndSetsFlags(int a, int operand,
+    void cmpIndirectYComparesAccumulatorAndSetsFlags(int a, int value,
                                                      boolean z, boolean n, boolean c) {
         ram.write(0x8000, CMP_IND_Y.getId());
         ram.write(0x8001, 0x44);
 
         ram.write(0x0044, 0x34);
         ram.write(0x0045, 0x12);
-        ram.write(0x1239, operand);
+        ram.write(0x1239, value);
 
         env.setPC(0x8000);
         env.setA(a);
@@ -2804,6 +2809,39 @@ public class MOS6502OpCodeTest {
         assertEquals(n, env.getN());
         assertEquals(c, env.getCarry());
         assertEquals(0x8002, env.getPC());
+    }
+
+    @Test
+    void cmpAbsoluteXDoesNotExecuteBeforeExtraCycleWhenPageCrosses() {
+        ram.write(0x8000, CMP_ABS_X.getId());
+        ram.write(0x8001, 0xFF);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1304, 0x05);
+
+        env.setPC(0x8000);
+        env.setA(0x10);
+        env.setX(0x05);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch low address byte
+        cpu.tick(); // fetch high address byte, add X
+
+        assertFalse(env.getZ());
+        assertFalse(env.getN());
+        assertFalse(env.getCarry());
+
+        cpu.tick(); // dummy read / page-cross fix
+
+        assertFalse(env.getZ());
+        assertFalse(env.getN());
+        assertFalse(env.getCarry());
+
+        cpu.tick(); // read operand, CMP, set flags
+
+        assertFalse(env.getZ());
+        assertFalse(env.getN());
+        assertTrue(env.getCarry());
+        assertEquals(0x8003, env.getPC());
     }
 
     //TODO is it worth testing actual operations at this level? ADC, AND...
