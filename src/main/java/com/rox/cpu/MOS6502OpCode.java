@@ -13,9 +13,17 @@ public enum MOS6502OpCode {
 
     //XXX Possible bug, some instructions might not incremenet the pc, meaning the next instruction will read from the wrong place
 
+//    BRK(0x00, clockTicks(
+//            opsInTick() //TODO what does break do?
+//    )),
+
+    NOP(0x6E, clockTicks(
+            opsInTick() //Do nothing
+    )),
+
     /** Zero Page Addressed ADC (ADd with Carry) */
     ADC_Z(0x65, clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
             opsInTick(ADDRESS_ADL, ADC, SET_FLAGS_ON_A)
     )),
 
@@ -26,35 +34,35 @@ public enum MOS6502OpCode {
 
     /** A ← A + Memory[ADH:ADL] + Carry */
     ADC_ABS(0x6D, clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
-            opsInTick(ADDRESS_PC, MEM_TO_ADH),
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM),
             opsInTick(ADDRESS_AD, ADC, SET_FLAGS_ON_A)
     )),
 
     /** A ← A + Memory[$1234 + X] + Carry */
     ADC_ABS_X(0x7D, clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
-            opsInTick(ADDRESS_PC, MEM_TO_ADH, ADDRESS_AD_PLUS_X),
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM, ADDRESS_AD_PLUS_X),
             opsInTick(ADC, SET_FLAGS_ON_A))
     ),
 
     ADC_ABS_Y(0x79, clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
-            opsInTick(ADDRESS_PC, MEM_TO_ADH, ADDRESS_AD_PLUS_Y),
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM, ADDRESS_AD_PLUS_Y),
             opsInTick(ADC, SET_FLAGS_ON_A)
     )),
 
     ADC_IND_X(0x61, clockTicks(
             opsInTick(ADDRESS_PC), //XXX store in temporary location we can add to?
             opsInTick(X_OFFSET_ADDRESS),
-            opsInTick(MEM_TO_ADL),
+            opsInTick(ADL_FROM_MEM),
             opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD),
             opsInTick(ADC, SET_FLAGS_ON_A)
     )),
 
     ADC_IND_Y(0x71, clockTicks(
             opsInTick(ADDRESS_PC),
-            opsInTick(ADDRESS_MEM_POINTER, MEM_TO_ADL),
+            opsInTick(ADDRESS_MEM_POINTER, ADL_FROM_MEM),
             opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD_PLUS_Y),
             opsInTick(ADC, SET_FLAGS_ON_A)
     )),
@@ -70,86 +78,109 @@ public enum MOS6502OpCode {
     )),
 
     LDA_Z(0xA5, clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
             opsInTick(ADDRESS_ADL, A_FROM_AD, SET_FLAGS_ON_A)
     )),
 
     LDA_Z_X(0xB5, clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
             opsInTick(ADL_PLUS_X),
             opsInTick(ADDRESS_ADL, A_FROM_AD, SET_FLAGS_ON_A)
     )),
 
     LDA_ABS(0xAD, clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
-            opsInTick(ADDRESS_PC, MEM_TO_ADH),
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM),
             opsInTick(ADDRESS_AD, A_FROM_AD, SET_FLAGS_ON_A)
     )),
 
     LDA_ABS_X(0xBD, clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
-            opsInTick(ADDRESS_PC, MEM_TO_ADH ,ADDRESS_AD_PLUS_X),
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM,ADDRESS_AD_PLUS_X),
             opsInTick(A_FROM_AD, SET_FLAGS_ON_A)
     )),
 
     LDA_ABS_Y(0xB9, clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
-            opsInTick(ADDRESS_PC, MEM_TO_ADH, ADDRESS_AD_PLUS_Y),
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM, ADDRESS_AD_PLUS_Y),
             opsInTick(A_FROM_AD, SET_FLAGS_ON_A)
     )),
 
     LDA_IND_X(0xA1, clockTicks(
             opsInTick(ADDRESS_PC),
             opsInTick(X_OFFSET_ADDRESS),
-            opsInTick(MEM_TO_ADL),
+            opsInTick(ADL_FROM_MEM),
             opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD),
             opsInTick(A_FROM_AD, SET_FLAGS_ON_A)
     )),
 
     LDA_IND_Y(0xB1, clockTicks(
             opsInTick(ADDRESS_PC),
-            opsInTick(ADDRESS_MEM_POINTER, MEM_TO_ADL),
+            opsInTick(ADDRESS_MEM_POINTER, ADL_FROM_MEM),
             opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD_PLUS_Y),
             opsInTick(A_FROM_AD, SET_FLAGS_ON_A)
     )),
-    
-    //WIP
 
     LDX_I(0xA2, clockTicks(
             opsInTick(ADDRESS_PC, X_FROM_MEM, SET_FLAGS_ON_X)
     )),
 
     LDX_Z(0xA6, clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
             opsInTick(ADDRESS_ADL, X_FROM_AD, SET_FLAGS_ON_X)
     )),
 
     LDX_Z_Y(0xB6, clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
             opsInTick(ADL_PLUS_Y),
             opsInTick(ADDRESS_ADL, X_FROM_AD, SET_FLAGS_ON_X)
     )),
 
     LDX_ABS(0xAE, clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
-            opsInTick(ADDRESS_PC, MEM_TO_ADH),
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM),
             opsInTick(ADDRESS_AD, X_FROM_AD, SET_FLAGS_ON_X)
     )),
 
     LDX_ABS_Y(0xBE, clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
-            opsInTick(ADDRESS_PC, MEM_TO_ADH, ADDRESS_AD_PLUS_Y),
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM, ADDRESS_AD_PLUS_Y),
             opsInTick(X_FROM_AD, SET_FLAGS_ON_X)
     )),
-    
-    //END WIP
-    
+
+    LDY_I(0xA0, clockTicks(
+            opsInTick(ADDRESS_PC, Y_FROM_MEM, SET_FLAGS_ON_Y)
+    )),
+
+    LDY_Z(0xA4, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_ADL, Y_FROM_AD, SET_FLAGS_ON_Y)
+    )),
+
+    LDY_Z_X(0xB4, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADL_PLUS_X),
+            opsInTick(ADDRESS_ADL, Y_FROM_AD, SET_FLAGS_ON_Y)
+    )),
+
+    LDY_ABS(0xAC, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM),
+            opsInTick(ADDRESS_AD, Y_FROM_AD, SET_FLAGS_ON_Y)
+    )),
+
+    LDY_ABS_X(0xBC, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM, ADDRESS_AD_PLUS_X),
+            opsInTick(Y_FROM_AD, SET_FLAGS_ON_Y)
+    )),
+
     AND_I(0x29, clockTicks(
             opsInTick(ADDRESS_PC, AND, SET_FLAGS_ON_A)
     )),
 
     AND_Z(0x25, clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
             opsInTick(ADDRESS_ADL, AND, SET_FLAGS_ON_A)
     )),
 
@@ -160,34 +191,34 @@ public enum MOS6502OpCode {
     )),
 
     AND_ABS(0x2D,clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
-            opsInTick(ADDRESS_PC, MEM_TO_ADH),
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM),
             opsInTick(ADDRESS_AD, AND, SET_FLAGS_ON_A)
     )),
 
     AND_ABS_X(0x3D,clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
-            opsInTick(ADDRESS_PC, MEM_TO_ADH, ADDRESS_AD_PLUS_X),
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM, ADDRESS_AD_PLUS_X),
             opsInTick(AND, SET_FLAGS_ON_A)
     )),
 
     AND_ABS_Y(0x39,clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
-            opsInTick(ADDRESS_PC, MEM_TO_ADH, ADDRESS_AD_PLUS_Y),
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM, ADDRESS_AD_PLUS_Y),
             opsInTick(AND, SET_FLAGS_ON_A)
     )),
 
     AND_IND_X(0x21,clockTicks(
             opsInTick(ADDRESS_PC), //XXX store in temporary location we can add to?
             opsInTick(X_OFFSET_ADDRESS),
-            opsInTick(MEM_TO_ADL),
+            opsInTick(ADL_FROM_MEM),
             opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD),
             opsInTick(AND, SET_FLAGS_ON_A)
     )),
 
     AND_IND_Y(0x31,clockTicks(
             opsInTick(ADDRESS_PC),
-            opsInTick(ADDRESS_MEM_POINTER, MEM_TO_ADL),
+            opsInTick(ADDRESS_MEM_POINTER, ADL_FROM_MEM),
             opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD_PLUS_Y),
             opsInTick(AND, SET_FLAGS_ON_A)
     )),
@@ -197,7 +228,7 @@ public enum MOS6502OpCode {
     )),
 
     ORA_Z(0x05, clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
             opsInTick(ADDRESS_ADL, ORA, SET_FLAGS_ON_A)
     )),
 
@@ -208,34 +239,34 @@ public enum MOS6502OpCode {
     )),
 
     ORA_ABS(0x0D, clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
-            opsInTick(ADDRESS_PC, MEM_TO_ADH),
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM),
             opsInTick(ADDRESS_AD, ORA, SET_FLAGS_ON_A)
     )),
 
     ORA_ABS_X(0x1D, clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
-            opsInTick(ADDRESS_PC, MEM_TO_ADH, ADDRESS_AD_PLUS_X),
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM, ADDRESS_AD_PLUS_X),
             opsInTick(ORA, SET_FLAGS_ON_A)
     )),
 
     ORA_ABS_Y(0x19, clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
-            opsInTick(ADDRESS_PC, MEM_TO_ADH, ADDRESS_AD_PLUS_Y),
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM, ADDRESS_AD_PLUS_Y),
             opsInTick(ORA, SET_FLAGS_ON_A)
     )),
 
     ORA_IND_X(0x01, clockTicks(
             opsInTick(ADDRESS_PC),
             opsInTick(X_OFFSET_ADDRESS),
-            opsInTick(MEM_TO_ADL),
+            opsInTick(ADL_FROM_MEM),
             opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD),
             opsInTick(ORA, SET_FLAGS_ON_A)
     )),
 
     ORA_IND_Y(0x11, clockTicks(
             opsInTick(ADDRESS_PC),
-            opsInTick(ADDRESS_MEM_POINTER, MEM_TO_ADL),
+            opsInTick(ADDRESS_MEM_POINTER, ADL_FROM_MEM),
             opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD_PLUS_Y),
             opsInTick(ORA, SET_FLAGS_ON_A)
     )),
@@ -245,7 +276,7 @@ public enum MOS6502OpCode {
     )),
 
     EOR_Z(0x45, clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
             opsInTick(ADDRESS_ADL, EOR, SET_FLAGS_ON_A)
     )),
 
@@ -256,34 +287,34 @@ public enum MOS6502OpCode {
     )),
 
     EOR_ABS(0x4D, clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
-            opsInTick(ADDRESS_PC, MEM_TO_ADH),
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM),
             opsInTick(ADDRESS_AD, EOR, SET_FLAGS_ON_A)
     )),
 
     EOR_ABS_X(0x5D, clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
-            opsInTick(ADDRESS_PC, MEM_TO_ADH, ADDRESS_AD_PLUS_X),
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM, ADDRESS_AD_PLUS_X),
             opsInTick(EOR, SET_FLAGS_ON_A)
     )),
 
     EOR_ABS_Y(0x59, clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
-            opsInTick(ADDRESS_PC, MEM_TO_ADH, ADDRESS_AD_PLUS_Y),
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM, ADDRESS_AD_PLUS_Y),
             opsInTick(EOR, SET_FLAGS_ON_A)
     )),
 
     EOR_IND_X(0x41, clockTicks(
             opsInTick(ADDRESS_PC),
             opsInTick(X_OFFSET_ADDRESS),
-            opsInTick(MEM_TO_ADL),
+            opsInTick(ADL_FROM_MEM),
             opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD),
             opsInTick(EOR, SET_FLAGS_ON_A)
     )),
 
     EOR_IND_Y(0x51, clockTicks(
             opsInTick(ADDRESS_PC),
-            opsInTick(ADDRESS_MEM_POINTER, MEM_TO_ADL),
+            opsInTick(ADDRESS_MEM_POINTER, ADL_FROM_MEM),
             opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD_PLUS_Y),
             opsInTick(EOR, SET_FLAGS_ON_A)
     )),
@@ -293,7 +324,7 @@ public enum MOS6502OpCode {
     )),
 
     SBC_Z(0xE5, clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
             opsInTick(ADDRESS_ADL, SBC, SET_FLAGS_ON_A)
     )),
 
@@ -304,45 +335,44 @@ public enum MOS6502OpCode {
     )),
 
     SBC_ABS(0xED, clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
-            opsInTick(ADDRESS_PC, MEM_TO_ADH),
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM),
             opsInTick(ADDRESS_AD, SBC, SET_FLAGS_ON_A)
     )),
 
     SBC_ABS_X(0xFD, clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
-            opsInTick(ADDRESS_PC, MEM_TO_ADH, ADDRESS_AD_PLUS_X),
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM, ADDRESS_AD_PLUS_X),
             opsInTick(SBC, SET_FLAGS_ON_A)
     )),
 
     SBC_ABS_Y(0xF9, clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
-            opsInTick(ADDRESS_PC, MEM_TO_ADH, ADDRESS_AD_PLUS_Y),
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM, ADDRESS_AD_PLUS_Y),
             opsInTick(SBC, SET_FLAGS_ON_A)
     )),
 
     SBC_IND_X(0xE1, clockTicks(
             opsInTick(ADDRESS_PC),
             opsInTick(X_OFFSET_ADDRESS),
-            opsInTick(MEM_TO_ADL),
+            opsInTick(ADL_FROM_MEM),
             opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD),
             opsInTick(SBC, SET_FLAGS_ON_A)
     )),
 
     SBC_IND_Y(0xF1, clockTicks(
             opsInTick(ADDRESS_PC),
-            opsInTick(ADDRESS_MEM_POINTER, MEM_TO_ADL),
+            opsInTick(ADDRESS_MEM_POINTER, ADL_FROM_MEM),
             opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD_PLUS_Y),
             opsInTick(SBC, SET_FLAGS_ON_A)
     )),
 
-    //WIP
     CMP_I(0xC9, clockTicks(
             opsInTick(ADDRESS_PC, CMP)
     )),
 
     CMP_Z(0xC5, clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
             opsInTick(ADDRESS_ADL, CMP)
     )),
 
@@ -353,57 +383,64 @@ public enum MOS6502OpCode {
     )),
 
     CMP_ABS(0xCD, clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
-            opsInTick(ADDRESS_PC, MEM_TO_ADH),
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM),
             opsInTick(ADDRESS_AD, CMP)
     )),
 
     CMP_ABS_X(0xDD, clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
-            opsInTick(ADDRESS_PC, MEM_TO_ADH, ADDRESS_AD_PLUS_X),
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM, ADDRESS_AD_PLUS_X),
             opsInTick(CMP)
     )),
 
     CMP_ABS_Y(0xD9, clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
-            opsInTick(ADDRESS_PC, MEM_TO_ADH, ADDRESS_AD_PLUS_Y),
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM, ADDRESS_AD_PLUS_Y),
             opsInTick(CMP)
     )),
 
     CMP_IND_X(0xC1, clockTicks(
             opsInTick(ADDRESS_PC),
             opsInTick(X_OFFSET_ADDRESS),
-            opsInTick(MEM_TO_ADL),
+            opsInTick(ADL_FROM_MEM),
             opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD),
             opsInTick(CMP)
     )),
 
     CMP_IND_Y(0xD1, clockTicks(
             opsInTick(ADDRESS_PC),
-            opsInTick(ADDRESS_MEM_POINTER, MEM_TO_ADL),
+            opsInTick(ADDRESS_MEM_POINTER, ADL_FROM_MEM),
             opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD_PLUS_Y),
             opsInTick(CMP)
     )),
 
     JMP_ABS(0x4C, clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
-            opsInTick(ADDRESS_PC, MEM_TO_ADH, AD_TO_PC)
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM, AD_TO_PC)
     )),
 
     JMP_I(0x6C, clockTicks(
-            opsInTick(ADDRESS_PC, MEM_TO_ADL),
-            opsInTick(ADDRESS_PC, MEM_TO_ADH),
-            opsInTick(ADDRESS_AD, MEM_TO_PCL),
-            opsInTick(INC_ADL, ADDRESS_AD , MEM_TO_PCH)
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM),
+            opsInTick(ADDRESS_AD, PCL_FROM_MEM),
+            opsInTick(INC_ADL, ADDRESS_AD , PCH_FROM_MEM)
+    )),
+
+    STA_Z(0x86, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_ADL, MEM_FROM_A)
     ));
-    
+
     /*
-    LDX, LDY (copies of LDA)
+
+    For sample program: INX, CPX, BNE, BRK
+
     STA, STX, STY (introduces writes)
     Transfer instructions (TAX, etc.)
     INX, DEX, INY, DEY
     BIT
-    Branch instructions (great test of your cycle scheduling)
+    Branch instructions
     Stack instructions
     JSR / RTS
     Shifts and rotates

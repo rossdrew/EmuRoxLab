@@ -3097,5 +3097,326 @@ public class MOS6502OpCodeTest {
         assertEquals(0x8003, env.getPC());
     }
 
+    //AI
+
+    @ParameterizedTest(name = "LDY_I M={0}")
+    @CsvSource({
+            // M,    Z,     N
+            "0x20, false, false",
+            "0x00, true,  false",
+            "0x80, false, true",
+            "0xFF, false, true"
+    })
+    void ldyImmediateLoadsYAndSetsFlags(int operand, boolean z, boolean n) {
+        ram.write(0x8000, LDY_I.getId());
+        ram.write(0x8001, operand);
+
+        env.setPC(0x8000);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch operand, load Y, set flags
+
+        assertEquals(operand & 0xFF, env.getY());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @Test
+    void ldyImmediateDoesNotLoadUntilSecondTick() {
+        ram.write(0x8000, LDY_I.getId());
+        ram.write(0x8001, 0x20);
+
+        env.setPC(0x8000);
+        env.setY(0x10);
+
+        cpu.tick(); // fetch opcode
+
+        assertEquals(0x10, env.getY());
+
+        cpu.tick(); // fetch operand, load Y, set flags
+
+        assertEquals(0x20, env.getY());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @ParameterizedTest(name = "LDY_Z M={0}")
+    @CsvSource({
+            // M,    Z,     N
+            "0x20, false, false",
+            "0x00, true,  false",
+            "0x80, false, true",
+            "0xFF, false, true"
+    })
+    void ldyZeroPageLoadsYAndSetsFlags(int operand, boolean z, boolean n) {
+        ram.write(0x8000, LDY_Z.getId());
+        ram.write(0x8001, 0x44);
+        ram.write(0x0044, operand);
+
+        env.setPC(0x8000);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch zero-page address
+        cpu.tick(); // read operand, load Y, set flags
+
+        assertEquals(operand & 0xFF, env.getY());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @Test
+    void ldyZeroPageDoesNotLoadUntilThirdTick() {
+        ram.write(0x8000, LDY_Z.getId());
+        ram.write(0x8001, 0x44);
+        ram.write(0x0044, 0x20);
+
+        env.setPC(0x8000);
+        env.setY(0x10);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch zero-page address
+
+        assertEquals(0x10, env.getY());
+
+        cpu.tick(); // read operand, load Y, set flags
+
+        assertEquals(0x20, env.getY());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @ParameterizedTest(name = "LDY_Z_X M={0}")
+    @CsvSource({
+            // M,    Z,     N
+            "0x20, false, false",
+            "0x00, true,  false",
+            "0x80, false, true",
+            "0xFF, false, true"
+    })
+    void ldyZeroPageXLoadsYAndSetsFlags(int operand, boolean z, boolean n) {
+        ram.write(0x8000, LDY_Z_X.getId());
+        ram.write(0x8001, 0x44);
+        ram.write(0x0049, operand);
+
+        env.setPC(0x8000);
+        env.setX(0x05);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch zero-page base address
+        cpu.tick(); // add X to zero-page address
+        cpu.tick(); // read operand, load Y, set flags
+
+        assertEquals(operand & 0xFF, env.getY());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @Test
+    void ldyZeroPageXWrapsWithinZeroPage() {
+        ram.write(0x8000, LDY_Z_X.getId());
+        ram.write(0x8001, 0xFE);
+        ram.write(0x0003, 0x20);
+
+        env.setPC(0x8000);
+        env.setX(0x05);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch zero-page base address
+        cpu.tick(); // add X to zero-page address, wrapping within zero page
+        cpu.tick(); // read operand, load Y, set flags
+
+        assertEquals(0x20, env.getY());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @Test
+    void ldyZeroPageXDoesNotLoadUntilFourthTick() {
+        ram.write(0x8000, LDY_Z_X.getId());
+        ram.write(0x8001, 0x44);
+        ram.write(0x0049, 0x20);
+
+        env.setPC(0x8000);
+        env.setY(0x10);
+        env.setX(0x05);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch zero-page base address
+        cpu.tick(); // add X to zero-page address
+
+        assertEquals(0x10, env.getY());
+
+        cpu.tick(); // read operand, load Y, set flags
+
+        assertEquals(0x20, env.getY());
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @ParameterizedTest(name = "LDY_ABS M={0}")
+    @CsvSource({
+            // M,    Z,     N
+            "0x20, false, false",
+            "0x00, true,  false",
+            "0x80, false, true",
+            "0xFF, false, true"
+    })
+    void ldyAbsoluteLoadsYAndSetsFlags(int operand, boolean z, boolean n) {
+        ram.write(0x8000, LDY_ABS.getId());
+        ram.write(0x8001, 0x34);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1234, operand);
+
+        env.setPC(0x8000);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch low address byte
+        cpu.tick(); // fetch high address byte
+        cpu.tick(); // read operand, load Y, set flags
+
+        assertEquals(operand & 0xFF, env.getY());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @Test
+    void ldyAbsoluteDoesNotLoadUntilFourthTick() {
+        ram.write(0x8000, LDY_ABS.getId());
+        ram.write(0x8001, 0x34);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1234, 0x20);
+
+        env.setPC(0x8000);
+        env.setY(0x10);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch low address byte
+        cpu.tick(); // fetch high address byte
+
+        assertEquals(0x10, env.getY());
+
+        cpu.tick(); // read operand, load Y, set flags
+
+        assertEquals(0x20, env.getY());
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @ParameterizedTest(name = "LDY_ABS_X M={0}")
+    @CsvSource({
+            // M,    Z,     N
+            "0x20, false, false",
+            "0x00, true,  false",
+            "0x80, false, true",
+            "0xFF, false, true"
+    })
+    void ldyAbsoluteXLoadsYAndSetsFlags(int operand, boolean z, boolean n) {
+        ram.write(0x8000, LDY_ABS_X.getId());
+        ram.write(0x8001, 0x34);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1239, operand);
+
+        env.setPC(0x8000);
+        env.setX(0x05);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch low address byte
+        cpu.tick(); // fetch high address byte, add X
+        cpu.tick(); // read operand, load Y, set flags
+
+        assertEquals(operand & 0xFF, env.getY());
+        assertEquals(z, env.getZ());
+        assertEquals(n, env.getN());
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @Test
+    void ldyAbsoluteXDoesNotExecuteBeforeExtraCycleWhenPageCrosses() {
+        ram.write(0x8000, LDY_ABS_X.getId());
+        ram.write(0x8001, 0xFF);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1304, 0x20);
+
+        env.setPC(0x8000);
+        env.setY(0x10);
+        env.setX(0x05);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch low address byte
+        cpu.tick(); // fetch high address byte, add X
+
+        assertEquals(0x10, env.getY());
+
+        cpu.tick(); // dummy read / page-cross fix
+
+        assertEquals(0x10, env.getY());
+
+        cpu.tick(); // read operand, load Y, set flags
+
+        assertEquals(0x20, env.getY());
+        assertEquals(0x8003, env.getPC());
+    }
+
+    ///test
+
+    @Test
+    void staZeroPageStoresAccumulatorAtZeroPageAddress() {
+        ram.write(0x8000, STA_Z.getId());
+        ram.write(0x8001, 0x44);
+
+        env.setPC(0x8000);
+        env.setA(0x20);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch zero-page address
+        cpu.tick(); // write A to zero-page address
+
+        assertEquals(0x20, ram.read(0x0044));
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @Test
+    void staZeroPageDoesNotStoreUntilThirdTick() {
+        ram.write(0x8000, STA_Z.getId());
+        ram.write(0x8001, 0x44);
+        ram.write(0x0044, 0x00);
+
+        env.setPC(0x8000);
+        env.setA(0x20);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch zero-page address
+
+        assertEquals(0x00, ram.read(0x0044));
+
+        cpu.tick(); // write A to zero-page address
+
+        assertEquals(0x20, ram.read(0x0044));
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @Test
+    void staZeroPageDoesNotAffectFlags() {
+        ram.write(0x8000, STA_Z.getId());
+        ram.write(0x8001, 0x44);
+
+        env.setPC(0x8000);
+        env.setA(0x00);
+
+        env.setZ(false);
+        env.setN(true);
+        env.setCarry(true);
+        env.setV(true);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch zero-page address
+        cpu.tick(); // write A to zero-page address
+
+        assertEquals(0x00, ram.read(0x0044));
+        assertFalse(env.getZ());
+        assertTrue(env.getN());
+        assertTrue(env.getCarry());
+        assertTrue(env.getV());
+    }
+
     //TODO is it worth testing actual operations at this level? ADC, AND...
 }

@@ -187,7 +187,7 @@ public class MOS6502MicoOpTest {
         memoryBus8Bit.write(10, 77);
         bus.loadMemoryAddress(10);
 
-        MEM_TO_ADL.execute(env, bus, alu);
+        ADL_FROM_MEM.execute(env, bus, alu);
 
         verifyNoInteractions(alu);
         assertEquals(77, env.getADL());
@@ -244,8 +244,6 @@ public class MOS6502MicoOpTest {
         assertEquals(expectedNegative, env.getN());
     }
 
-    //TODO A_FROM_MEM
-
     @Test
     public void nopDoesNothing() {
         NOP.execute(env, bus, alu);
@@ -276,7 +274,7 @@ public class MOS6502MicoOpTest {
         ram.write(0x10, 0x88);
         bus.loadMemoryAddress(0x10);
 
-        MEM_TO_ADH.execute(env, bus, alu);
+        ADH_FROM_MEM.execute(env, bus, alu);
 
         verifyNoInteractions(alu);
         assertEquals(0x88, env.getADH());
@@ -324,7 +322,7 @@ public class MOS6502MicoOpTest {
         bus.loadMemoryAddress(0x10);
         env.setPC(0xAB00);
 
-        MEM_TO_PCL.execute(env, bus, alu);
+        PCL_FROM_MEM.execute(env, bus, alu);
 
         verifyNoInteractions(alu);
         assertEquals(0xABCD, env.getPC());
@@ -336,7 +334,7 @@ public class MOS6502MicoOpTest {
         bus.loadMemoryAddress(0x10);
         env.setPC(0x00CD);
 
-        MEM_TO_PCH.execute(env, bus, alu);
+        PCH_FROM_MEM.execute(env, bus, alu);
 
         verifyNoInteractions(alu);
         assertEquals(0xABCD, env.getPC());
@@ -391,6 +389,25 @@ public class MOS6502MicoOpTest {
         assertEquals(expectedNegative, env.getN());
     }
 
+    @ParameterizedTest(name = "X={0}: Z={1}, N={2}")
+    @CsvSource({
+            // Value, Z,     N
+            "0x20,   false, false",
+            "0x00,   true,  false",
+            "0x80,   false, true",
+            "0x7F,   false, false"
+    })
+    public void setFlagsOnY(int value, boolean expectedZero, boolean expectedNegative) {
+        alu = new MOS6502ALU(env);
+        env.setY(value);
+
+        SET_FLAGS_ON_Y.execute(env, bus, alu);
+
+        assertEquals(value, env.getY());
+        assertEquals(expectedZero, env.getZ());
+        assertEquals(expectedNegative, env.getN());
+    }
+
     @Test
     public void aFromAdEndToEnd() {
         ram.write(0x1234, 0x42);
@@ -414,6 +431,17 @@ public class MOS6502MicoOpTest {
     }
 
     @Test
+    public void yFromAdEndToEnd() {
+        ram.write(0x1234, 0x42);
+        bus.loadMemoryAddress(0x1234);
+
+        Y_FROM_AD.execute(env, bus, alu);
+
+        verifyNoInteractions(alu);
+        assertEquals(0x42, env.getY());
+    }
+
+    @Test
     public void aFromMemEndToEnd() {
         ram.write(0x20, 0x77);
         bus.loadMemoryAddress(0x20);
@@ -433,6 +461,17 @@ public class MOS6502MicoOpTest {
 
         verifyNoInteractions(alu);
         assertEquals(0x77, env.getX());
+    }
+
+    @Test
+    public void yFromMemEndToEnd() {
+        ram.write(0x20, 0x77);
+        bus.loadMemoryAddress(0x20);
+
+        Y_FROM_MEM.execute(env, bus, alu);
+
+        verifyNoInteractions(alu);
+        assertEquals(0x77, env.getY());
     }
 
     @Test
@@ -493,5 +532,15 @@ public class MOS6502MicoOpTest {
         CMP.execute(env, bus, alu);
 
         verify(alu).cmp(0x77);
+    }
+
+    @Test
+    public void memFromA() {
+        env.setA(42);
+        bus.loadMemoryAddress(0x12);
+
+        MEM_FROM_A.execute(env, bus, alu);
+        
+        assertEquals(42, bus.fetch());
     }
 }

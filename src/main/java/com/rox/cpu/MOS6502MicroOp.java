@@ -29,16 +29,6 @@ enum MOS6502MicroOp implements MOS6502Operation {
         mem.loadMemoryAddress(mem.fetch());
     }),
 
-    /** Load value from memory into ADL : <code>adl := mem[address_bus]</code> */
-    MEM_TO_ADL((env, mem, alu)->{
-        env.setADL(mem.fetch());
-    }),
-
-    /** Load value from memory into ADH : <code>adh := mem[address_bus]</code> */
-    MEM_TO_ADH((env, mem, alu)->{
-        env.setADH(mem.fetch());
-    }),
-
     /**
      * Load the next addressed value into ADH : <code>adl := mem[address_bus + 1]</code>
      * Due to a (mimicked) hardware bug in the 6502, this wraps $00FF to $0000 rather than $01000
@@ -59,16 +49,6 @@ enum MOS6502MicroOp implements MOS6502Operation {
     /** Increment the address register directly with low byte wrapping : <code>adl := adl++</code>*/
     INC_ADL((env, mem, alu)->{
         env.setADL((env.getADL() + 1) & 0xFF);
-    }),
-
-    /** Set the program counter low byte to the state of the address bus low byte : <code>pcl := adl</code>*/
-    MEM_TO_PCL((env, mem, alu)->{
-        env.setPCL(mem.fetch());
-    }),
-
-    /** Set the program counter high byte to the state of the address bus high byte : <code>pch := adh</code>*/
-    MEM_TO_PCH((env, mem, alu)->{
-        env.setPCH(mem.fetch());
     }),
 
     /** Set the program counter to the state of the address bus : <code>pc := ad</code>*/
@@ -147,16 +127,24 @@ enum MOS6502MicroOp implements MOS6502Operation {
         alu.setStaticFlags(env.getX());
     }),
 
+    /** Set static flags (N and Z) based on the value of Y */
+    SET_FLAGS_ON_Y((env, mem, alu)->{
+        alu.setStaticFlags(env.getY());
+    }),
+
     /** Set Accumulator to the value on the data bus: <code>A := mem[address_bus]</code> */
     A_FROM_AD((env, mem, alu) -> {
-        final int newValue = mem.fetch();
-        env.setA(newValue);
+        env.setA(mem.fetch());
     }),
 
     /** Set X to the value on the data bus: <code>X := mem[address_bus]</code> */
     X_FROM_AD((env, mem, alu) -> {
-        final int newValue = mem.fetch();
-        env.setX(newValue);
+        env.setX(mem.fetch());
+    }),
+
+    /** Set X to the value on the data bus: <code>X := mem[address_bus]</code> */
+    Y_FROM_AD((env, mem, alu) -> {
+        env.setY(mem.fetch());
     }),
 
     /** Set A to the value at the location specified by the address bus: <code>A := mem[AD]</code> */
@@ -167,6 +155,36 @@ enum MOS6502MicroOp implements MOS6502Operation {
     /** Set X to the value at the location specified by the address bus: <code>X := mem[AD]</code> */
     X_FROM_MEM((env, mem, alu)->{
         env.setX(mem.fetch());
+    }),
+
+    /** Set Y to the value at the location specified by the address bus: <code>Y := mem[AD]</code> */
+    Y_FROM_MEM((env, mem, alu)->{
+        env.setY(mem.fetch());
+    }),
+
+    /** Load value from memory into ADL : <code>adl := mem[address_bus]</code> */
+    ADL_FROM_MEM((env, mem, alu)->{
+        env.setADL(mem.fetch());
+    }),
+
+    /** Load value from memory into ADH : <code>adh := mem[address_bus]</code> */
+    ADH_FROM_MEM((env, mem, alu)->{
+        env.setADH(mem.fetch());
+    }),
+
+    /** Set the program counter low byte to the state of the address bus low byte : <code>pcl := adl</code>*/
+    PCL_FROM_MEM((env, mem, alu)->{
+        env.setPCL(mem.fetch());
+    }),
+
+    /** Set the program counter high byte to the state of the address bus high byte : <code>pch := adh</code>*/
+    PCH_FROM_MEM((env, mem, alu)->{
+        env.setPCH(mem.fetch());
+    }),
+
+    /** Set the memory locations indicated by the address bus to the value of A: <code>mem[AD] := A</code> */
+    MEM_FROM_A((env, mem, alu)->{
+        mem.store(env.getA());
     }),
 
     /** Perform {@link MOS6502ALU#adc(int)} with the value at <code>mem[address_bus]</code> */
