@@ -21,15 +21,15 @@ public class MemoryBus8BitTest extends Arbitraries {
     }
 
     @Property
-    public void writeValidValueToValidAddress(@ForAll("byteValues") int address,
-                                              @ForAll("byteValues") int value){
+    public void writeValidValueToValidAddress(@ForAll("byteValue") int address,
+                                              @ForAll("byteValue") int value){
         memoryBus.write(address, value);
 
         verify(underlyingMemory, times(1)).write(address, value);
     }
 
     @Property
-    public void invalidValuesWrap(@ForAll("byteValues") int address,
+    public void invalidValuesWrap(@ForAll("byteValue") int address,
                                   @ForAll("nonByteValue") int value){
         memoryBus.write(address, value);
 
@@ -38,7 +38,7 @@ public class MemoryBus8BitTest extends Arbitraries {
 
     @Property
     public void invalidAddressesWrap(@ForAll("nonByteValue") int address,
-                                     @ForAll("byteValues") int value){
+                                     @ForAll("byteValue") int value){
         memoryBus.write(address, value);
 
         verify(underlyingMemory, times(1)).write(address & ADDRESS_MASK, value);

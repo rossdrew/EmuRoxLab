@@ -19,7 +19,7 @@ public class Latched8BitMemoryBusTest extends Arbitraries {
     }
 
     @Property
-    public void fetchValidAddress(@ForAll("byteValues") int address){
+    public void fetchValidAddress(@ForAll("byteValue") int address){
         memBus.loadMemoryAddress(address);
         memBus.fetch();
 
@@ -35,8 +35,8 @@ public class Latched8BitMemoryBusTest extends Arbitraries {
     }
 
     @Property
-    public void storeValidValueAtValidLocation(@ForAll("byteValues") int address,
-                                               @ForAll("byteValues") int value){
+    public void storeValidValueAtValidLocation(@ForAll("byteValue") int address,
+                                               @ForAll("byteValue") int value){
         memBus.loadMemoryAddress(address);
         memBus.store(value);
 
@@ -45,7 +45,7 @@ public class Latched8BitMemoryBusTest extends Arbitraries {
     }
 
     @Property
-    public void invalidValueStorageWrapsIt(@ForAll("byteValues") int address,
+    public void invalidValueStorageWrapsIt(@ForAll("byteValue") int address,
                                            @ForAll("nonByteValue") int value){
         memBus.loadMemoryAddress(address);
         memBus.store(value);
@@ -55,7 +55,7 @@ public class Latched8BitMemoryBusTest extends Arbitraries {
 
     @Property
     public void invalidLocationWraps(@ForAll("nonByteValue") int address,
-                                     @ForAll("byteValues") int value){
+                                     @ForAll("byteValue") int value){
         memBus.loadMemoryAddress(address);
         memBus.store(value);
 

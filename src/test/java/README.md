@@ -55,12 +55,12 @@ Unit testing where you want to make sure that a property holds for a wide range 
 
 ```java
     @Provide //Values between 0-255
-    Arbitrary<Integer> byteValues() {
+    Arbitrary<Integer> byteValue() {
         return integers().between(0, 0xFF);
     }
 
     @Property
-    public void invalidLocationWraps(@ForAll("byteValues") int value){
+    public void invalidLocationWraps(@ForAll("byteValue") int value){
         //Use random selection of `value` which is between 0 and 255
     }
 ```
