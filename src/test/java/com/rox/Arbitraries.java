@@ -7,7 +7,7 @@ import static net.jqwik.api.Arbitraries.*;
 
 public class Arbitraries {
     @Provide
-    Arbitrary<Integer> byteValues() {
+    Arbitrary<Integer> byteValue() {
         return integers()
                 .between(0, 0xFF);
     }

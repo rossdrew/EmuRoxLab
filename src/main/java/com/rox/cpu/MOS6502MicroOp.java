@@ -187,6 +187,18 @@ enum MOS6502MicroOp implements MOS6502Operation {
         mem.store(env.getA());
     }),
 
+    //***
+    /** Set the memory locations indicated by the address bus to the value of X: <code>mem[AD] := X</code> */
+    MEM_FROM_X((env, mem, alu)->{
+        mem.store(env.getX());
+    }),
+
+    /** Set the memory locations indicated by the address bus to the value of Y: <code>mem[AD] := Y</code> */
+    MEM_FROM_Y((env, mem, alu)->{
+        mem.store(env.getY());
+    }),
+    //***
+
     /** Perform {@link MOS6502ALU#adc(int)} with the value at <code>mem[address_bus]</code> */
     ADC((env, mem, alu) -> {
         alu.adc(mem.fetch());

@@ -1,27 +1,33 @@
 package com.rox.cpu;
 
+import com.rox.Arbitraries;
 import com.rox.mem.Latched8BitMemoryBus;
 import com.rox.mem.LatchedMemoryBus;
 import com.rox.mem.MemoryBus8Bit;
 import com.rox.mem.RAM;
+import net.jqwik.api.ForAll;
+import net.jqwik.api.Property;
+import net.jqwik.api.lifecycle.BeforeTry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import static com.rox.cpu.MOS6502MicroOp.*;
+import static com.rox.mem.Latched8BitMemoryBus.ADDRESS_MASK;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.mock;
 
-public class MOS6502MicoOpTest {
+public class MOS6502MicoOpTest extends Arbitraries {
     private MOS6502Environment env;
     private MemoryBus8Bit memoryBus8Bit;
     private RAM ram;
     private LatchedMemoryBus bus;
     private MOS6502ALU alu;
 
-    @BeforeEach
+    @BeforeTry  //Property tests
+    @BeforeEach //Unit tests
     public void setup(){
         env = new MOS6502Environment();
         ram = new RAM(65536); //2 bytes of addressable memory
@@ -534,13 +540,36 @@ public class MOS6502MicoOpTest {
         verify(alu).cmp(0x77);
     }
 
-    @Test
-    public void memFromA() {
-        env.setA(42);
-        bus.loadMemoryAddress(0x12);
+    @Property
+    public void memFromA(@ForAll("byteValue") int address,
+                         @ForAll("byteValue") int value){
+        env.setA(value);
+        bus.loadMemoryAddress(address);
 
         MEM_FROM_A.execute(env, bus, alu);
-        
-        assertEquals(42, bus.fetch());
+
+        assertEquals(value, bus.fetch());
+    }
+
+    @Property
+    public void memFromX(@ForAll("byteValue") int address,
+                         @ForAll("byteValue") int value){
+        env.setX(value);
+        bus.loadMemoryAddress(address);
+
+        MEM_FROM_X.execute(env, bus, alu);
+
+        assertEquals(value, bus.fetch());
+    }
+
+    @Property
+    public void memFromY(@ForAll("byteValue") int address,
+                         @ForAll("byteValue") int value){
+        env.setY(value);
+        bus.loadMemoryAddress(address);
+
+        MEM_FROM_Y.execute(env, bus, alu);
+
+        assertEquals(value, bus.fetch());
     }
 }
