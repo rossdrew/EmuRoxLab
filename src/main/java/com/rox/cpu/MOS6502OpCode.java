@@ -427,10 +427,36 @@ public enum MOS6502OpCode {
             opsInTick(INC_ADL, ADDRESS_AD , PCH_FROM_MEM)
     )),
 
-    STA_Z(0x86, clockTicks(
+    STA_Z(0x85, clockTicks(
             opsInTick(ADDRESS_PC, ADL_FROM_MEM),
             opsInTick(ADDRESS_ADL, MEM_FROM_A)
+    )),
+
+    STA_Z_X(0x95, clockTicks(
+            opsInTick(ADDRESS_PC),
+            opsInTick(X_OFFSET_ADDRESS),
+            opsInTick(MEM_FROM_A)
     ));
+
+    /* TODO
+        addressing	assembler	opc	bytes	cycles
+        zeropage,X	STA oper,X	95	2	4
+        absolute	STA oper	8D	3	4
+        absolute,X	STA oper,X	9D	3	5
+        absolute,Y	STA oper,Y	99	3	5
+        (indirect,X)	STA (oper,X)	81	2	6
+        (indirect),Y	STA (oper),Y	91	2	6
+     */
+//
+//    STA_X(0x86, clockTicks(
+//            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+//            opsInTick(ADDRESS_ADL, MEM_FROM_X)
+//    )),
+//
+//    STA_Y(0x86, clockTicks(
+//            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+//            opsInTick(ADDRESS_ADL, MEM_FROM_Y)
+//    ));
 
     /*
 

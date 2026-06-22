@@ -3418,5 +3418,62 @@ public class MOS6502OpCodeTest {
         assertTrue(env.getV());
     }
 
+    //TODO
+
+    @Test
+    void staZeroPageXStoresAAtZeroPageAddressPlusX() {
+        ram.write(0x8000, STA_Z_X.getId());
+        ram.write(0x8001, 0x40);
+
+        env.setPC(0x8000);
+        env.setA(0xAB);
+        env.setX(0x05);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // ADL_FROM_PC
+        cpu.tick(); // ADL_PLUS_X
+        cpu.tick(); // MEM_FROM_A
+
+        assertEquals(0xAB, ram.read(0x0045));
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @Test
+    void staZeroPageXWrapsInZeroPage() {
+        ram.write(0x8000, STA_Z_X.getId());
+        ram.write(0x8001, 0xFF);
+
+        env.setPC(0x8000);
+        env.setA(0x42);
+        env.setX(0x02);
+
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+
+        assertEquals(0x42, ram.read(0x0001));
+        assertEquals(0x8002, env.getPC());
+    }
+
+    @Test
+    void staZeroPageXDoesNotChangeAOrX() {
+        ram.write(0x8000, STA_Z_X.getId());
+        ram.write(0x8001, 0x20);
+
+        env.setPC(0x8000);
+        env.setA(0x77);
+        env.setX(0x10);
+
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+        cpu.tick();
+
+        assertEquals(0x77, env.getA());
+        assertEquals(0x10, env.getX());
+        assertEquals(0x77, ram.read(0x0030));
+    }
+
     //TODO is it worth testing actual operations at this level? ADC, AND...
 }
