@@ -3418,8 +3418,6 @@ public class MOS6502OpCodeTest {
         assertTrue(env.getV());
     }
 
-    //TODO
-
     @Test
     void staZeroPageXStoresAAtZeroPageAddressPlusX() {
         ram.write(0x8000, STA_Z_X.getId());
@@ -3473,6 +3471,72 @@ public class MOS6502OpCodeTest {
         assertEquals(0x77, env.getA());
         assertEquals(0x10, env.getX());
         assertEquals(0x77, ram.read(0x0030));
+    }
+
+    @Test
+    void staAbsoluteStoresAccumulatorAtAbsoluteAddress() {
+        ram.write(0x8000, STA_ABS.getId());
+        ram.write(0x8001, 0x34); // low byte
+        ram.write(0x8002, 0x12); // high byte
+
+        env.setPC(0x8000);
+        env.setA(0x20);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch low address byte
+        cpu.tick(); // fetch high address byte
+        cpu.tick(); // write A to absolute address
+
+        assertEquals(0x20, ram.read(0x1234));
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @Test
+    void staAbsoluteDoesNotStoreUntilFourthTick() {
+        ram.write(0x8000, STA_ABS.getId());
+        ram.write(0x8001, 0x34);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1234, 0x00);
+
+        env.setPC(0x8000);
+        env.setA(0x20);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch low address byte
+        cpu.tick(); // fetch high address byte
+
+        assertEquals(0x00, ram.read(0x1234));
+
+        cpu.tick(); // write A to absolute address
+
+        assertEquals(0x20, ram.read(0x1234));
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @Test
+    void staAbsoluteDoesNotAffectFlags() {
+        ram.write(0x8000, STA_ABS.getId());
+        ram.write(0x8001, 0x34);
+        ram.write(0x8002, 0x12);
+
+        env.setPC(0x8000);
+        env.setA(0x00);
+
+        env.setZ(false);
+        env.setN(true);
+        env.setCarry(true);
+        env.setV(true);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch low address byte
+        cpu.tick(); // fetch high address byte
+        cpu.tick(); // write A to absolute address
+
+        assertEquals(0x00, ram.read(0x1234));
+        assertFalse(env.getZ());
+        assertTrue(env.getN());
+        assertTrue(env.getCarry());
+        assertTrue(env.getV());
     }
 
     //TODO is it worth testing actual operations at this level? ADC, AND...
