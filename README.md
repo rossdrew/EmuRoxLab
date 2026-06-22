@@ -8,11 +8,12 @@
  1. Bringing everything up to date so that it works
  2. Developing it
 
-I don't want to do #1 yet.  It's no fun.  So Ive created this project to run some experiments regarding #2.
+I don't want to do #1 yet.  It's no fun.  So Ive created this project to run some experiments regarding #2.  Of course starting with the [6502](https://github.com/rossdrew/EmuRoxLab/tree/main/src/main/java/com/rox/cpu) and of course making sure we build [great regression testing](https://github.com/rossdrew/EmuRoxLab/tree/main/src/test/java) in from the start.
 
-So far
-1. We have a CPU clock that can run at a given Hz and Frame Rate
-2. We have some memory structures in place so that instructions work on something sensible
+So far we have
+1. a CPU clock that can run at a given Hz and Frame Rate
+2. some memory structures in place so that instructions work on something sensible
+3. a reusable (new) [functional enum](https://dev.to/rossdrew/functional-enums-in-java-34o1) design for building micro ops and op codes
 
 In addition, the build system
 1. Builds the code using Gradle and Kotlin
@@ -20,6 +21,5 @@ In addition, the build system
 3. Uses pitest and a custom embedded Kotlin script to build a badge and only runs manually or when '+fullBuild' is in the commit message
 4. Will skip builds on non code changes
 
-
 Next up
-1. Working on a good abstraction for Opcodes, Micro Operations and ALU operations
+1. Working through opcodes to ensure the design works
