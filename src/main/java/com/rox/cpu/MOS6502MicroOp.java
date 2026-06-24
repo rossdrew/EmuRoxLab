@@ -133,6 +133,20 @@ enum MOS6502MicroOp implements MOS6502Operation {
         env.setADL(low & 0xFF);
 
         if (low > 0xFF) {
+            env.setADH((originalHigh + 1) & 0xFF);
+        }
+
+        mem.loadMemoryAddress(env.getAD());
+    }),
+
+    /** Load address bus with AD + Y: <code>address_bus := AD := AD + Y</code> */
+    ADDRESS_AD_PLUS_Y_AND_PAGE_CROSS((env, mem, alu)->{
+        int originalHigh = env.getADH();
+
+        int low = env.getADL() + env.getY();
+        env.setADL(low & 0xFF);
+
+        if (low > 0xFF) {
             env.requestAdditionalOp((environment, m, a) -> {
                 m.fetch(); //Dummy read
                 env.additionalTickCompleted();
