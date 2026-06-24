@@ -451,37 +451,29 @@ public enum MOS6502OpCode {
             opsInTick(MEM_FROM_A)
     )),
 
-    //Evaluating
+    STA_ABS_Y(0x99, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM, ADDRESS_AD_PLUS_Y),
+            opsInTick(DUMMY_READ),
+            opsInTick(MEM_FROM_A)
+    )),
 
-//    STA_ABS_Y(0x99, clockTicks(
-//            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
-//            opsInTick(ADDRESS_PC, ADH_FROM_MEM, ADDRESS_AD_PLUS_Y),
-//            opsInTick(DUMMY_READ),
-//            opsInTick(MEM_FROM_A)
-//    )),
-//
-//    STA_IND_X(0x81, clockTicks(
-//            opsInTick(ADDRESS_PC),
-//            opsInTick(X_OFFSET_ADDRESS),
-//            opsInTick(ADL_FROM_MEM),
-//            opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD),
-//            opsInTick(MEM_FROM_A)
-//    )),
-//
-//    STA_IND_Y(0x91, clockTicks(
-//            opsInTick(ADDRESS_PC),
-//            opsInTick(ADDRESS_MEM_POINTER, ADL_FROM_MEM),
-//            opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD_PLUS_Y),
-//            opsInTick(DUMMY_READ),
-//            opsInTick(MEM_FROM_A)
-//    ));
+    STA_IND_X(0x81, clockTicks(
+            opsInTick(ADDRESS_PC),
+            opsInTick(X_OFFSET_ADDRESS),
+            opsInTick(ADL_FROM_MEM),
+            opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD),
+            opsInTick(MEM_FROM_A)
+    )),
 
-    /* TODO
-        addressing	assembler	opc	bytes	cycles
-        absolute,Y	STA oper,Y	99	3	5
-        (indirect,X)	STA (oper,X)	81	2	6
-        (indirect),Y	STA (oper),Y	91	2	6
-     */
+    STA_IND_Y(0x91, clockTicks(
+            opsInTick(ADDRESS_PC),
+            opsInTick(ADDRESS_MEM_POINTER, ADL_FROM_MEM),
+            opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD_PLUS_Y),
+            opsInTick(DUMMY_READ),
+            opsInTick(MEM_FROM_A)
+    ));
+
 //
 //    STX(0x86, clockTicks(
 //            opsInTick(ADDRESS_PC, ADL_FROM_MEM),

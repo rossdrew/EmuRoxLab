@@ -3570,7 +3570,7 @@ public class MOS6502OpCodeTest {
 
         @ParameterizedTest(name = "STA_ABS_X A={0}, base=${2}{1}, X={3}")
         @CsvSource({
-                // A,    Low,  High, X,    Address,  Value
+              // A,    Low,  High, X,    Address,  Value
                 "0x20, 0x34, 0x12, 0x05, 0x1239,   0x99",
                 "0x00, 0x10, 0x20, 0x00, 0x2010,   0x77",
                 "0x80, 0xFE, 0x12, 0x01, 0x12FF,   0x55",
@@ -3682,6 +3682,380 @@ public class MOS6502OpCodeTest {
             assertEquals(0x11, ram.read(0x1234));
             assertEquals(0x20, ram.read(0x1239));
             assertEquals(0x8003, env.getPC());
+        }
+
+        @ParameterizedTest(name = "STA_ABS_Y A={0}, base=${2}{1}, Y={3}")
+        @CsvSource({
+              // A,    Low,  High, Y,    Address,   Value
+                "0x20, 0x34, 0x12, 0x05, 0x1239,    0x99",
+                "0x00, 0x10, 0x20, 0x00, 0x2010,    0x77",
+                "0x80, 0xFE, 0x12, 0x01, 0x12FF,    0x55",
+                "0xFF, 0xFF, 0x12, 0x05, 0x1304,    0x00"
+        })
+        void staAbsoluteYStoresAccumulatorAtAbsoluteAddressOffsetByY(int accumulator,
+                                                                     int lowAddressByte,
+                                                                     int highAddressByte,
+                                                                     int y,
+                                                                     int expectedAddress,
+                                                                     int value) {
+            ram.write(0x8000, STA_ABS_Y.getId());
+            ram.write(0x8001, lowAddressByte);
+            ram.write(0x8002, highAddressByte);
+            ram.write(expectedAddress, value);
+
+            env.setPC(0x8000);
+            env.setA(accumulator);
+            env.setY(y);
+
+            env.setZ(true);
+            env.setN(true);
+            env.setCarry(true);
+            env.setV(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch low address byte
+            cpu.tick(); // fetch high address byte, add Y
+            cpu.tick(); // dummy read / indexing cycle
+            cpu.tick(); // store A at effective address
+
+            assertEquals(accumulator & 0xFF, ram.read(expectedAddress));
+            assertEquals(accumulator & 0xFF, env.getA());
+
+            assertTrue(env.getZ());
+            assertTrue(env.getN());
+            assertTrue(env.getCarry());
+            assertTrue(env.getV());
+
+            assertEquals(0x8003, env.getPC());
+        }
+
+        @Test
+        void staAbsoluteYDoesNotStoreUntilFifthTickWhenNoPageCrosses() {
+            ram.write(0x8000, STA_ABS_Y.getId());
+            ram.write(0x8001, 0x34);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1239, 0x99);
+
+            env.setPC(0x8000);
+            env.setA(0x20);
+            env.setY(0x05);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch low address byte
+            cpu.tick(); // fetch high address byte, add Y
+            cpu.tick(); // dummy read / indexing cycle
+
+            assertEquals(0x99, ram.read(0x1239));
+
+            cpu.tick(); // store A at $1234 + Y
+
+            assertEquals(0x20, ram.read(0x1239));
+            assertEquals(0x8003, env.getPC());
+        }
+
+        @Test
+        void staAbsoluteYDoesNotStoreUntilFifthTickWhenPageCrosses() {
+            ram.write(0x8000, STA_ABS_Y.getId());
+            ram.write(0x8001, 0xFF);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1304, 0x99);
+
+            env.setPC(0x8000);
+            env.setA(0x20);
+            env.setY(0x05);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch low address byte
+            cpu.tick(); // fetch high address byte, add Y
+            cpu.tick(); // dummy read / indexing cycle
+
+            assertEquals(0x99, ram.read(0x1304));
+
+            cpu.tick(); // store A at $12FF + Y
+
+            assertEquals(0x20, ram.read(0x1304));
+            assertEquals(0x8003, env.getPC());
+        }
+
+        @Test
+        void staAbsoluteYDoesNotStoreToUnindexedBaseAddress() {
+            ram.write(0x8000, STA_ABS_Y.getId());
+            ram.write(0x8001, 0x34);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1234, 0x11);
+            ram.write(0x1239, 0x99);
+
+            env.setPC(0x8000);
+            env.setA(0x20);
+            env.setY(0x05);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch low address byte
+            cpu.tick(); // fetch high address byte, add Y
+            cpu.tick(); // dummy read / indexing cycle
+            cpu.tick(); // store A at indexed address
+
+            assertEquals(0x11, ram.read(0x1234));
+            assertEquals(0x20, ram.read(0x1239));
+            assertEquals(0x8003, env.getPC());
+        }
+
+        @ParameterizedTest(name = "STA_IND_X A={0}, zp={1}, X={2}")
+        @CsvSource({
+                // A,  Operand, X,    Address Low,  Address High,  Effective Address, Value
+                "0x20, 0x44,    0x05, 0x0049,       0x004A,        0x1234,            0x99",
+                "0x00, 0x20,    0x00, 0x0020,       0x0021,        0x5678,            0x77",
+                "0x80, 0xFE,    0x05, 0x0003,       0x0004,        0x2000,            0x55",
+                "0xFF, 0xFA,    0x05, 0x00FF,       0x0000,        0x1304,            0x00"
+        })
+        void staIndirectXStoresAccumulatorAtIndexedIndirectAddress(int accumulator,
+                                                                   int zeroPageOperand,
+                                                                   int x,
+                                                                   int pointerLowAddress,
+                                                                   int pointerHighAddress,
+                                                                   int effectiveAddress,
+                                                                   int value) {
+            ram.write(0x8000, STA_IND_X.getId());
+            ram.write(0x8001, zeroPageOperand);
+
+            ram.write(pointerLowAddress, effectiveAddress & 0xFF);
+            ram.write(pointerHighAddress, (effectiveAddress >> 8) & 0xFF);
+            ram.write(effectiveAddress, value);
+
+            env.setPC(0x8000);
+            env.setA(accumulator);
+            env.setX(x);
+
+            env.setZ(true);
+            env.setN(true);
+            env.setCarry(true);
+            env.setV(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch zero-page base pointer
+            cpu.tick(); // add X to zero-page pointer
+            cpu.tick(); // fetch effective address low byte
+            cpu.tick(); // fetch effective address high byte
+            cpu.tick(); // store A at effective address
+
+            assertEquals(accumulator & 0xFF, ram.read(effectiveAddress));
+            assertEquals(accumulator & 0xFF, env.getA());
+
+            assertTrue(env.getZ());
+            assertTrue(env.getN());
+            assertTrue(env.getCarry());
+            assertTrue(env.getV());
+
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @Test
+        void staIndirectXDoesNotStoreUntilSixthTick() {
+            ram.write(0x8000, STA_IND_X.getId());
+            ram.write(0x8001, 0x44);
+
+            ram.write(0x0049, 0x34); // $44 + X(5)
+            ram.write(0x004A, 0x12);
+
+            ram.write(0x1234, 0x99);
+
+            env.setPC(0x8000);
+            env.setA(0x20);
+            env.setX(0x05);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch zero-page base pointer
+            cpu.tick(); // add X to zero-page pointer
+            cpu.tick(); // fetch effective address low byte
+            cpu.tick(); // fetch effective address high byte
+
+            assertEquals(0x99, ram.read(0x1234));
+
+            cpu.tick(); // store A at effective address
+
+            assertEquals(0x20, ram.read(0x1234));
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @Test
+        void staIndirectXWrapsZeroPagePointerWhenAddingX() {
+            ram.write(0x8000, STA_IND_X.getId());
+            ram.write(0x8001, 0xFE);
+
+            ram.write(0x0003, 0x34); // ($FE + X(5)) & $FF = $03
+            ram.write(0x0004, 0x12);
+
+            ram.write(0x1234, 0x99);
+
+            env.setPC(0x8000);
+            env.setA(0x20);
+            env.setX(0x05);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch zero-page base pointer
+            cpu.tick(); // add X to zero-page pointer, wrapping within zero page
+            cpu.tick(); // fetch effective address low byte
+            cpu.tick(); // fetch effective address high byte
+            cpu.tick(); // store A at effective address
+
+            assertEquals(0x20, ram.read(0x1234));
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @Test
+        void staIndirectXWrapsHighBytePointerWithinZeroPage() {
+            ram.write(0x8000, STA_IND_X.getId());
+            ram.write(0x8001, 0xFA);
+
+            ram.write(0x00FF, 0x04); // ($FA + X(5)) & $FF = $FF
+            ram.write(0x0000, 0x13); // high byte wraps from $00FF to $0000
+
+            ram.write(0x1304, 0x99);
+
+            env.setPC(0x8000);
+            env.setA(0x20);
+            env.setX(0x05);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch zero-page base pointer
+            cpu.tick(); // add X to zero-page pointer, wrapping within zero page
+            cpu.tick(); // fetch effective address low byte from $00FF
+            cpu.tick(); // fetch effective address high byte from $0000
+            cpu.tick(); // store A at effective address
+
+            assertEquals(0x20, ram.read(0x1304));
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @ParameterizedTest(name = "STA_IND_Y A={0}, zp={1}, Y={4}")
+        @CsvSource({
+              // A,    Address,  Address Low, Address High, Y,    Expected Address, Value
+                "0x20, 0x44,     0x34,        0x12,         0x05, 0x1239,           0x99",
+                "0x00, 0x20,     0x78,        0x56,         0x00, 0x5678,           0x77",
+                "0x80, 0x44,     0xFE,        0x12,         0x01, 0x12FF,           0x55",
+                "0xFF, 0x44,     0xFF,        0x12,         0x05, 0x1304,           0x00"
+        })
+        void staIndirectYStoresAccumulatorAtIndirectIndexedAddress(int accumulator,
+                                                                   int address,
+                                                                   int addressLowByte,
+                                                                   int addressHighByte,
+                                                                   int y,
+                                                                   int expectedAddress,
+                                                                   int value) {
+            ram.write(0x8000, STA_IND_Y.getId());
+            ram.write(0x8001, address);
+
+            ram.write(address, addressLowByte);
+            ram.write((address + 1) & 0xFF, addressHighByte);
+
+            ram.write(expectedAddress, value);
+
+            env.setPC(0x8000);
+            env.setA(accumulator);
+            env.setY(y);
+
+            env.setZ(true);
+            env.setN(true);
+            env.setCarry(true);
+            env.setV(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch zero-page pointer
+            cpu.tick(); // fetch effective address low byte
+            cpu.tick(); // fetch effective address high byte, add Y
+            cpu.tick(); // dummy read / indexing cycle
+            cpu.tick(); // store A at effective address
+
+            assertEquals(accumulator & 0xFF, ram.read(expectedAddress));
+            assertEquals(accumulator & 0xFF, env.getA());
+
+            assertTrue(env.getZ());
+            assertTrue(env.getN());
+            assertTrue(env.getCarry());
+            assertTrue(env.getV());
+
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @Test
+        void staIndirectYDoesNotStoreUntilSixthTickWhenNoPageCrosses() {
+            ram.write(0x8000, STA_IND_Y.getId());
+            ram.write(0x8001, 0x44);
+
+            ram.write(0x0044, 0x34);
+            ram.write(0x0045, 0x12);
+
+            ram.write(0x1239, 0x99);
+
+            env.setPC(0x8000);
+            env.setA(0x20);
+            env.setY(0x05);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch zero-page pointer
+            cpu.tick(); // fetch effective address low byte
+            cpu.tick(); // fetch effective address high byte, add Y
+            cpu.tick(); // dummy read / indexing cycle
+
+            assertEquals(0x99, ram.read(0x1239));
+
+            cpu.tick(); // store A at $1234 + Y
+
+            assertEquals(0x20, ram.read(0x1239));
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @Test
+        void staIndirectYDoesNotStoreUntilSixthTickWhenPageCrosses() {
+            ram.write(0x8000, STA_IND_Y.getId());
+            ram.write(0x8001, 0x44);
+
+            ram.write(0x0044, 0xFF);
+            ram.write(0x0045, 0x12);
+
+            ram.write(0x1304, 0x99);
+
+            env.setPC(0x8000);
+            env.setA(0x20);
+            env.setY(0x05);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch zero-page pointer
+            cpu.tick(); // fetch effective address low byte
+            cpu.tick(); // fetch effective address high byte, add Y
+            cpu.tick(); // dummy read / indexing cycle
+
+            assertEquals(0x99, ram.read(0x1304));
+
+            cpu.tick(); // store A at $12FF + Y
+
+            assertEquals(0x20, ram.read(0x1304));
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @Test
+        void staIndirectYWrapsHighBytePointerWithinZeroPage() {
+            ram.write(0x8000, STA_IND_Y.getId());
+            ram.write(0x8001, 0xFF);
+
+            ram.write(0x00FF, 0x34);
+            ram.write(0x0000, 0x12); // high byte wraps from $00FF to $0000
+
+            ram.write(0x1239, 0x99);
+
+            env.setPC(0x8000);
+            env.setA(0x20);
+            env.setY(0x05);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch zero-page pointer
+            cpu.tick(); // fetch effective address low byte from $00FF
+            cpu.tick(); // fetch effective address high byte from $0000, add Y
+            cpu.tick(); // dummy read / indexing cycle
+            cpu.tick(); // store A at effective address
+
+            assertEquals(0x20, ram.read(0x1239));
+            assertEquals(0x8002, env.getPC());
         }
     }
 
