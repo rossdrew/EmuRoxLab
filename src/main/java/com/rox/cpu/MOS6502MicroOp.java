@@ -81,8 +81,34 @@ enum MOS6502MicroOp implements MOS6502Operation {
         env.setADH(0x00);
     }),
 
-    /** Load address bus with AD + X: <code>address_bus := AD := AD + X</code> */
+    DUMMY_READ((env, mem, alu) -> {
+        mem.fetch();
+    }),
+
+    /**
+     * Load address bus with AD + X: <code>address_bus := AD := AD + X</code> <br/><br/>
+     * XXX: Needs a better approach 1/2.<br/>
+     * LDA_ABS_X is a read instruction, so the 6502 can optimistically try to read from the partially indexed address first; if adding X does not cross a page, that read is valid and the instruction finishes in 4 cycles, but if the low byte overflows, the CPU needs one extra cycle to fix the high byte and reread from the correct address. STA_ABS_X is a write instruction, so the CPU cannot safely do that optimistic access because an early write to the wrong address would corrupt memory; it must always spend the indexing/dummy-read cycle before performing the real write, making it 5 cycles whether or not a page is crossed.
+     */
     ADDRESS_AD_PLUS_X((env, mem, alu)->{
+        int originalHigh = env.getADH();
+
+        int low = env.getADL() + env.getX();
+        env.setADL(low & 0xFF);
+
+        if (low > 0xFF) {
+            env.setADH((originalHigh + 1) & 0xFF);
+        }
+
+        mem.loadMemoryAddress(env.getAD());
+    }),
+
+    /**
+     * Load address bus with AD + X, adding an extra tick instruction if there's a page cross: <code>address_bus := AD := AD + X</code> <br/><br/>
+     * XXX: Needs a better approach 1/2.<br/>
+     * LDA_ABS_X is a read instruction, so the 6502 can optimistically try to read from the partially indexed address first; if adding X does not cross a page, that read is valid and the instruction finishes in 4 cycles, but if the low byte overflows, the CPU needs one extra cycle to fix the high byte and reread from the correct address. STA_ABS_X is a write instruction, so the CPU cannot safely do that optimistic access because an early write to the wrong address would corrupt memory; it must always spend the indexing/dummy-read cycle before performing the real write, making it 5 cycles whether or not a page is crossed.
+     */
+    ADDRESS_AD_PLUS_X_AND_PAGE_CROSS((env, mem, alu)->{
         int originalHigh = env.getADH();
 
         int low = env.getADL() + env.getX();

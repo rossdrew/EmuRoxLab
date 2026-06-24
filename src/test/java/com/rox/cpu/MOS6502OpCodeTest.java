@@ -3539,5 +3539,121 @@ public class MOS6502OpCodeTest {
         assertTrue(env.getV());
     }
 
+    @ParameterizedTest(name = "STA_ABS_X A={0}, base=${2}{1}, X={3}")
+    @CsvSource({
+          // A,    Low,  High, X,    Address,  Value
+            "0x20, 0x34, 0x12, 0x05, 0x1239,   0x99",
+            "0x00, 0x10, 0x20, 0x00, 0x2010,   0x77",
+            "0x80, 0xFE, 0x12, 0x01, 0x12FF,   0x55",
+            "0xFF, 0xFF, 0x12, 0x05, 0x1304,   0x00"
+    })
+    void staAbsoluteXStoresAccumulatorAtAbsoluteAddressOffsetByX(int accumulator,
+                                                                 int lowAddressByte,
+                                                                 int highAddressByte,
+                                                                 int x,
+                                                                 int address,
+                                                                 int value) {
+        ram.write(0x8000, STA_ABS_X.getId());
+        ram.write(0x8001, lowAddressByte);
+        ram.write(0x8002, highAddressByte);
+        ram.write(address, value);
+
+        env.setPC(0x8000);
+        env.setA(accumulator);
+        env.setX(x);
+
+        env.setZ(true);
+        env.setN(true);
+        env.setCarry(true);
+        env.setV(true);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch low address byte
+        cpu.tick(); // fetch high address byte
+        cpu.tick(); // add X to absolute address / dummy read
+        cpu.tick(); // store A at effective address
+
+        assertEquals(accumulator & 0xFF, ram.read(address));
+        assertEquals(accumulator & 0xFF, env.getA());
+
+        assertTrue(env.getZ());
+        assertTrue(env.getN());
+        assertTrue(env.getCarry());
+        assertTrue(env.getV());
+
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @Test
+    void staAbsoluteXDoesNotStoreUntilFifthTickWhenNoPageCrosses() {
+        ram.write(0x8000, STA_ABS_X.getId());
+        ram.write(0x8001, 0x34);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1239, 0x99);
+
+        env.setPC(0x8000);
+        env.setA(0x20);
+        env.setX(0x05);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch low address byte
+        cpu.tick(); // fetch high address byte
+        cpu.tick(); // add X to absolute address / dummy read
+
+        assertEquals(0x99, ram.read(0x1239));
+
+        cpu.tick(); // store A at $1234 + X
+
+        assertEquals(0x20, ram.read(0x1239));
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @Test
+    void staAbsoluteXDoesNotStoreUntilFifthTickWhenPageCrosses() {
+        ram.write(0x8000, STA_ABS_X.getId());
+        ram.write(0x8001, 0xFF);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1304, 0x99);
+
+        env.setPC(0x8000);
+        env.setA(0x20);
+        env.setX(0x05);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch low address byte
+        cpu.tick(); // fetch high address byte
+        cpu.tick(); // add X to absolute address, carrying into high byte / dummy read
+
+        assertEquals(0x99, ram.read(0x1304));
+
+        cpu.tick(); // store A at $12FF + X
+
+        assertEquals(0x20, ram.read(0x1304));
+        assertEquals(0x8003, env.getPC());
+    }
+
+    @Test
+    void staAbsoluteXDoesNotStoreToUnindexedBaseAddress() {
+        ram.write(0x8000, STA_ABS_X.getId());
+        ram.write(0x8001, 0x34);
+        ram.write(0x8002, 0x12);
+        ram.write(0x1234, 0x11);
+        ram.write(0x1239, 0x99);
+
+        env.setPC(0x8000);
+        env.setA(0x20);
+        env.setX(0x05);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // fetch low address byte
+        cpu.tick(); // fetch high address byte
+        cpu.tick(); // add X to absolute address / dummy read
+        cpu.tick(); // store A at indexed address
+
+        assertEquals(0x11, ram.read(0x1234));
+        assertEquals(0x20, ram.read(0x1239));
+        assertEquals(0x8003, env.getPC());
+    }
+
     //TODO is it worth testing actual operations at this level? ADC, AND...
 }

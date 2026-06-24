@@ -14,7 +14,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import static com.rox.cpu.MOS6502MicroOp.*;
-import static com.rox.mem.Latched8BitMemoryBus.ADDRESS_MASK;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.mock;
@@ -127,7 +126,7 @@ public class MOS6502MicoOpTest extends Arbitraries {
         env.setADH(0x01);
         env.setX(3);
 
-        ADDRESS_AD_PLUS_X.execute(env, bus, alu);
+        ADDRESS_AD_PLUS_X_AND_PAGE_CROSS.execute(env, bus, alu);
 
         verifyNoInteractions(alu);
         assertEquals(0x0101+3, env.getAD());
@@ -143,7 +142,7 @@ public class MOS6502MicoOpTest extends Arbitraries {
         env.setADH(0x01);
         env.setX(0x03);
 
-        ADDRESS_AD_PLUS_X.execute(env, bus, alu);
+        ADDRESS_AD_PLUS_X_AND_PAGE_CROSS.execute(env, bus, alu);
 
         verifyNoInteractions(alu);
 
