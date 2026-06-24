@@ -489,7 +489,7 @@ public enum MOS6502OpCode {
 
     For sample program: INX, CPX, BNE, BRK
 
-    STA, STX, STY (introduces writes)
+    STX, STY (introduces writes)
     Transfer instructions (TAX, etc.)
     INX, DEX, INY, DEY
     BIT

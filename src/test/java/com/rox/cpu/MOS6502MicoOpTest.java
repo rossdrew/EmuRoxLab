@@ -119,6 +119,9 @@ public class MOS6502MicoOpTest extends Arbitraries {
         assertEquals(43, bus.fetch());
     }
 
+    //TODO ADDRESS_AD_PLUS_X
+    //TODO ADDRESS_AD_PLUS_Y
+
     @Test
     public void adPlusXWithoutCarryyIntoHighByte(){
         memoryBus8Bit.write(0x0101 + 3, 72);
