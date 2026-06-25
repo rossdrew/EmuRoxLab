@@ -119,8 +119,126 @@ public class MOS6502MicoOpTest extends Arbitraries {
         assertEquals(43, bus.fetch());
     }
 
-    //TODO ADDRESS_AD_PLUS_X
-    //TODO ADDRESS_AD_PLUS_Y
+
+    @Test
+    public void adPlusXWithoutCarryIntoHighByte() {
+        memoryBus8Bit.write(0x0101 + 3, 72);
+
+        env.setADL(0x01);
+        env.setADH(0x01);
+        env.setX(3);
+
+        ADDRESS_AD_PLUS_X.execute(env, bus, alu);
+
+        verifyNoInteractions(alu);
+
+        assertEquals(0x01, env.getADH());
+        assertEquals(0x04, env.getADL());
+        assertEquals(0x0104, env.getAD());
+        assertEquals(72, bus.fetch());
+
+        assertFalse(env.additionalTickPending());
+    }
+
+    @Test
+    public void adPlusXWithCarryIntoHighByteDoesNotRequestAdditionalTick() {
+        memoryBus8Bit.write(0x0202, 72);
+
+        env.setADL(0xFF);
+        env.setADH(0x01);
+        env.setX(0x03);
+
+        ADDRESS_AD_PLUS_X.execute(env, bus, alu);
+
+        verifyNoInteractions(alu);
+
+        assertEquals(0x02, env.getADH());
+        assertEquals(0x02, env.getADL());
+        assertEquals(0x0202, env.getAD());
+        assertEquals(72, bus.fetch());
+
+        assertFalse(env.additionalTickPending());
+    }
+
+    @Test
+    public void adPlusXWithCarryWrapsHighByte() {
+        memoryBus8Bit.write(0x0002, 72);
+
+        env.setADL(0xFF);
+        env.setADH(0xFF);
+        env.setX(0x03);
+
+        ADDRESS_AD_PLUS_X.execute(env, bus, alu);
+
+        verifyNoInteractions(alu);
+
+        assertEquals(0x00, env.getADH());
+        assertEquals(0x02, env.getADL());
+        assertEquals(0x0002, env.getAD());
+        assertEquals(72, bus.fetch());
+
+        assertFalse(env.additionalTickPending());
+    }
+
+    @Test
+    public void adPlusYWithoutCarryIntoHighByte() {
+        memoryBus8Bit.write(0x0101 + 3, 72);
+
+        env.setADL(0x01);
+        env.setADH(0x01);
+        env.setY(3);
+
+        ADDRESS_AD_PLUS_Y.execute(env, bus, alu);
+
+        verifyNoInteractions(alu);
+
+        assertEquals(0x01, env.getADH());
+        assertEquals(0x04, env.getADL());
+        assertEquals(0x0104, env.getAD());
+        assertEquals(72, bus.fetch());
+
+        assertFalse(env.additionalTickPending());
+    }
+
+    @Test
+    public void adPlusYWithCarryIntoHighByteDoesNotRequestAdditionalTick() {
+        memoryBus8Bit.write(0x0202, 72);
+
+        env.setADL(0xFF);
+        env.setADH(0x01);
+        env.setY(0x03);
+
+        ADDRESS_AD_PLUS_Y.execute(env, bus, alu);
+
+        verifyNoInteractions(alu);
+
+        assertEquals(0x02, env.getADH());
+        assertEquals(0x02, env.getADL());
+        assertEquals(0x0202, env.getAD());
+        assertEquals(72, bus.fetch());
+
+        assertFalse(env.additionalTickPending());
+    }
+
+    @Test
+    public void adPlusYWithCarryWrapsHighByte() {
+        memoryBus8Bit.write(0x0002, 72);
+
+        env.setADL(0xFF);
+        env.setADH(0xFF);
+        env.setY(0x03);
+
+        ADDRESS_AD_PLUS_Y.execute(env, bus, alu);
+
+        verifyNoInteractions(alu);
+
+        assertEquals(0x00, env.getADH());
+        assertEquals(0x02, env.getADL());
+        assertEquals(0x0002, env.getAD());
+        assertEquals(72, bus.fetch());
+
+        assertFalse(env.additionalTickPending());
+    }
 
     @Test
     public void adPlusXWithoutCarryyIntoHighByte(){
