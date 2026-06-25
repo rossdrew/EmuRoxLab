@@ -4059,5 +4059,409 @@ public class MOS6502OpCodeTest {
         }
     }
 
+    @Nested
+    class STX {
+        @ParameterizedTest(name = "STX_Z X={0}")
+        @CsvSource({
+              // X,    Value
+                "0x20, 0x99",
+                "0x00, 0x77",
+                "0x80, 0x55",
+                "0xFF, 0x00"
+        })
+        void stxZeroPageStoresX(int x, int value) {
+            ram.write(0x8000, STX_Z.getId());
+            ram.write(0x8001, 0x44);
+            ram.write(0x0044, value);
+
+            env.setPC(0x8000);
+            env.setX(x);
+
+            env.setZ(true);
+            env.setN(true);
+            env.setCarry(true);
+            env.setV(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch zero-page address
+            cpu.tick(); // store X at zero-page address
+
+            assertEquals(x & 0xFF, ram.read(0x0044));
+            assertEquals(x & 0xFF, env.getX());
+
+            assertTrue(env.getZ());
+            assertTrue(env.getN());
+            assertTrue(env.getCarry());
+            assertTrue(env.getV());
+
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @Test
+        void stxZeroPageDoesNotStoreUntilThirdTick() {
+            ram.write(0x8000, STX_Z.getId());
+            ram.write(0x8001, 0x44);
+            ram.write(0x0044, 0x99);
+
+            env.setPC(0x8000);
+            env.setX(0x20);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch zero-page address
+
+            assertEquals(0x99, ram.read(0x0044));
+
+            cpu.tick(); // store X at zero-page address
+
+            assertEquals(0x20, ram.read(0x0044));
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @ParameterizedTest(name = "STX_Z_Y X={0}, zp={1}, Y={2}")
+        @CsvSource({
+              // X,    Z-Address, Y,    Address,  Value
+                "0x20, 0x44,      0x05, 0x0049,   0x99",
+                "0x00, 0x20,      0x00, 0x0020,   0x77",
+                "0x80, 0xFE,      0x01, 0x00FF,   0x55",
+                "0xFF, 0xFE,      0x05, 0x0003,   0x00"
+        })
+        void stxZeroPageYStoresXAtZeroPageAddressOffsetByY(int x,
+                                                           int zeroPageBaseAddress,
+                                                           int y,
+                                                           int address,
+                                                           int value) {
+            ram.write(0x8000, STX_Z_Y.getId());
+            ram.write(0x8001, zeroPageBaseAddress);
+            ram.write(address, value);
+
+            env.setPC(0x8000);
+            env.setX(x);
+            env.setY(y);
+
+            env.setZ(true);
+            env.setN(true);
+            env.setCarry(true);
+            env.setV(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch zero-page base address
+            cpu.tick(); // add Y to zero-page address
+            cpu.tick(); // store X at indexed zero-page address
+
+            assertEquals(x & 0xFF, ram.read(address));
+            assertEquals(x & 0xFF, env.getX());
+
+            assertTrue(env.getZ());
+            assertTrue(env.getN());
+            assertTrue(env.getCarry());
+            assertTrue(env.getV());
+
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @Test
+        void stxZeroPageYWrapsWithinZeroPage() {
+            ram.write(0x8000, STX_Z_Y.getId());
+            ram.write(0x8001, 0xFE);
+            ram.write(0x0003, 0x99);
+
+            env.setPC(0x8000);
+            env.setX(0x20);
+            env.setY(0x05);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch zero-page base address
+            cpu.tick(); // add Y to zero-page address, wrapping within zero page
+            cpu.tick(); // store X at indexed zero-page address
+
+            assertEquals(0x20, ram.read(0x0003));
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @Test
+        void stxZeroPageYDoesNotStoreUntilFourthTick() {
+            ram.write(0x8000, STX_Z_Y.getId());
+            ram.write(0x8001, 0x44);
+            ram.write(0x0049, 0x99);
+
+            env.setPC(0x8000);
+            env.setX(0x20);
+            env.setY(0x05);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch zero-page base address
+            cpu.tick(); // add Y to zero-page address
+
+            assertEquals(0x99, ram.read(0x0049));
+
+            cpu.tick(); // store X at indexed zero-page address
+
+            assertEquals(0x20, ram.read(0x0049));
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @ParameterizedTest(name = "STX_ABS X={0}")
+        @CsvSource({
+              // X,    Value
+                "0x20, 0x99",
+                "0x00, 0x77",
+                "0x80, 0x55",
+                "0xFF, 0x00"
+        })
+        void stxAbsoluteStoresX(int x, int value) {
+            ram.write(0x8000, STX_ABS.getId());
+            ram.write(0x8001, 0x34);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1234, value);
+
+            env.setPC(0x8000);
+            env.setX(x);
+
+            env.setZ(true);
+            env.setN(true);
+            env.setCarry(true);
+            env.setV(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch low address byte
+            cpu.tick(); // fetch high address byte
+            cpu.tick(); // store X at absolute address
+
+            assertEquals(x & 0xFF, ram.read(0x1234));
+            assertEquals(x & 0xFF, env.getX());
+
+            assertTrue(env.getZ());
+            assertTrue(env.getN());
+            assertTrue(env.getCarry());
+            assertTrue(env.getV());
+
+            assertEquals(0x8003, env.getPC());
+        }
+
+        @Test
+        void stxAbsoluteDoesNotStoreUntilFourthTick() {
+            ram.write(0x8000, STX_ABS.getId());
+            ram.write(0x8001, 0x34);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1234, 0x99);
+
+            env.setPC(0x8000);
+            env.setX(0x20);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch low address byte
+            cpu.tick(); // fetch high address byte
+
+            assertEquals(0x99, ram.read(0x1234));
+
+            cpu.tick(); // store X at absolute address
+
+            assertEquals(0x20, ram.read(0x1234));
+            assertEquals(0x8003, env.getPC());
+        }
+    }
+
+    @Nested
+    class STY {
+        @ParameterizedTest(name = "STY_Z Y={0}")
+        @CsvSource({
+              // Y,    Value
+                "0x20, 0x99",
+                "0x00, 0x77",
+                "0x80, 0x55",
+                "0xFF, 0x00"
+        })
+        void styZeroPageStoresY(int y, int initialMemoryValue) {
+            ram.write(0x8000, STY_Z.getId());
+            ram.write(0x8001, 0x44);
+            ram.write(0x0044, initialMemoryValue);
+
+            env.setPC(0x8000);
+            env.setY(y);
+
+            env.setZ(true);
+            env.setN(true);
+            env.setCarry(true);
+            env.setV(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch zero-page address
+            cpu.tick(); // store Y at zero-page address
+
+            assertEquals(y & 0xFF, ram.read(0x0044));
+            assertEquals(y & 0xFF, env.getY());
+
+            assertTrue(env.getZ());
+            assertTrue(env.getN());
+            assertTrue(env.getCarry());
+            assertTrue(env.getV());
+
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @Test
+        void styZeroPageDoesNotStoreUntilThirdTick() {
+            ram.write(0x8000, STY_Z.getId());
+            ram.write(0x8001, 0x44);
+            ram.write(0x0044, 0x99);
+
+            env.setPC(0x8000);
+            env.setY(0x20);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch zero-page address
+
+            assertEquals(0x99, ram.read(0x0044));
+
+            cpu.tick(); // store Y at zero-page address
+
+            assertEquals(0x20, ram.read(0x0044));
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @ParameterizedTest(name = "STY_Z_X Y={0}, zp={1}, X={2}")
+        @CsvSource({
+              // Y,    Z-Base,  X,    Address,   Value
+                "0x20, 0x44,    0x05, 0x0049,    0x99",
+                "0x00, 0x20,    0x00, 0x0020,    0x77",
+                "0x80, 0xFE,    0x01, 0x00FF,    0x55",
+                "0xFF, 0xFE,    0x05, 0x0003,    0x00"
+        })
+        void styZeroPageXStoresYAtZeroPageAddressOffsetByX(int y,
+                                                           int zeroPageBaseAddress,
+                                                           int x,
+                                                           int address,
+                                                           int value) {
+            ram.write(0x8000, STY_Z_X.getId());
+            ram.write(0x8001, zeroPageBaseAddress);
+            ram.write(address, value);
+
+            env.setPC(0x8000);
+            env.setY(y);
+            env.setX(x);
+
+            env.setZ(true);
+            env.setN(true);
+            env.setCarry(true);
+            env.setV(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch zero-page base address
+            cpu.tick(); // add X to zero-page address
+            cpu.tick(); // store Y at indexed zero-page address
+
+            assertEquals(y & 0xFF, ram.read(address));
+            assertEquals(y & 0xFF, env.getY());
+
+            assertTrue(env.getZ());
+            assertTrue(env.getN());
+            assertTrue(env.getCarry());
+            assertTrue(env.getV());
+
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @Test
+        void styZeroPageXWrapsWithinZeroPage() {
+            ram.write(0x8000, STY_Z_X.getId());
+            ram.write(0x8001, 0xFE);
+            ram.write(0x0003, 0x99);
+
+            env.setPC(0x8000);
+            env.setY(0x20);
+            env.setX(0x05);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch zero-page base address
+            cpu.tick(); // add X to zero-page address, wrapping within zero page
+            cpu.tick(); // store Y at indexed zero-page address
+
+            assertEquals(0x20, ram.read(0x0003));
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @Test
+        void styZeroPageXDoesNotStoreUntilFourthTick() {
+            ram.write(0x8000, STY_Z_X.getId());
+            ram.write(0x8001, 0x44);
+            ram.write(0x0049, 0x99);
+
+            env.setPC(0x8000);
+            env.setY(0x20);
+            env.setX(0x05);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch zero-page base address
+            cpu.tick(); // add X to zero-page address
+
+            assertEquals(0x99, ram.read(0x0049));
+
+            cpu.tick(); // store Y at indexed zero-page address
+
+            assertEquals(0x20, ram.read(0x0049));
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @ParameterizedTest(name = "STY_ABS Y={0}")
+        @CsvSource({
+              // Y,    Value
+                "0x20, 0x99",
+                "0x00, 0x77",
+                "0x80, 0x55",
+                "0xFF, 0x00"
+        })
+        void styAbsoluteStoresY(int y, int value) {
+            ram.write(0x8000, STY_ABS.getId());
+            ram.write(0x8001, 0x34);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1234, value);
+
+            env.setPC(0x8000);
+            env.setY(y);
+
+            env.setZ(true);
+            env.setN(true);
+            env.setCarry(true);
+            env.setV(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch low address byte
+            cpu.tick(); // fetch high address byte
+            cpu.tick(); // store Y at absolute address
+
+            assertEquals(y & 0xFF, ram.read(0x1234));
+            assertEquals(y & 0xFF, env.getY());
+
+            assertTrue(env.getZ());
+            assertTrue(env.getN());
+            assertTrue(env.getCarry());
+            assertTrue(env.getV());
+
+            assertEquals(0x8003, env.getPC());
+        }
+
+        @Test
+        void styAbsoluteDoesNotStoreUntilFourthTick() {
+            ram.write(0x8000, STY_ABS.getId());
+            ram.write(0x8001, 0x34);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1234, 0x99);
+
+            env.setPC(0x8000);
+            env.setY(0x20);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch low address byte
+            cpu.tick(); // fetch high address byte
+
+            assertEquals(0x99, ram.read(0x1234));
+
+            cpu.tick(); // store Y at absolute address
+
+            assertEquals(0x20, ram.read(0x1234));
+            assertEquals(0x8003, env.getPC());
+        }
+    }
+
     //TODO is it worth testing actual operations at this level? ADC, AND...
 }

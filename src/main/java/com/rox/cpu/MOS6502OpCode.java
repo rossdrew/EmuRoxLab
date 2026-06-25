@@ -472,24 +472,45 @@ public enum MOS6502OpCode {
             opsInTick(NEXT_MEM_TO_ADH, ADDRESS_AD_PLUS_Y),
             opsInTick(DUMMY_READ),
             opsInTick(MEM_FROM_A)
+    )),
+
+    STX_Z(0x86, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_ADL, MEM_FROM_X)
+    )),
+
+    STX_Z_Y(0x96, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADL_PLUS_Y),
+            opsInTick(ADDRESS_ADL, MEM_FROM_X)
+    )),
+
+    STX_ABS(0x8E, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM),
+            opsInTick(ADDRESS_AD, MEM_FROM_X)
+    )),
+
+    STY_Z(0x84, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_ADL, MEM_FROM_Y)
+    )),
+
+    STY_Z_X(0x94, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADL_PLUS_X),
+            opsInTick(ADDRESS_ADL, MEM_FROM_Y)
+    )),
+
+    STY_ABS(0x8C, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM),
+            opsInTick(ADDRESS_AD, MEM_FROM_Y)
     ));
 
-//
-//    STX(0x86, clockTicks(
-//            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
-//            opsInTick(ADDRESS_ADL, MEM_FROM_X)
-//    )),
-//
-//    STY(0x86, clockTicks(
-//            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
-//            opsInTick(ADDRESS_ADL, MEM_FROM_Y)
-//    ));
-
     /*
-
     For sample program: INX, CPX, BNE, BRK
 
-    STX, STY (introduces writes)
     Transfer instructions (TAX, etc.)
     INX, DEX, INY, DEY
     BIT
