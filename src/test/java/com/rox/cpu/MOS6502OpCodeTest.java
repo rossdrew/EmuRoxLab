@@ -471,7 +471,7 @@ public class MOS6502OpCodeTest {
             env.setPC(0x8000);
 
             cpu.tick(); //Get opcode
-            cpu.tick(); //Get operand: zero page pointer
+            cpu.tick(); //Get operand: zero-page pointer
             cpu.tick(); //Load value at pointer to accumulator
 
             assertEquals(value & 0xFF, env.getA());
@@ -513,7 +513,7 @@ public class MOS6502OpCodeTest {
             env.setX(0x05);
 
             cpu.tick(); //Fetch opcode
-            cpu.tick(); //Fetch zero page address to ADL
+            cpu.tick(); //Fetch zero-page address to ADL
             cpu.tick(); //Add X to ADL (wrapping)
             cpu.tick(); //Read value at $00:ADL to A and set flags
 
@@ -863,7 +863,7 @@ public class MOS6502OpCodeTest {
 
         @ParameterizedTest(name = "AND_Z A={0}, operand={1}")
         @CsvSource({
-                // A       Op     Expected   Z      N
+              // A      Op     Expected   Z      N
                 "0xAA,  0x0F,  0x0A,      false, false",
                 "0xF0,  0x0F,  0x00,      true,  false",
                 "0xFF,  0x80,  0x80,      false, true"
@@ -1116,7 +1116,7 @@ public class MOS6502OpCodeTest {
             env.setX(0x05);
 
             cpu.tick(); //Fetch opcode
-            cpu.tick(); //Fetch argument 1 (Zero page address)
+            cpu.tick(); //Fetch argument 1 (zero-page address)
             cpu.tick(); //Add X offset
             cpu.tick(); //Fetch effective address low byte
             cpu.tick(); //Fetch effective address high byte
@@ -1269,8 +1269,8 @@ public class MOS6502OpCodeTest {
             env.setA(a);
 
             cpu.tick(); //Get opcode
-            cpu.tick(); //Get arguemnt - zero page address
-            cpu.tick(); //Fetch value from zero page and perform ORA
+            cpu.tick(); //Get argument - zero-page address
+            cpu.tick(); //Fetch value from zero-page and perform ORA
 
             assertEquals(expected, env.getA());
             assertEquals(z, env.getZ());
@@ -1315,8 +1315,8 @@ public class MOS6502OpCodeTest {
             env.setX(0x05);
 
             cpu.tick(); //Get opcode
-            cpu.tick(); //Get argument - zero page address
-            cpu.tick(); //Add X to zero page address
+            cpu.tick(); //Get argument - zero-page address
+            cpu.tick(); //Add X to zero-page address
             cpu.tick(); //Get offset value and perform ORA
 
             assertEquals(expected, env.getA());
@@ -1574,7 +1574,7 @@ public class MOS6502OpCodeTest {
             env.setX(0x05);
 
             cpu.tick(); //Fetch opcode
-            cpu.tick(); //Fetch argument 1 (Zero page address)
+            cpu.tick(); //Fetch argument 1 (zero-page address)
             cpu.tick(); //Add X to the retrieved address
             cpu.tick(); //Fetch effective address low byte
             cpu.tick(); //Fetch next effective address high byte
@@ -1634,7 +1634,7 @@ public class MOS6502OpCodeTest {
             env.setY(0x05);
 
             cpu.tick(); //Fetch opcode
-            cpu.tick(); //Fetch argument 1 (Zero Page address) to address bus
+            cpu.tick(); //Fetch argument 1 (zero-page address) to address bus
             cpu.tick(); //Fetch value at addressed location to ADL
             cpu.tick(); //Fetch value at next location to ADH, add Y offset
             cpu.tick(); //Perform ORA on addressed location
@@ -2993,7 +2993,7 @@ public class MOS6502OpCodeTest {
 
             cpu.tick(); // fetch opcode
             cpu.tick(); // fetch zero-page base address
-            cpu.tick(); // add Y to zero-page address, wrapping within zero page
+            cpu.tick(); // add Y to zero-page address, wrapping within zero-page
             cpu.tick(); // read operand, load X, set flags
 
             assertEquals(0x20, env.getX());
@@ -3251,7 +3251,7 @@ public class MOS6502OpCodeTest {
 
             cpu.tick(); // fetch opcode
             cpu.tick(); // fetch zero-page base address
-            cpu.tick(); // add X to zero-page address, wrapping within zero page
+            cpu.tick(); // add X to zero-page address, wrapping within zero-page
             cpu.tick(); // read operand, load Y, set flags
 
             assertEquals(0x20, env.getY());
@@ -3893,7 +3893,7 @@ public class MOS6502OpCodeTest {
 
             cpu.tick(); // fetch opcode
             cpu.tick(); // fetch zero-page base pointer
-            cpu.tick(); // add X to zero-page pointer, wrapping within zero page
+            cpu.tick(); // add X to zero-page pointer, wrapping within zero-page
             cpu.tick(); // fetch effective address low byte
             cpu.tick(); // fetch effective address high byte
             cpu.tick(); // store A at effective address
@@ -3918,7 +3918,7 @@ public class MOS6502OpCodeTest {
 
             cpu.tick(); // fetch opcode
             cpu.tick(); // fetch zero-page base pointer
-            cpu.tick(); // add X to zero-page pointer, wrapping within zero page
+            cpu.tick(); // add X to zero-page pointer, wrapping within zero-page
             cpu.tick(); // fetch effective address low byte from $00FF
             cpu.tick(); // fetch effective address high byte from $0000
             cpu.tick(); // store A at effective address
@@ -4171,7 +4171,7 @@ public class MOS6502OpCodeTest {
 
             cpu.tick(); // fetch opcode
             cpu.tick(); // fetch zero-page base address
-            cpu.tick(); // add Y to zero-page address, wrapping within zero page
+            cpu.tick(); // add Y to zero-page address, wrapping within zero-page
             cpu.tick(); // store X at indexed zero-page address
 
             assertEquals(0x20, ram.read(0x0003));
@@ -4373,7 +4373,7 @@ public class MOS6502OpCodeTest {
 
             cpu.tick(); // fetch opcode
             cpu.tick(); // fetch zero-page base address
-            cpu.tick(); // add X to zero-page address, wrapping within zero page
+            cpu.tick(); // add X to zero-page address, wrapping within zero-page
             cpu.tick(); // store Y at indexed zero-page address
 
             assertEquals(0x20, ram.read(0x0003));

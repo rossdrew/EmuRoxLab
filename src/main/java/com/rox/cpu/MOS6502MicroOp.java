@@ -226,7 +226,7 @@ enum MOS6502MicroOp implements MOS6502Operation {
     MEM_FROM_A((env, mem, alu)->{
         mem.store(env.getA());
     }),
-    
+
     /** Set the memory locations indicated by the address bus to the value of X: <code>mem[AD] := X</code> */
     MEM_FROM_X((env, mem, alu)->{
         mem.store(env.getX());
