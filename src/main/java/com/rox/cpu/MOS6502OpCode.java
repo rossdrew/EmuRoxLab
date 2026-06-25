@@ -516,7 +516,7 @@ public enum MOS6502OpCode {
     For sample program: INX, CPX, BNE, BRK
 
     Transfer instructions (TAX, etc.)
-    INX, DEX, INY, DEY
+    DEX, INY, DEY
     BIT
     Branch instructions
     Stack instructions
