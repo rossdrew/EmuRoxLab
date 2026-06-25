@@ -735,4 +735,6 @@ public class MOS6502MicoOpTest extends Arbitraries {
             assertEquals(0x8000, env.getPC());
         }
     }
+
+    //TODO PUSH_A
 }

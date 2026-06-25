@@ -4558,5 +4558,151 @@ public class MOS6502OpCodeTest {
         }
     }
 
+    @Nested
+    class PHA {
+        private int stackAddress(int stackPointer) {
+            return 0x0100 | (stackPointer & 0xFF);
+        }
+
+        @ParameterizedTest(name = "PHA A={0}, SP={1}")
+        @CsvSource({
+                // A,  SP,   Value
+                "0x20, 0xFF, 0x99",
+                "0x00, 0x80, 0x77",
+                "0x80, 0x10, 0x55",
+                "0xFF, 0x00, 0x33"
+        })
+        void phaPushesAccumulatorToStackAndDecrementsStackPointer(int accumulator,
+                                                                  int stackPointer,
+                                                                  int initialStackValue) {
+            ram.write(0x8000, PHA_IMP.getId());
+            ram.write(stackAddress(stackPointer), initialStackValue);
+
+            env.setPC(0x8000);
+            env.setA(accumulator);
+            env.setStackPointer(stackPointer);
+
+            env.setZ(true);
+            env.setN(true);
+            env.setCarry(true);
+            env.setV(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // internal stack operation
+            cpu.tick(); // write A to stack, decrement stack pointer
+
+            assertEquals(accumulator & 0xFF, ram.read(stackAddress(stackPointer)));
+            assertEquals((stackPointer - 1) & 0xFF, env.getStackPointer());
+
+            assertEquals(accumulator & 0xFF, env.getA());
+
+            assertTrue(env.getZ());
+            assertTrue(env.getN());
+            assertTrue(env.getCarry());
+            assertTrue(env.getV());
+
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void phaDoesNotPushUntilThirdTick() {
+            ram.write(0x8000, PHA_IMP.getId());
+            ram.write(0x01FF, 0x99);
+
+            env.setPC(0x8000);
+            env.setA(0x20);
+            env.setStackPointer(0xFF);
+
+            cpu.tick(); // fetch opcode
+
+            assertEquals(0x99, ram.read(0x01FF));
+            assertEquals(0xFF, env.getStackPointer());
+            assertEquals(0x8001, env.getPC());
+
+            cpu.tick(); // internal stack operation
+
+            assertEquals(0x99, ram.read(0x01FF));
+            assertEquals(0xFF, env.getStackPointer());
+
+            cpu.tick(); // write A to stack, decrement stack pointer
+
+            assertEquals(0x20, ram.read(0x01FF));
+            assertEquals(0xFE, env.getStackPointer());
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void phaPushesToCurrentStackPointerBeforeDecrementing() {
+            ram.write(0x8000, PHA_IMP.getId());
+            ram.write(0x01FE, 0x11);
+            ram.write(0x01FF, 0x99);
+
+            env.setPC(0x8000);
+            env.setA(0x20);
+            env.setStackPointer(0xFF);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // internal stack operation
+            cpu.tick(); // write A to stack, decrement stack pointer
+
+            assertNotEquals(0x99, ram.read(0x01FF), "Expected stack location unchanged from " + 0x99);
+            assertEquals(0x20, ram.read(0x01FF));
+            assertEquals(0x11, ram.read(0x01FE));
+            assertEquals(0xFE, env.getStackPointer());
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void phaWrapsStackPointerFromZeroToFf() {
+            ram.write(0x8000, PHA_IMP.getId());
+            ram.write(0x0100, 0x99);
+
+            env.setPC(0x8000);
+            env.setA(0x20);
+            env.setStackPointer(0x00);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // internal stack operation
+            cpu.tick(); // write A to stack, decrement stack pointer with wrap
+
+            assertEquals(0x20, ram.read(0x0100));
+            assertEquals(0xFF, env.getStackPointer());
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void phaDoesNotAffectAccumulatorIndexRegistersOrFlags() {
+            ram.write(0x8000, PHA_IMP.getId());
+
+            env.setPC(0x8000);
+            env.setA(0x44);
+            env.setX(0x55);
+            env.setY(0x66);
+            env.setStackPointer(0xFF);
+
+            env.setZ(true);
+            env.setN(false);
+            env.setCarry(true);
+            env.setV(false);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // internal stack operation
+            cpu.tick(); // write A to stack, decrement stack pointer
+
+            assertEquals(0x44, env.getA());
+            assertEquals(0x55, env.getX());
+            assertEquals(0x66, env.getY());
+
+            assertTrue(env.getZ());
+            assertFalse(env.getN());
+            assertTrue(env.getCarry());
+            assertFalse(env.getV());
+
+            assertEquals(0x44, ram.read(0x01FF));
+            assertEquals(0xFE, env.getStackPointer());
+            assertEquals(0x8001, env.getPC());
+        }
+    }
+
     //TODO is it worth testing actual operations at this level? ADC, AND...
 }

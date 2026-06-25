@@ -13,9 +13,21 @@ public enum MOS6502OpCode {
 
     //XXX Possible bug, some instructions might not incremenet the pc, meaning the next instruction will read from the wrong place
 
-//    BRK(0x00, clockTicks(
-//            opsInTick() //TODO what does break do?
-//    )),
+    BRK(0x00, clockTicks(
+//  1	Fetch opcode
+//  2	Read and discard the next byte (increment PC again)
+            opsInTick(DUMMY_READ, INC_PC),
+//  3	Push PCH onto the stack
+            opsInTick(), //TODO
+//  4	Push PCL onto the stack
+            opsInTick(), //TODO
+//  5	Push processor status (with B flag set), set I flag
+            opsInTick(), //TODO
+//  6	Read interrupt vector low byte from $FFFE
+            opsInTick(), //TODO
+//  7	Read interrupt vector high byte from $FFFF, load PC
+            opsInTick() //TODO
+    )),
 
     NOP(0x6E, clockTicks(
             opsInTick() //Do nothing
@@ -508,12 +520,20 @@ public enum MOS6502OpCode {
             opsInTick(ADDRESS_AD, MEM_FROM_Y)
     )),
 
-    INX_IMP(0x00, clockTicks(
+    INX_IMP(0xE8, clockTicks(
             opsInTick(INX, SET_FLAGS_ON_X)
-    ));
+    )),
+
+    PHA_IMP(0x48, clockTicks(
+            opsInTick(DUMMY_READ),
+            opsInTick(PUSH_A)
+    ))
+    ;
 
     /*
     For sample program: INX, CPX, BNE, BRK
+
+    PHA, PHP, PLA, PLP - provide many microops for BRK
 
     Transfer instructions (TAX, etc.)
     DEX, INY, DEY

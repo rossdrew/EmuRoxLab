@@ -18,6 +18,7 @@ class MOS6502Environment {
     private int a;  //accumulator
     private int x;  //X register
     private int y;  //Y registers
+    private int stackPointer = 0xFF; //Low byte of the stack pointer $01:XX
 
     private boolean onGoingExpensiveOp = false;
 
@@ -137,6 +138,14 @@ class MOS6502Environment {
 
     public void setCarry(boolean carry) {
         this.carry = carry;
+    }
+
+    public void setStackPointer(final int newStackLowByteValue){
+        this.stackPointer = newStackLowByteValue & 0xFF;
+    }
+
+    public int getStackPointer(){
+        return this.stackPointer;
     }
 
     public boolean additionalTickPending(){
