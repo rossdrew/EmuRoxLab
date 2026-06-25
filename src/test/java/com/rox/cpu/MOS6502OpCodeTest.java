@@ -4463,5 +4463,100 @@ public class MOS6502OpCodeTest {
         }
     }
 
+    @Nested
+    class INX {
+        @ParameterizedTest(name = "INX_I X={0} -> {1}, Z={2}, N={3}")
+        @CsvSource({
+                // X,    Expected X, Z,     N
+                "0x00, 0x01,       false, false",
+                "0x7E, 0x7F,       false, false",
+                "0x7F, 0x80,       false, true",
+                "0xFE, 0xFF,       false, true",
+                "0xFF, 0x00,       true,  false"
+        })
+        void inxIncrementsXAndSetsZeroAndNegativeFlags(int x,
+                                                       int expectedX,
+                                                       boolean expectedZero,
+                                                       boolean expectedNegative) {
+            ram.write(0x8000, INX_IMP.getId());
+
+            env.setPC(0x8000);
+            env.setX(x);
+
+            env.setCarry(true);
+            env.setV(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // increment X, set Z and N flags
+
+            assertEquals(expectedX & 0xFF, env.getX());
+            assertEquals(expectedZero, env.getZ());
+            assertEquals(expectedNegative, env.getN());
+
+            assertTrue(env.getCarry());
+            assertTrue(env.getV());
+
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void inxDoesNotIncrementUntilSecondTick() {
+            ram.write(0x8000, INX_IMP.getId());
+
+            env.setPC(0x8000);
+            env.setX(0x20);
+
+            cpu.tick(); // fetch opcode
+
+            assertEquals(0x20, env.getX());
+            assertEquals(0x8001, env.getPC());
+
+            cpu.tick(); // increment X, set Z and N flags
+
+            assertEquals(0x21, env.getX());
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void inxWrapsFromFfToZero() {
+            ram.write(0x8000, INX_IMP.getId());
+
+            env.setPC(0x8000);
+            env.setX(0xFF);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // increment X, wrapping to zero, set Z and N flags
+
+            assertEquals(0x00, env.getX());
+            assertTrue(env.getZ());
+            assertFalse(env.getN());
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void inxDoesNotAffectAccumulatorYCarryOrOverflow() {
+            ram.write(0x8000, INX_IMP.getId());
+
+            env.setPC(0x8000);
+            env.setA(0x44);
+            env.setX(0x20);
+            env.setY(0x55);
+            env.setCarry(true);
+            env.setV(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // increment X, set Z and N flags
+
+            assertEquals(0x44, env.getA());
+            assertEquals(0x21, env.getX());
+            assertEquals(0x55, env.getY());
+
+            assertTrue(env.getCarry());
+            assertTrue(env.getV());
+
+            assertEquals(0x8001, env.getPC());
+        }
+    }
+
     //TODO is it worth testing actual operations at this level? ADC, AND...
 }

@@ -506,6 +506,10 @@ public enum MOS6502OpCode {
             opsInTick(ADDRESS_PC, ADL_FROM_MEM),
             opsInTick(ADDRESS_PC, ADH_FROM_MEM),
             opsInTick(ADDRESS_AD, MEM_FROM_Y)
+    )),
+
+    INX_IMP(0x00, clockTicks(
+            opsInTick(INX, SET_FLAGS_ON_X)
     ));
 
     /*

@@ -239,6 +239,11 @@ enum MOS6502MicroOp implements MOS6502Operation {
     }),
     //***
 
+    /** Increment the value in the X register</code> */
+    INX((env, mem, alu) -> {
+        env.setX((env.getX() + 1) & 0xFF);
+    }),
+
     /** Perform {@link MOS6502ALU#adc(int)} with the value at <code>mem[address_bus]</code> */
     ADC((env, mem, alu) -> {
         alu.adc(mem.fetch());

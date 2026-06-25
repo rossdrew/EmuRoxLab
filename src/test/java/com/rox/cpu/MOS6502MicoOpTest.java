@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.api.Nested;
 
 import static com.rox.cpu.MOS6502MicroOp.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -691,5 +692,47 @@ public class MOS6502MicoOpTest extends Arbitraries {
         MEM_FROM_Y.execute(env, bus, alu);
 
         assertEquals(value, bus.fetch());
+    }
+
+    @Nested
+    class INX{
+        @Test
+        public void inxIncrementsX() {
+            env.setX(0x20);
+
+            INX.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x21, env.getX());
+        }
+
+        @Test
+        public void inxWrapsFromFfToZero() {
+            env.setX(0xFF);
+
+            INX.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x00, env.getX());
+        }
+
+        @Test
+        public void inxDoesNotChangeAccumulatorYOrPc() {
+            env.setA(0x11);
+            env.setX(0x20);
+            env.setY(0x33);
+            env.setPC(0x8000);
+
+            INX.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x11, env.getA());
+            assertEquals(0x21, env.getX());
+            assertEquals(0x33, env.getY());
+            assertEquals(0x8000, env.getPC());
+        }
     }
 }
