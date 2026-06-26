@@ -169,7 +169,7 @@ class MOS6502Environment {
     }
 
     public int getStackPointer(){
-        return this.stackPointer;
+        return this.stackPointer & 0xFF;
     }
 
     /**

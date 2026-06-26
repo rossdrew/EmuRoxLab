@@ -242,14 +242,25 @@ enum MOS6502MicroOp implements MOS6502Operation {
         env.setX((env.getX() + 1) & 0xFF);
     }),
 
-    /** Push the current value of A onto the stack and decrement the stack pointer <code>mem[$01:SP--] = A</code> **/
+    /** Push the current value of A onto the stack and decrement the stack pointer <code>mem[$01:SP--] := A</code> **/
     PUSH_A((env, mem, alu) -> {
         mem.loadMemoryAddress(0x0100 | env.getStackPointer());
         mem.store(env.getA());
         env.setStackPointer((env.getStackPointer()-1) & 0xFF);
     }),
 
-    /** Push the current state of the processor onto the stack with break flag set to 1 and decrement the stack pointer <code>mem[$01:SP--] = Processor Status + break flag</code> **/
+    /** Increment the stack pointer and pull the value of A from that location <code>A := mem[$01:++SP]</code> **/
+    PULL_A((env, mem, alu) -> {
+        mem.loadMemoryAddress(0x0100 | env.getStackPointer());
+        env.setA(mem.fetch());
+    }),
+
+    /** Increment the stack pointer <code>SP++</code>*/
+    INC_SP((env, mem, alu) -> {
+        env.setStackPointer((env.getStackPointer()+1) & 0xFF);
+    }),
+
+    /** Push the current state of the processor onto the stack with break flag set to 1 and decrement the stack pointer <code>mem[$01:SP--] := Processor Status + break flag</code> **/
     PUSH_PROCESSOR_STATUS_WITH_BREAK((env, mem, alu) -> {
         mem.loadMemoryAddress(0x0100 | env.getStackPointer());
         mem.store(env.getStatus(true));

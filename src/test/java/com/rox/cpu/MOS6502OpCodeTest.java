@@ -4704,7 +4704,6 @@ public class MOS6502OpCodeTest {
         }
     }
 
-    //Evaluating
     @Nested
     class PHP {
         private int expectedProcessorStatusForPhpPush(boolean n,
@@ -4905,6 +4904,176 @@ public class MOS6502OpCodeTest {
             assertFalse(env.getCarry());
 
             assertEquals(0xFE, env.getStackPointer());
+            assertEquals(0x8001, env.getPC());
+        }
+    }
+
+    @Nested
+    class PLA {
+        private int stackAddress(int stackPointer) {
+            return 0x0100 | (stackPointer & 0xFF);
+        }
+
+        private int pulledFromAddress(int currentStackPointer) {
+            return stackAddress((currentStackPointer + 1) & 0xFF);
+        }
+
+        @ParameterizedTest(name = "PLA pulls {1} from stack with SP={0}, Z={2}, N={3}")
+        @CsvSource({
+                // SP, Stack Value, Z,     N
+                "0xFE, 0x20,        false, false",
+                "0xFE, 0x00,        true,  false",
+                "0xFE, 0x80,        false, true",
+                "0xFE, 0xFF,        false, true"
+        })
+        void plaPullsAccumulatorFromStackAndSetsZeroAndNegativeFlags(int stackPointer,
+                                                                     int stackValue,
+                                                                     boolean expectedZero,
+                                                                     boolean expectedNegative) {
+            ram.write(0x8000, PLA_IMP.getId());
+            ram.write(pulledFromAddress(stackPointer), stackValue);
+
+            env.setPC(0x8000);
+            env.setA(0x11);
+            env.setStackPointer(stackPointer);
+
+            env.setCarry(true);
+            env.setV(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // internal stack operation
+            cpu.tick(); // increment stack pointer
+            cpu.tick(); // pull value from stack into A, set Z and N flags
+
+            assertEquals(stackValue & 0xFF, env.getA());
+            assertEquals((stackPointer + 1) & 0xFF, env.getStackPointer());
+
+            assertEquals(expectedZero, env.getZ());
+            assertEquals(expectedNegative, env.getN());
+
+            assertTrue(env.getCarry());
+            assertTrue(env.getV());
+
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void plaDoesNotPullUntilFourthTick() {
+            ram.write(0x8000, PLA_IMP.getId());
+            ram.write(0x01FF, 0x20);
+
+            env.setPC(0x8000);
+            env.setA(0x11);
+            env.setStackPointer(0xFE);
+
+            cpu.tick(); // fetch opcode
+
+            assertEquals(0x11, env.getA());
+            assertEquals(0xFE, env.getStackPointer());
+            assertEquals(0x8001, env.getPC());
+
+            cpu.tick(); // internal stack operation
+
+            assertEquals(0x11, env.getA());
+            assertEquals(0xFE, env.getStackPointer());
+
+            cpu.tick(); // increment stack pointer
+
+            assertEquals(0x11, env.getA());
+            assertEquals(0xFF, env.getStackPointer());
+
+            cpu.tick(); // pull value from stack into A, set Z and N flags
+
+            assertEquals(0x20, env.getA());
+            assertEquals(0xFF, env.getStackPointer());
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void plaIncrementsStackPointerBeforeReading() {
+            ram.write(0x8000, PLA_IMP.getId());
+            ram.write(0x01FE, 0x11);
+            ram.write(0x01FF, 0x20);
+
+            env.setPC(0x8000);
+            env.setA(0x99);
+            env.setStackPointer(0xFE);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // internal stack operation
+            cpu.tick(); // increment stack pointer
+            cpu.tick(); // pull value from stack into A, set Z and N flags
+
+            assertEquals(0x20, env.getA());
+            assertEquals(0xFF, env.getStackPointer());
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void plaWrapsStackPointerFromFfToZeroBeforeReading() {
+            ram.write(0x8000, PLA_IMP.getId());
+            ram.write(0x0100, 0x20);
+
+            env.setPC(0x8000);
+            env.setA(0x99);
+            env.setStackPointer(0xFF);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // internal stack operation
+            cpu.tick(); // increment stack pointer with wrap
+            cpu.tick(); // pull value from stack into A, set Z and N flags
+
+            assertEquals(0x20, env.getA());
+            assertEquals(0x00, env.getStackPointer());
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void plaDoesNotRemoveValueFromMemory() {
+            ram.write(0x8000, PLA_IMP.getId());
+            ram.write(0x01FF, 0x20);
+
+            env.setPC(0x8000);
+            env.setA(0x99);
+            env.setStackPointer(0xFE);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // internal stack operation
+            cpu.tick(); // increment stack pointer
+            cpu.tick(); // pull value from stack into A, set Z and N flags
+
+            assertEquals(0x20, env.getA());
+            assertEquals(0x20, ram.read(0x01FF));
+            assertEquals(0xFF, env.getStackPointer());
+        }
+
+        @Test
+        void plaDoesNotAffectIndexRegistersCarryOrOverflow() {
+            ram.write(0x8000, PLA_IMP.getId());
+            ram.write(0x01FF, 0x20);
+
+            env.setPC(0x8000);
+            env.setA(0x99);
+            env.setX(0x55);
+            env.setY(0x66);
+            env.setStackPointer(0xFE);
+
+            env.setCarry(true);
+            env.setV(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // internal stack operation
+            cpu.tick(); // increment stack pointer
+            cpu.tick(); // pull value from stack into A, set Z and N flags
+
+            assertEquals(0x20, env.getA());
+            assertEquals(0x55, env.getX());
+            assertEquals(0x66, env.getY());
+
+            assertTrue(env.getCarry());
+            assertTrue(env.getV());
+
+            assertEquals(0xFF, env.getStackPointer());
             assertEquals(0x8001, env.getPC());
         }
     }

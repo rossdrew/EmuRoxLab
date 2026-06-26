@@ -880,4 +880,158 @@ public class MOS6502MicoOpTest extends Arbitraries {
             assertEquals(0xFE, env.getStackPointer());
         }
     }
+
+    @Nested
+    class INC_SP {
+        @Test
+        public void incSpIncrementsStackPointer() {
+            env.setStackPointer(0xFE);
+
+            INC_SP.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0xFF, env.getStackPointer());
+        }
+
+        @Test
+        public void incSpWrapsFromFfToZero() {
+            env.setStackPointer(0xFF);
+
+            INC_SP.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x00, env.getStackPointer());
+        }
+
+        @Test
+        public void incSpDoesNotChangeRegistersProgramCounterOrFlags() {
+            env.setA(0x11);
+            env.setX(0x22);
+            env.setY(0x33);
+            env.setPC(0x8000);
+            env.setStackPointer(0xFE);
+
+            env.setZ(true);
+            env.setN(false);
+            env.setCarry(true);
+            env.setV(false);
+
+            INC_SP.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x11, env.getA());
+            assertEquals(0x22, env.getX());
+            assertEquals(0x33, env.getY());
+            assertEquals(0x8000, env.getPC());
+
+            assertTrue(env.getZ());
+            assertFalse(env.getN());
+            assertTrue(env.getCarry());
+            assertFalse(env.getV());
+
+            assertEquals(0xFF, env.getStackPointer());
+        }
+    }
+
+    @Nested
+    class PULL_A {
+        @Test
+        public void pullALoadsAccumulatorFromCurrentStackPointerAddress() {
+            memoryBus8Bit.write(0x01FF, 0x20);
+
+            env.setA(0x99);
+            env.setStackPointer(0xFF);
+
+            PULL_A.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x20, env.getA());
+            assertEquals(0xFF, env.getStackPointer());
+        }
+
+        @Test
+        public void pullAUsesStackPageNotZeroPage() {
+            memoryBus8Bit.write(0x00FF, 0x11);
+            memoryBus8Bit.write(0x01FF, 0x20);
+
+            env.setA(0x99);
+            env.setStackPointer(0xFF);
+
+            PULL_A.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x20, env.getA());
+            assertEquals(0xFF, env.getStackPointer());
+        }
+
+        @Test
+        public void pullALoadsFromZeroStackOffsetWhenStackPointerIsZero() {
+            memoryBus8Bit.write(0x0100, 0x20);
+
+            env.setA(0x99);
+            env.setStackPointer(0x00);
+
+            PULL_A.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x20, env.getA());
+            assertEquals(0x00, env.getStackPointer());
+        }
+
+        @Test
+        public void pullADoesNotRemoveValueFromMemory() {
+            memoryBus8Bit.write(0x01FF, 0x20);
+
+            env.setA(0x99);
+            env.setStackPointer(0xFF);
+
+            PULL_A.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x20, env.getA());
+
+            bus.loadMemoryAddress(0x01FF);
+            assertEquals(0x20, bus.fetch());
+
+            assertEquals(0xFF, env.getStackPointer());
+        }
+
+        @Test
+        public void pullADoesNotChangeIndexRegistersProgramCounterStackPointerOrFlags() {
+            memoryBus8Bit.write(0x01FF, 0x20);
+
+            env.setA(0x99);
+            env.setX(0x22);
+            env.setY(0x33);
+            env.setPC(0x8000);
+            env.setStackPointer(0xFF);
+
+            env.setZ(true);
+            env.setN(false);
+            env.setCarry(true);
+            env.setV(false);
+
+            PULL_A.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x20, env.getA());
+            assertEquals(0x22, env.getX());
+            assertEquals(0x33, env.getY());
+            assertEquals(0x8000, env.getPC());
+            assertEquals(0xFF, env.getStackPointer());
+
+            assertTrue(env.getZ());
+            assertFalse(env.getN());
+            assertTrue(env.getCarry());
+            assertFalse(env.getV());
+        }
+    }
 }

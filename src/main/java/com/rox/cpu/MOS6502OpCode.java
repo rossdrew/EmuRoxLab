@@ -529,6 +529,12 @@ public enum MOS6502OpCode {
             opsInTick(PUSH_A)
     )),
 
+    PLA_IMP(0x68, clockTicks(
+            opsInTick(DUMMY_READ),
+            opsInTick(INC_SP),
+            opsInTick(PULL_A, SET_FLAGS_ON_A)
+    )),
+
     PHP_IMP(0x08, clockTicks(
             opsInTick(DUMMY_READ),
             opsInTick(PUSH_PROCESSOR_STATUS_WITH_BREAK)
@@ -538,7 +544,7 @@ public enum MOS6502OpCode {
     /*
     For sample program: INX, CPX, BNE, BRK
 
-    PLA, PLP - provide many microops for BRK
+    PLP - provide many microops for BRK
 
     Transfer instructions (TAX, etc.)
     DEX, INY, DEY
