@@ -29,7 +29,6 @@ public class MOS6502Test {
     }
 
     @Test
-    @Disabled("Needs updated...")
     public void temporaryFullRun(){
         final Memory testRAM = new RAM(16);
         testRAM.write(0x00, MOS6502OpCode.ADC_Z.getId());
@@ -63,13 +62,8 @@ public class MOS6502Test {
         cpu.tick(); //Execute ADC
         env = cpu.getEnvironmentSnapshot();
         assertEquals(4, env.getPC());
-        try {
-            cpu.tick();
-            env = cpu.getEnvironmentSnapshot();
-            fail("Expected an exception, 0x0 is not a valid opcode");
-        } catch (Exception e) {
-            //implicit pass?
-        }
+
+        cpu.tick(); //BRK (0x0) TODO: Validate when BRK ready
     }
 }
 
