@@ -31,4 +31,10 @@ public class Arbitraries {
                 .between(1, 100_000)
                 .filter(n -> (n & (n - 1)) != 0);
     }
+
+    @Provide
+    Arbitrary<Integer> validNonWrappingStackPointers() {
+        return integers()
+                .between(0x01, 0xFF);
+    }
 }

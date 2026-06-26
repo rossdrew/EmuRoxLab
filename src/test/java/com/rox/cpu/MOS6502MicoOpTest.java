@@ -6,6 +6,7 @@ import com.rox.mem.LatchedMemoryBus;
 import com.rox.mem.MemoryBus8Bit;
 import com.rox.mem.RAM;
 import net.jqwik.api.ForAll;
+import net.jqwik.api.Group;
 import net.jqwik.api.Property;
 import net.jqwik.api.lifecycle.BeforeTry;
 import org.junit.jupiter.api.BeforeEach;
@@ -736,5 +737,147 @@ public class MOS6502MicoOpTest extends Arbitraries {
         }
     }
 
-    //TODO PUSH_A
+    @Nested //Junit (unit)
+    @Group  //JQwik (properties)
+    class PUSH_A {
+        @Property //XXX This might be overkill and we should test this extensively elsehwere
+        public void pushAStoresAccumulatorAtCurrentStackPointerAddress(@ForAll("validNonWrappingStackPointers") int stackPointer) {
+            memoryBus8Bit.write(0x01FF, 0x99);
+
+            env.setA(0x20);
+            env.setStackPointer(stackPointer);
+
+            PUSH_A.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            bus.loadMemoryAddress(0x0100 | stackPointer);
+            assertEquals(0x20, bus.fetch());
+
+            assertEquals(stackPointer-1, env.getStackPointer(), "Expected SP=" + stackPointer + " to decrement");
+        }
+
+        @Test
+        public void pushAStoresAccumulatorAtCurrentStackPointerAddress() {
+            memoryBus8Bit.write(0x01FF, 0x99);
+
+            env.setA(0x20);
+            env.setStackPointer(0xFF);
+
+            PUSH_A.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            bus.loadMemoryAddress(0x01FF);
+            assertEquals(0x20, bus.fetch());
+
+            assertEquals(0xFE, env.getStackPointer());
+        }
+
+        @Test
+        public void pushAUsesStackPageNotZeroPage() {
+            memoryBus8Bit.write(0x00FF, 0x11);
+            memoryBus8Bit.write(0x01FF, 0x99);
+
+            env.setA(0x20);
+            env.setStackPointer(0xFF);
+
+            PUSH_A.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            bus.loadMemoryAddress(0x01FF);
+            assertEquals(0x20, bus.fetch());
+
+            bus.loadMemoryAddress(0x00FF);
+            assertEquals(0x11, bus.fetch());
+
+            assertEquals(0xFE, env.getStackPointer());
+        }
+
+        @Test
+        public void pushAWritesBeforeDecrementingStackPointer() {
+            memoryBus8Bit.write(0x01FE, 0x11);
+            memoryBus8Bit.write(0x01FF, 0x99);
+
+            env.setA(0x20);
+            env.setStackPointer(0xFF);
+
+            PUSH_A.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            bus.loadMemoryAddress(0x01FF);
+            assertEquals(0x20, bus.fetch());
+
+            bus.loadMemoryAddress(0x01FE);
+            assertEquals(0x11, bus.fetch());
+
+            assertEquals(0xFE, env.getStackPointer());
+        }
+
+        @Test
+        public void pushAWrapsStackPointerFromZeroToFf() {
+            memoryBus8Bit.write(0x0100, 0x99);
+
+            env.setA(0x20);
+            env.setStackPointer(0x00);
+
+            PUSH_A.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            bus.loadMemoryAddress(0x0100);
+            assertEquals(0x20, bus.fetch());
+
+            assertEquals(0xFF, env.getStackPointer());
+        }
+
+        @Test
+        public void pushAStoresAccumulatorAsEightBitValue() {
+            memoryBus8Bit.write(0x01FF, 0x99);
+
+            env.setA(0x1FF);
+            env.setStackPointer(0xFF);
+
+            PUSH_A.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            bus.loadMemoryAddress(0x01FF);
+            assertEquals(0xFF, bus.fetch());
+
+            assertEquals(0xFE, env.getStackPointer());
+        }
+
+        @Test
+        public void pushADoesNotChangeAccumulatorIndexRegistersProgramCounterOrFlags() {
+            env.setA(0x44);
+            env.setX(0x55);
+            env.setY(0x66);
+            env.setPC(0x8000);
+            env.setStackPointer(0xFF);
+
+            env.setZ(true);
+            env.setN(false);
+            env.setCarry(true);
+            env.setV(false);
+
+            PUSH_A.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x44, env.getA());
+            assertEquals(0x55, env.getX());
+            assertEquals(0x66, env.getY());
+            assertEquals(0x8000, env.getPC());
+
+            assertTrue(env.getZ());
+            assertFalse(env.getN());
+            assertTrue(env.getCarry());
+            assertFalse(env.getV());
+
+            assertEquals(0xFE, env.getStackPointer());
+        }
+    }
 }

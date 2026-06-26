@@ -6,18 +6,26 @@ import com.rox.cpu.MOS6502.MOS6502Operation;
  * WIP
  */
 class MOS6502Environment {
-    public boolean carry; //FLAG: Carry
-    public boolean z; //FLAG: Zero
-    public boolean n; //FLAG: Negative
-    public boolean v; //FLAG: Signed Overflow
+     // Status Flags
+     // Bit:   7 6 5 4 3 2 1 0
+     //       +---------------+
+     //       |N|V|1|B|D|I|Z|C|
+     //       +---------------+
+    public boolean negative;         //0x80
+    public boolean signedOverflow;   //0x40
+    public boolean breakFlag;        //0x10
+    public boolean d;                //0x08
+    public boolean i;                //0x04
+    public boolean zero;             //0x02
+    public boolean carry;            //0x01
 
-    private int pc; //16 bit program counter
-    private int ir; //instruction register
-    private int adl; //(1/2) address data low byte
-    private int adh; //(2/2) address data high byte
-    private int a;  //accumulator
-    private int x;  //X register
-    private int y;  //Y registers
+    private int pc;                  //16 bit program counter
+    private int ir;                  //instruction register
+    private int adl;                 //(1/2) address data low byte
+    private int adh;                 //(2/2) address data high byte
+    private int a;                   //accumulator
+    private int x;                   //X register
+    private int y;                   //Y registers
     private int stackPointer = 0xFF; //Low byte of the stack pointer $01:XX
 
     private boolean onGoingExpensiveOp = false;
@@ -29,9 +37,9 @@ class MOS6502Environment {
     MOS6502Environment(boolean c, boolean z, boolean n, boolean v,
                        int pc, int ir, int adl, int adh, int a, int x){
         this.carry = c;
-        this.z = z;
-        this.n = n;
-        this.v = v;
+        this.zero = z;
+        this.negative = n;
+        this.signedOverflow = v;
         this.pc = pc;
         this.ir = ir;
         this.adl = adl;
@@ -113,27 +121,43 @@ class MOS6502Environment {
     }
 
     public void setV(final boolean newV){
-        this.v = newV;
+        this.signedOverflow = newV;
     }
 
     public boolean getV() {
-        return v;
+        return signedOverflow;
     }
 
     public void setN(final boolean newN){
-        this.n = newN;
+        this.negative = newN;
     }
 
     public boolean getN() {
-        return n;
+        return negative;
     }
 
     public void setZ(final boolean newZ) {
-        this.z = newZ;
+        this.zero = newZ;
     }
 
     public boolean getZ() {
-        return z;
+        return zero;
+    }
+
+    public void setD(boolean newD) {
+        this.d = newD;
+    }
+
+    public boolean getD(){
+        return d;
+    }
+
+    public void setI(boolean newI) {
+        this.i = newI;
+    }
+
+    public boolean getI(){
+        return i;
     }
 
     public void setCarry(boolean carry) {
@@ -146,6 +170,26 @@ class MOS6502Environment {
 
     public int getStackPointer(){
         return this.stackPointer;
+    }
+
+    /**
+     * Get the current state of the status register
+     * <pre>
+     * Bit:   7 6 5 4 3 2 1 0
+     *       +---------------+
+     *       |N|V|1|B|D|I|Z|C|
+     *       +---------------+
+     * </pre>
+     */
+    public int getStatus(boolean breakFlag) {
+        return (getN() ? 0x80 : 0)
+                | (getV() ? 0x40 : 0)
+                | 0x20                     // bit 5 always set for now
+                | (breakFlag ? 0x10 : 0)
+                | (getD() ? 0x08 : 0)
+                | (getI() ? 0x04 : 0)
+                | (getZ() ? 0x02 : 0)
+                | (getCarry() ? 0x01 : 0);
     }
 
     public boolean additionalTickPending(){
@@ -179,11 +223,11 @@ class MOS6502Environment {
     }
 
     public MOS6502Environment clone(){
-        return new MOS6502Environment(carry, z, n, v, pc, ir, adl, adh, a, x);
+        return new MOS6502Environment(carry, zero, negative, signedOverflow, pc, ir, adl, adh, a, x);
     }
 
     @Override
     public String toString() {
-        return "pc:"+pc+", ir:"+ir+", ad["+adh+":"+adl+"], a:"+a+", x:"+x+" | F[c:"+carry+", z:"+z+", n:"+n+", v:"+v+"]";
+        return "pc:"+pc+", ir:"+ir+", ad["+adh+":"+adl+"], a:"+a+", x:"+x+" | F[c:"+carry+", z:"+ zero +", n:"+ negative +", v:"+ signedOverflow +"]";
     }
 }

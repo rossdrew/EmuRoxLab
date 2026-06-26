@@ -4704,5 +4704,210 @@ public class MOS6502OpCodeTest {
         }
     }
 
+    //Evaluating
+    @Nested
+    class PHP {
+        private int expectedProcessorStatusForPhpPush(boolean n,
+                                                      boolean v,
+                                                      boolean d,
+                                                      boolean i,
+                                                      boolean z,
+                                                      boolean c) {
+            return (n ? 0x80 : 0x00)
+                    | (v ? 0x40 : 0x00)
+                    | 0x20              // unused/status bit 5 is pushed as set
+                    | 0x10              // break flag is pushed as set by PHP
+                    | (d ? 0x08 : 0x00)
+                    | (i ? 0x04 : 0x00)
+                    | (z ? 0x02 : 0x00)
+                    | (c ? 0x01 : 0x00);
+        }
+
+        @ParameterizedTest(name = "PHP N={0}, V={1}, D={2}, I={3}, Z={4}, C={5}")
+        @CsvSource({
+                // N,     V,     D,     I,     Z,     C
+                "false, false, false, false, false, false",
+                "false, false, false, false, false, true",
+                "false, false, false, false, true,  false",
+                "false, false, false, true,  false, false",
+                "false, false, true,  false, false, false",
+                "false, true,  false, false, false, false",
+                "true,  false, false, false, false, false",
+                "true,  true,  true,  true,  true,  true"
+        })
+        void phpPushesProcessorStatusToStackAndDecrementsStackPointer(boolean n,
+                                                                      boolean v,
+                                                                      boolean d,
+                                                                      boolean i,
+                                                                      boolean z,
+                                                                      boolean c) {
+            ram.write(0x8000, PHP_IMP.getId());
+            ram.write(0x01FF, 0x99);
+
+            env.setPC(0x8000);
+            env.setStackPointer(0xFF);
+
+            env.setN(n);
+            env.setV(v);
+            env.setD(d);
+            env.setI(i);
+            env.setZ(z);
+            env.setCarry(c);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // internal stack operation
+            cpu.tick(); // push processor status to stack, decrement stack pointer
+
+            assertEquals(expectedProcessorStatusForPhpPush(n, v, d, i, z, c), ram.read(0x01FF));
+            assertEquals(0xFE, env.getStackPointer());
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void phpDoesNotPushUntilThirdTick() {
+            ram.write(0x8000, PHP_IMP.getId());
+            ram.write(0x01FF, 0x99);
+
+            env.setPC(0x8000);
+            env.setStackPointer(0xFF);
+
+            env.setN(false);
+            env.setV(false);
+            env.setD(false);
+            env.setI(false);
+            env.setZ(false);
+            env.setCarry(false);
+
+            cpu.tick(); // fetch opcode
+
+            assertEquals(0x99, ram.read(0x01FF));
+            assertEquals(0xFF, env.getStackPointer());
+            assertEquals(0x8001, env.getPC());
+
+            cpu.tick(); // internal stack operation
+
+            assertEquals(0x99, ram.read(0x01FF));
+            assertEquals(0xFF, env.getStackPointer());
+
+            cpu.tick(); // push processor status to stack, decrement stack pointer
+
+            assertEquals(0x30, ram.read(0x01FF)); // unused bit + break bit
+            assertEquals(0xFE, env.getStackPointer());
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void phpPushesToCurrentStackPointerBeforeDecrementing() {
+            ram.write(0x8000, PHP_IMP.getId());
+            ram.write(0x01FE, 0x11);
+            ram.write(0x01FF, 0x99);
+
+            env.setPC(0x8000);
+            env.setStackPointer(0xFF);
+
+            env.setN(false);
+            env.setV(false);
+            env.setD(false);
+            env.setI(false);
+            env.setZ(false);
+            env.setCarry(false);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // internal stack operation
+            cpu.tick(); // push processor status to stack, decrement stack pointer
+
+            assertEquals(0x30, ram.read(0x01FF));
+            assertEquals(0x11, ram.read(0x01FE));
+            assertEquals(0xFE, env.getStackPointer());
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void phpWrapsStackPointerFromZeroToFf() {
+            ram.write(0x8000, PHP_IMP.getId());
+            ram.write(0x0100, 0x99);
+
+            env.setPC(0x8000);
+            env.setStackPointer(0x00);
+
+            env.setN(false);
+            env.setV(false);
+            env.setD(false);
+            env.setI(false);
+            env.setZ(false);
+            env.setCarry(false);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // internal stack operation
+            cpu.tick(); // push processor status to stack, decrement stack pointer with wrap
+
+            assertEquals(0x30, ram.read(0x0100));
+            assertEquals(0xFF, env.getStackPointer());
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void phpAlwaysPushesBreakAndUnusedBitsAsSet() {
+            ram.write(0x8000, PHP_IMP.getId());
+            ram.write(0x01FF, 0x99);
+
+            env.setPC(0x8000);
+            env.setStackPointer(0xFF);
+
+            env.setN(false);
+            env.setV(false);
+            env.setD(false);
+            env.setI(false);
+            env.setZ(false);
+            env.setCarry(false);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // internal stack operation
+            cpu.tick(); // push processor status to stack, decrement stack pointer
+
+            int pushedStatus = ram.read(0x01FF);
+
+            assertEquals(0x30, pushedStatus);
+            assertTrue((pushedStatus & 0x20) != 0); // unused bit is set
+            assertTrue((pushedStatus & 0x10) != 0); // break bit is set
+        }
+
+        @Test
+        void phpDoesNotChangeRegistersOrFlags() {
+            ram.write(0x8000, PHP_IMP.getId());
+
+            env.setPC(0x8000);
+            env.setA(0x44);
+            env.setX(0x55);
+            env.setY(0x66);
+            env.setStackPointer(0xFF);
+
+            env.setN(true);
+            env.setV(false);
+            env.setD(true);
+            env.setI(false);
+            env.setZ(true);
+            env.setCarry(false);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // internal stack operation
+            cpu.tick(); // push processor status to stack, decrement stack pointer
+
+            assertEquals(0x44, env.getA());
+            assertEquals(0x55, env.getX());
+            assertEquals(0x66, env.getY());
+
+            assertTrue(env.getN());
+            assertFalse(env.getV());
+            assertTrue(env.getD());
+            assertFalse(env.getI());
+            assertTrue(env.getZ());
+            assertFalse(env.getCarry());
+
+            assertEquals(0xFE, env.getStackPointer());
+            assertEquals(0x8001, env.getPC());
+        }
+    }
+
     //TODO is it worth testing actual operations at this level? ADC, AND...
 }

@@ -249,6 +249,13 @@ enum MOS6502MicroOp implements MOS6502Operation {
         env.setStackPointer((env.getStackPointer()-1) & 0xFF);
     }),
 
+    /** Push the current state of the processor onto the stack with break flag set to 1 and decrement the stack pointer <code>mem[$01:SP--] = Processor Status + break flag</code> **/
+    PUSH_PROCESSOR_STATUS_WITH_BREAK((env, mem, alu) -> {
+        mem.loadMemoryAddress(0x0100 | env.getStackPointer());
+        mem.store(env.getStatus(true));
+        env.setStackPointer((env.getStackPointer()-1) & 0xFF);
+    }),
+
     /** Perform {@link MOS6502ALU#adc(int)} with the value at <code>mem[address_bus]</code> */
     ADC((env, mem, alu) -> {
         alu.adc(mem.fetch());

@@ -2,7 +2,6 @@ package com.rox.cpu;
 
 import com.rox.mem.*;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -52,7 +51,7 @@ public class MOS6502Test {
         cpu.tick(); //Execute ADC
         env = cpu.getEnvironmentSnapshot();
         assertEquals(2, env.getPC(), "PC should not move on while doing ALU cycle");
-        assertTrue(env.z, "0+0 was expected to be 0");
+        assertTrue(env.zero, "0+0 was expected to be 0");
 
         cpu.tick(); //Fetch opcode (ADC I)
         env = cpu.getEnvironmentSnapshot();
