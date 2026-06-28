@@ -1033,5 +1033,18 @@ public class MOS6502MicoOpTest extends Arbitraries {
             assertTrue(env.getCarry());
             assertFalse(env.getV());
         }
+
+        @Test
+        public void pullProcessorStatusDoesNotChangeStackPointer() {
+            memoryBus8Bit.write(0x01FF, 0xFF);
+
+            env.setStackPointer(0xFF);
+
+            PULL_PROCESSOR_STATUS.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0xFF, env.getStackPointer());
+        }
     }
 }

@@ -5078,5 +5078,9 @@ public class MOS6502OpCodeTest {
         }
     }
 
+    //TODO PUSH_PROCESSOR_STATUS_WITH_BREAK
+    //TODO PULL_PROCESSOR_STATUS
+    //TODO INC_SP
+
     //TODO is it worth testing actual operations at this level? ADC, AND...
 }

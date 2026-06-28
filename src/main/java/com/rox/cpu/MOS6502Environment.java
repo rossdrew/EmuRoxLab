@@ -192,6 +192,16 @@ class MOS6502Environment {
                 | (getCarry() ? 0x01 : 0);
     }
 
+    public void setStatus(int newStatus) {
+        setN((newStatus & 0x80) != 0);
+        setV((newStatus & 0x40) != 0);
+        // ignore bits 5 and 4
+        setD((newStatus & 0x08) != 0);
+        setI((newStatus & 0x04) != 0);
+        setZ((newStatus & 0x02) != 0);
+        setCarry((newStatus & 0x01) != 0);
+    }
+
     public boolean additionalTickPending(){
         //XXX (1/4) Workaround for opcodes which have varying cycles
         return onGoingExpensiveOp;
