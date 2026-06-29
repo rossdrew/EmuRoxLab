@@ -2481,6 +2481,87 @@ public class MOS6502OpCodeTest {
             assertEquals(0x0B, env.getA());
             assertEquals(0x8002, env.getPC());
         }
+
+        @Test
+        void sbcVFlagOverflowPositiveMinusNegativeToNegative() {
+            // Positive (0x50) - Negative (0x80) = Overflow
+            // In 6502 SBC: A - M - (1-C)
+            // 0x50 - 0x80 - 0 (with C=1) = 0x50 + 0x7F + 1 = 0xD0 (negative)
+            // Sign changed from positive to negative, overflow set
+            ram.write(0x8000, SBC_I.getId());
+            ram.write(0x8001, 0x80); // subtract 0x80 (negative)
+
+            env.setPC(0x8000);
+            env.setA(0x50); // positive
+            env.setCarry(true); // no borrow
+            env.setV(false);
+
+            cpu.tick(); // fetch
+            cpu.tick(); // execute
+
+            assertEquals(0xD0, env.getA()); // result is negative
+            assertTrue(env.getV()); // overflow flag set
+            assertTrue(env.getN()); // negative flag set
+        }
+
+        @Test
+        void sbcVFlagOverflowNegativeMinusPositiveToPositive() {
+            // Negative (0x80) - Positive (0x01) = Overflow
+            // 0x80 - 0x01 - 0 (with C=1) = 0x80 + 0xFE + 1 = 0x7F (positive)
+            // Sign changed from negative to positive, overflow set
+            ram.write(0x8000, SBC_I.getId());
+            ram.write(0x8001, 0x01); // subtract 0x01 (positive)
+
+            env.setPC(0x8000);
+            env.setA(0x80); // negative
+            env.setCarry(true); // no borrow
+            env.setV(false);
+
+            cpu.tick(); // fetch
+            cpu.tick(); // execute
+
+            assertEquals(0x7F, env.getA()); // result is positive
+            assertTrue(env.getV()); // overflow flag set
+            assertFalse(env.getN()); // positive, so N clear
+        }
+
+        @Test
+        void sbcVFlagNoOverflowPositiveMinusPositive() {
+            // Positive - Positive never overflows
+            ram.write(0x8000, SBC_I.getId());
+            ram.write(0x8001, 0x05); // subtract positive
+
+            env.setPC(0x8000);
+            env.setA(0x10); // positive
+            env.setCarry(true);
+            env.setV(true); // pre-set to verify it gets cleared
+
+            cpu.tick(); // fetch
+            cpu.tick(); // execute
+
+            assertEquals(0x0B, env.getA());
+            assertFalse(env.getV()); // no overflow
+        }
+
+        @Test
+        void sbcVFlagNoOverflowNegativeMinusNegative() {
+            // Negative - Negative can't change sign in way that overflows
+            ram.write(0x8000, SBC_I.getId());
+            ram.write(0x8001, 0x80); // subtract negative
+
+            env.setPC(0x8000);
+            env.setA(0x80); // negative
+            env.setCarry(true);
+            env.setV(true); // pre-set to verify it gets cleared
+
+            cpu.tick(); // fetch
+            cpu.tick(); // execute
+
+            // 0x80 - 0x80 = 0
+            assertEquals(0x00, env.getA());
+            assertFalse(env.getV()); // no overflow
+            assertTrue(env.getZ()); // zero flag set
+        }
     }
 
     @Nested
@@ -5390,6 +5471,484 @@ public class MOS6502OpCodeTest {
 
             assertEquals(0xAA, ram.read(0x01FF));
             assertEquals(0xBB, ram.read(0x0100));
+        }
+    }
+
+    @Nested
+    class NOP {
+        @Test
+        void nopDoesNothingAndPreservesAllState() {
+            ram.write(0x8000, NOP.getId());
+
+            env.setPC(0x8000);
+            env.setA(0x44);
+            env.setX(0x55);
+            env.setY(0x66);
+            env.setStackPointer(0xFE);
+
+            env.setN(true);
+            env.setV(false);
+            env.setD(true);
+            env.setI(false);
+            env.setZ(true);
+            env.setCarry(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // NOP micro-op
+
+            // everything should remain unchanged
+            assertEquals(0x44, env.getA());
+            assertEquals(0x55, env.getX());
+            assertEquals(0x66, env.getY());
+            assertEquals(0xFE, env.getStackPointer());
+
+            assertTrue(env.getN());
+            assertFalse(env.getV());
+            assertTrue(env.getD());
+            assertFalse(env.getI());
+            assertTrue(env.getZ());
+            assertTrue(env.getCarry());
+
+            // PC incremented only by fetch, not by NOP itself
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void nopTakesExactlyTwoCycles() {
+            ram.write(0x8000, NOP.getId());
+            ram.write(0x8001, NOP.getId()); // next instruction (another NOP)
+
+            env.setPC(0x8000);
+
+            cpu.tick(); // fetch
+            assertEquals(0x8001, env.getPC());
+
+            cpu.tick(); // NOP execute
+            assertEquals(0x8001, env.getPC());
+
+            // After one more tick, next instruction should start fetching
+            cpu.tick();
+            assertEquals(0x8002, env.getPC());
+        }
+    }
+
+    @Nested
+    class PLP {
+        @Test
+        void plpLoadsProcessorStatusFromStackAndIncrementsStackPointer() {
+            ram.write(0x8000, PLP_IMP.getId());
+            int sp = 0xFE;
+            int status = 0xE9; // N=1, V=1, bit5=1, D=1, I=0, Z=0, C=1
+            ram.write(0x0100 | ((sp + 1) & 0xFF), status);
+
+            env.setPC(0x8000);
+            env.setStackPointer(sp);
+
+            // start with different flags
+            env.setN(false);
+            env.setV(false);
+            env.setD(false);
+            env.setI(true);
+            env.setZ(true);
+            env.setCarry(false);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // DUMMY_READ
+            cpu.tick(); // INC_SP
+            cpu.tick(); // PULL_PROCESSOR_STATUS
+
+            assertEquals((sp + 1) & 0xFF, env.getStackPointer());
+            assertTrue(env.getN());
+            assertTrue(env.getV());
+            assertTrue(env.getD());
+            assertFalse(env.getI());
+            assertFalse(env.getZ());
+            assertTrue(env.getCarry());
+
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void plpDoesNotChangeAccumulatorOrIndexRegisters() {
+            ram.write(0x8000, PLP_IMP.getId());
+            ram.write(0x01FF, 0x00);
+
+            env.setPC(0x8000);
+            env.setStackPointer(0xFE);
+
+            env.setA(0x99);
+            env.setX(0xAA);
+            env.setY(0xBB);
+
+            cpu.tick(); // fetch
+            cpu.tick(); // dummy read
+            cpu.tick(); // inc sp
+            cpu.tick(); // pull status
+
+            assertEquals(0x99, env.getA());
+            assertEquals(0xAA, env.getX());
+            assertEquals(0xBB, env.getY());
+        }
+
+        @Test
+        void plpWrapsStackPointerFromFfToZero() {
+            ram.write(0x8000, PLP_IMP.getId());
+            int status = 0x55;
+            ram.write(0x0100, status);
+
+            env.setPC(0x8000);
+            env.setStackPointer(0xFF);
+
+            env.setN(true);
+            env.setV(true);
+
+            cpu.tick(); // fetch
+            cpu.tick(); // dummy read
+            cpu.tick(); // inc sp (wraps)
+            cpu.tick(); // pull
+
+            assertEquals(0x00, env.getStackPointer());
+            assertFalse(env.getN());
+            assertTrue(env.getV());
+        }
+
+        @Test
+        void plpDoesNotRemoveValueFromMemory() {
+            ram.write(0x8000, PLP_IMP.getId());
+            int status = 0x80;
+            ram.write(0x01FF, status);
+
+            env.setPC(0x8000);
+            env.setStackPointer(0xFE);
+
+            cpu.tick(); // fetch
+            cpu.tick(); // dummy read
+            cpu.tick(); // inc sp
+            cpu.tick(); // pull
+
+            assertEquals(status, ram.read(0x01FF));
+        }
+    }
+
+    @Nested
+    class CycleCountAndFlagPreservation {
+
+        @Test
+        void ldaImmediateTakesExactlyTwoCycles() {
+            ram.write(0x8000, LDA_I.getId());
+            ram.write(0x8001, 0x20);
+            ram.write(0x8002, 0xFF); // next instruction
+
+            env.setPC(0x8000);
+
+            cpu.tick(); // fetch (cycle 1)
+            assertEquals(0x8001, env.getPC());
+
+            cpu.tick(); // execute (cycle 2)
+            assertEquals(0x8002, env.getPC());
+            assertEquals(0x20, env.getA());
+        }
+
+        @Test
+        void ldaZeroPageTakesExactlyThreeCycles() {
+            ram.write(0x8000, LDA_Z.getId());
+            ram.write(0x8001, 0x44);
+            ram.write(0x0044, 0x20);
+
+            env.setPC(0x8000);
+
+            cpu.tick(); // fetch (cycle 1)
+            assertEquals(0x8001, env.getPC());
+
+            cpu.tick(); // address low byte (cycle 2)
+            assertEquals(0x8002, env.getPC());
+
+            cpu.tick(); // read operand (cycle 3)
+            assertEquals(0x8002, env.getPC());
+            assertEquals(0x20, env.getA());
+        }
+
+        @Test
+        void ldaAbsoluteTakesExactlyFourCyclesWithoutPageCross() {
+            ram.write(0x8000, LDA_ABS.getId());
+            ram.write(0x8001, 0x34);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1234, 0x20);
+
+            env.setPC(0x8000);
+
+            cpu.tick(); // fetch (cycle 1)
+            cpu.tick(); // low byte (cycle 2)
+            cpu.tick(); // high byte (cycle 3)
+            cpu.tick(); // read operand (cycle 4)
+
+            assertEquals(0x8003, env.getPC());
+            assertEquals(0x20, env.getA());
+        }
+
+        @Test
+        void ldaAbsoluteXTakesExactlyFourCyclesWithoutPageCross() {
+            ram.write(0x8000, LDA_ABS_X.getId());
+            ram.write(0x8001, 0x34);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1239, 0x20); // 0x1234 + X(5)
+
+            env.setPC(0x8000);
+            env.setX(0x05);
+
+            cpu.tick(); // fetch
+            cpu.tick(); // low byte
+            cpu.tick(); // high byte + X offset
+            cpu.tick(); // read operand
+
+            assertEquals(0x8003, env.getPC());
+            assertEquals(0x20, env.getA());
+        }
+
+        @Test
+        void ldaAbsoluteXTakesExactlyFiveCyclesWithPageCross() {
+            ram.write(0x8000, LDA_ABS_X.getId());
+            ram.write(0x8001, 0xFF);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1304, 0x20); // 0x12FF + X(5) crosses to next page
+
+            env.setPC(0x8000);
+            env.setX(0x05);
+
+            cpu.tick(); // fetch
+            cpu.tick(); // low byte
+            cpu.tick(); // high byte + X offset
+            cpu.tick(); // dummy read (page cross fix)
+            cpu.tick(); // read operand
+
+            assertEquals(0x8003, env.getPC());
+            assertEquals(0x20, env.getA());
+        }
+
+        @Test
+        void ldaPreservesCarryAndOverflowFlags() {
+            ram.write(0x8000, LDA_I.getId());
+            ram.write(0x8001, 0x20);
+
+            env.setPC(0x8000);
+            env.setCarry(true);
+            env.setV(true);
+
+            cpu.tick(); // fetch
+            cpu.tick(); // execute
+
+            assertEquals(0x20, env.getA());
+            assertTrue(env.getCarry()); // carry should be preserved
+            assertTrue(env.getV()); // overflow should be preserved
+            assertFalse(env.getZ()); // Z flag set based on result
+        }
+
+        @Test
+        void ldxPreservesCarryAndOverflowFlags() {
+            ram.write(0x8000, LDX_I.getId());
+            ram.write(0x8001, 0x00);
+
+            env.setPC(0x8000);
+            env.setCarry(true);
+            env.setV(true);
+
+            cpu.tick(); // fetch
+            cpu.tick(); // execute
+
+            assertEquals(0x00, env.getX());
+            assertTrue(env.getCarry()); // carry preserved
+            assertTrue(env.getV()); // overflow preserved
+            assertTrue(env.getZ()); // Z flag set (result is zero)
+        }
+
+        @Test
+        void ldyPreservesCarryAndOverflowFlags() {
+            ram.write(0x8000, LDY_I.getId());
+            ram.write(0x8001, 0x80);
+
+            env.setPC(0x8000);
+            env.setCarry(false);
+            env.setV(false);
+
+            cpu.tick(); // fetch
+            cpu.tick(); // execute
+
+            assertEquals(0x80, env.getY());
+            assertFalse(env.getCarry()); // carry preserved
+            assertFalse(env.getV()); // overflow preserved
+            assertTrue(env.getN()); // N flag set (negative)
+        }
+    }
+
+    @Nested
+    class EdgeCasesAndWraparound {
+
+        @Test
+        void stxZeroPageYWrapsAroundZeroPage() {
+            ram.write(0x8000, STX_Z_Y.getId());
+            ram.write(0x8001, 0xFE); // base address in zero page
+            ram.write(0x0003, 0x00); // expected wrapped address: (0xFE + Y(5)) & 0xFF = 0x03
+
+            env.setPC(0x8000);
+            env.setX(0x42);
+            env.setY(0x05);
+
+            cpu.tick(); // fetch
+            cpu.tick(); // fetch address
+            cpu.tick(); // add Y
+            cpu.tick(); // store
+
+            assertEquals(0x42, ram.read(0x0003));
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @Test
+        void styZeroPageXWrapsAroundZeroPage() {
+            ram.write(0x8000, STY_Z_X.getId());
+            ram.write(0x8001, 0xFC); // base address in zero page
+            ram.write(0x0001, 0x00); // expected wrapped address: (0xFC + X(5)) & 0xFF = 0x01
+
+            env.setPC(0x8000);
+            env.setY(0x55);
+            env.setX(0x05);
+
+            cpu.tick(); // fetch
+            cpu.tick(); // fetch address
+            cpu.tick(); // add X
+            cpu.tick(); // store
+
+            assertEquals(0x55, ram.read(0x0001));
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @Test
+        void staAbsoluteXActualCycleCountWithoutPageCross() {
+            // STA_ABS_X without page cross: fetch + 4 ticks = 5 total ticks
+            ram.write(0x8000, STA_ABS_X.getId());
+            ram.write(0x8001, 0x34);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1239, 0x00);
+
+            env.setPC(0x8000);
+            env.setA(0x77);
+            env.setX(0x05);
+
+            cpu.tick(); // fetch (cycle 1)
+            assertEquals(0x8001, env.getPC());
+            cpu.tick(); // ADL (cycle 2)
+            assertEquals(0x8002, env.getPC());
+            cpu.tick(); // ADH + address offset (cycle 3)
+            assertEquals(0x8003, env.getPC());
+            cpu.tick(); // dummy read (cycle 4)
+            assertEquals(0x8003, env.getPC());
+            cpu.tick(); // store (cycle 5)
+
+            assertEquals(0x77, ram.read(0x1239));
+        }
+
+        @Test
+        void staAbsoluteYActualCycleCountWithoutPageCross() {
+            // STA_ABS_Y without page cross: fetch + 4 ticks = 5 total ticks
+            ram.write(0x8000, STA_ABS_Y.getId());
+            ram.write(0x8001, 0x34);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1239, 0x00);
+
+            env.setPC(0x8000);
+            env.setA(0x88);
+            env.setY(0x05);
+
+            cpu.tick(); // fetch (cycle 1)
+            assertEquals(0x8001, env.getPC());
+            cpu.tick(); // ADL (cycle 2)
+            assertEquals(0x8002, env.getPC());
+            cpu.tick(); // ADH + address offset (cycle 3)
+            assertEquals(0x8003, env.getPC());
+            cpu.tick(); // dummy read (cycle 4)
+            assertEquals(0x8003, env.getPC());
+            cpu.tick(); // store (cycle 5)
+
+            assertEquals(0x88, ram.read(0x1239));
+        }
+
+        @Test
+        void ldaAbsoluteWithoutPageCrossDoesNotReadWrongAddress() {
+            ram.write(0x8000, LDA_ABS.getId());
+            ram.write(0x8001, 0x34);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1234, 0x20); // correct address
+            ram.write(0x1200, 0xFF); // wrong page address should not be read
+
+            env.setPC(0x8000);
+
+            cpu.tick();
+            cpu.tick();
+            cpu.tick();
+            cpu.tick();
+
+            assertEquals(0x20, env.getA()); // loaded from correct address
+        }
+
+        @Test
+        void adcIndirectYWithoutPageCrossDoesNotAccessWrongAddress() {
+            ram.write(0x8000, ADC_IND_Y.getId());
+            ram.write(0x8001, 0x44);
+            ram.write(0x0044, 0x34);
+            ram.write(0x0045, 0x12);
+            ram.write(0x1239, 0x20); // 0x1234 + Y(5), no page cross
+            ram.write(0x1334, 0xFF); // wrong page, should not be read
+
+            env.setPC(0x8000);
+            env.setA(0x10);
+            env.setY(0x05);
+            env.setCarry(true);
+
+            cpu.tick();
+            cpu.tick();
+            cpu.tick();
+            cpu.tick();
+            cpu.tick(); // ADC executes on 5th tick
+
+            assertEquals(0x31, env.getA()); // 0x10 + 0x20 + 1 (carry)
+        }
+
+        @Test
+        void stxZeroPageYDoesNotStoreToUnindexedBase() {
+            ram.write(0x8000, STX_Z_Y.getId());
+            ram.write(0x8001, 0x40); // base address
+            ram.write(0x0040, 0x11); // base should not be modified
+            ram.write(0x0045, 0x00); // 0x40 + Y(5)
+
+            env.setPC(0x8000);
+            env.setX(0x42);
+            env.setY(0x05);
+
+            cpu.tick();
+            cpu.tick();
+            cpu.tick();
+            cpu.tick();
+
+            assertEquals(0x11, ram.read(0x0040)); // base unchanged
+            assertEquals(0x42, ram.read(0x0045)); // stored at indexed address
+        }
+
+        @Test
+        void ldaZeroPageXDoesNotReadFromUnindexedBase() {
+            ram.write(0x8000, LDA_Z_X.getId());
+            ram.write(0x8001, 0x40); // base address
+            ram.write(0x0040, 0xFF); // base has different value
+            ram.write(0x0045, 0x20); // 0x40 + X(5)
+
+            env.setPC(0x8000);
+            env.setA(0x00);
+            env.setX(0x05);
+
+            cpu.tick();
+            cpu.tick();
+            cpu.tick();
+            cpu.tick();
+
+            assertEquals(0x20, env.getA()); // loaded from indexed address, not base
         }
     }
 
