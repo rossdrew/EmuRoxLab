@@ -1,6 +1,6 @@
-package com.rox.cpu;
+package com.rox.cpu.mos6502;
 
-import com.rox.cpu.MOS6502.MOS6502Operation;
+import com.rox.cpu.mos6502.MOS6502.MOS6502Operation;
 import com.rox.mem.LatchedMemoryBus;
 
 //XXX There's probably a fair bit of redundancy here

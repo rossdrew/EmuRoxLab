@@ -1,4 +1,4 @@
-package com.rox.cpu;
+package com.rox.cpu.mos6502;
 
 import com.rox.mem.*;
 import org.junit.jupiter.api.BeforeEach;
@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
-import static com.rox.cpu.MOS6502OpCode.*;
+import static com.rox.cpu.mos6502.MOS6502OpCode.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 //Uses the correct addressing mode and consumes the correct cycles

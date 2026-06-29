@@ -1,4 +1,4 @@
-package com.rox.cpu;
+package com.rox.cpu.mos6502;
 
 public class MOS6502ALU {
     private final int[] BIT = {

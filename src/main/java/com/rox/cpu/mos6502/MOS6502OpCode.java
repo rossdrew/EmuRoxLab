@@ -1,12 +1,12 @@
-package com.rox.cpu;
+package com.rox.cpu.mos6502;
 
-import com.rox.cpu.MOS6502.MOS6502Operation;
+import com.rox.cpu.mos6502.MOS6502.MOS6502Operation;
 
 import java.util.Arrays;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static com.rox.cpu.MOS6502MicroOp.*;
+import static com.rox.cpu.mos6502.MOS6502MicroOp.*;
 
 public enum MOS6502OpCode {
     // NOTE: The first cycle is the FETCH cycle!!
@@ -14,18 +14,11 @@ public enum MOS6502OpCode {
     //XXX Possible bug, some instructions might not incremenet the pc, meaning the next instruction will read from the wrong place
 
     BRK_IMP(0x00, clockTicks(
-//  1	Fetch opcode
-//  2	Read and discard the next byte (increment PC again)
             opsInTick(DUMMY_READ, INC_PC),
-//  3	Push PCH onto the stack
             opsInTick(PUSH_PCH),
-//  4	Push PCL onto the stack
             opsInTick(PUSH_PCL),
-//  5	Push processor status (with B flag set), set I flag
             opsInTick(PUSH_PROCESSOR_STATUS_WITH_BREAK, INTERRUPT),
-//  6	Read interrupt vector low byte from $FFFE
             opsInTick(ADDRESS_IV_LOW, PCL_FROM_MEM),
-//  7	Read interrupt vector high byte from $FFFF, load PC
             opsInTick(ADDRESS_IV_HIGH, PCH_FROM_MEM)
     )),
 

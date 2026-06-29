@@ -1,11 +1,11 @@
-package com.rox.cpu;
+package com.rox.cpu.mos6502;
 
 import com.rox.ClockWatcher;
 import com.rox.mem.*;
 
 import java.util.*;
 
-import static com.rox.cpu.MOS6502MicroOp.*;
+import static com.rox.cpu.mos6502.MOS6502MicroOp.*;
 
 public class MOS6502 implements ClockWatcher {
     private final LatchedMemoryBus latchedMemory;

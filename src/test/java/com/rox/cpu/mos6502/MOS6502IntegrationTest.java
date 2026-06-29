@@ -1,4 +1,4 @@
-package com.rox.cpu;
+package com.rox.cpu.mos6502;
 
 import org.junit.jupiter.api.Test;
 

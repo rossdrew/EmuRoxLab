@@ -1,4 +1,4 @@
-package com.rox.cpu;
+package com.rox.cpu.mos6502;
 
 import com.rox.Arbitraries;
 import com.rox.mem.Latched8BitMemoryBus;
@@ -15,7 +15,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.api.Nested;
 
-import static com.rox.cpu.MOS6502MicroOp.*;
+import static com.rox.cpu.mos6502.MOS6502MicroOp.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.mock;
