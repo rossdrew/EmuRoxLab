@@ -5078,9 +5078,320 @@ public class MOS6502OpCodeTest {
         }
     }
 
-    //TODO PUSH_PROCESSOR_STATUS_WITH_BREAK
-    //TODO PULL_PROCESSOR_STATUS
-    //TODO INC_SP
+    @Nested
+    class PUSH_PROCESSOR_STATUS_WITH_BREAK{
+        @Test
+        void pushProcessorStatusToStackAndDecrementsStackPointer() {
+            ram.write(0x8000, PHP_IMP.getId());
+            ram.write(0x01FF, 0x99);
+
+            env.setPC(0x8000);
+            env.setStackPointer(0xFF);
+
+            env.setN(true);
+            env.setV(false);
+            env.setD(true);
+            env.setI(false);
+            env.setZ(true);
+            env.setCarry(true);
+
+            final int expected = env.getStatus(true);
+
+            // execute the micro-op directly
+            MOS6502MicroOp.PUSH_PROCESSOR_STATUS_WITH_BREAK.execute(env, latchedBus, new MOS6502ALU(env));
+
+            assertEquals(expected, ram.read(0x01FF));
+            assertEquals(0xFE, env.getStackPointer());
+            assertEquals(0x8000, env.getPC());
+        }
+
+        @Test
+        void pushesToCurrentStackPointerBeforeDecrementing() {
+            ram.write(0x8000, PHP_IMP.getId());
+            ram.write(0x01FE, 0x11);
+            ram.write(0x01FF, 0x99);
+
+            env.setPC(0x8000);
+            env.setStackPointer(0xFF);
+
+            env.setN(false);
+            env.setV(false);
+            env.setD(false);
+            env.setI(false);
+            env.setZ(false);
+            env.setCarry(false);
+
+            final int expected = env.getStatus(true);
+
+            MOS6502MicroOp.PUSH_PROCESSOR_STATUS_WITH_BREAK.execute(env, latchedBus, new MOS6502ALU(env));
+
+            assertEquals(expected, ram.read(0x01FF));
+            assertEquals(0x11, ram.read(0x01FE));
+            assertEquals(0xFE, env.getStackPointer());
+            assertEquals(0x8000, env.getPC());
+        }
+
+        @Test
+        void pushWrapsStackPointerFromZeroToFf() {
+            ram.write(0x8000, PHP_IMP.getId());
+            ram.write(0x0100, 0x99);
+
+            env.setPC(0x8000);
+            env.setStackPointer(0x00);
+
+            env.setN(false);
+            env.setV(false);
+            env.setD(false);
+            env.setI(false);
+            env.setZ(false);
+            env.setCarry(false);
+
+            final int expected = env.getStatus(true);
+
+            MOS6502MicroOp.PUSH_PROCESSOR_STATUS_WITH_BREAK.execute(env, latchedBus, new MOS6502ALU(env));
+
+            assertEquals(expected, ram.read(0x0100));
+            assertEquals(0xFF, env.getStackPointer());
+            assertEquals(0x8000, env.getPC());
+        }
+
+        @Test
+        void pushAlwaysPushesBreakAndUnusedBitsAsSet() {
+            ram.write(0x8000, PHP_IMP.getId());
+            ram.write(0x01FF, 0x99);
+
+            env.setPC(0x8000);
+            env.setStackPointer(0xFF);
+
+            env.setN(false);
+            env.setV(false);
+            env.setD(false);
+            env.setI(false);
+            env.setZ(false);
+            env.setCarry(false);
+
+            MOS6502MicroOp.PUSH_PROCESSOR_STATUS_WITH_BREAK.execute(env, latchedBus, new MOS6502ALU(env));
+
+            int pushedStatus = ram.read(0x01FF);
+
+            assertEquals(0x30, pushedStatus & 0x30); // unused bit + break bit
+            assertTrue((pushedStatus & 0x20) != 0); // unused bit is set
+            assertTrue((pushedStatus & 0x10) != 0); // break bit is set
+        }
+
+        @Test
+        void pushDoesNotChangeRegistersOrFlags() {
+            ram.write(0x8000, PHP_IMP.getId());
+            ram.write(0x01FF, 0x99);
+
+            env.setPC(0x8000);
+            env.setA(0x44);
+            env.setX(0x55);
+            env.setY(0x66);
+            env.setStackPointer(0xFF);
+
+            env.setN(true);
+            env.setV(false);
+            env.setD(true);
+            env.setI(false);
+            env.setZ(true);
+            env.setCarry(false);
+
+            MOS6502MicroOp.PUSH_PROCESSOR_STATUS_WITH_BREAK.execute(env, latchedBus, new MOS6502ALU(env));
+
+            assertEquals(0x44, env.getA());
+            assertEquals(0x55, env.getX());
+            assertEquals(0x66, env.getY());
+
+            assertTrue(env.getN());
+            assertFalse(env.getV());
+            assertTrue(env.getD());
+            assertFalse(env.getI());
+            assertTrue(env.getZ());
+            assertFalse(env.getCarry());
+
+            assertEquals(0xFE, env.getStackPointer());
+            assertEquals(0x8000, env.getPC());
+        }
+    }
+
+    @Nested
+    class PULL_PROCESSOR_STATUS {
+        private int pulledFromAddress(int currentStackPointer) {
+            return 0x0100 | ((currentStackPointer + 1) & 0xFF);
+        }
+
+        @Test
+        void pullProcessorStatusLoadsFlagsFromStackAndIncrementsStackPointer() {
+            ram.write(0x8000, PLP_IMP.getId());
+            int sp = 0xFE;
+            int status = 0xE9; // N=1, V=1, bit5=1, D=1, I=0, Z=0, C=1
+            ram.write(pulledFromAddress(sp), status);
+
+            env.setPC(0x8000);
+            env.setStackPointer(sp);
+
+            // start with different flags to ensure they change
+            env.setN(false);
+            env.setV(false);
+            env.setD(false);
+            env.setI(true);
+            env.setZ(true);
+            env.setCarry(false);
+
+            // perform INC_SP then PULL_PROCESSOR_STATUS
+            MOS6502MicroOp.INC_SP.execute(env, latchedBus, new MOS6502ALU(env));
+            MOS6502MicroOp.PULL_PROCESSOR_STATUS.execute(env, latchedBus, new MOS6502ALU(env));
+
+            // stack pointer was incremented
+            assertEquals((sp + 1) & 0xFF, env.getStackPointer());
+
+            // flags should reflect the status byte (setStatus ignores bits 5 and 4)
+            assertTrue(env.getN());
+            assertTrue(env.getV());
+            assertTrue(env.getD());
+            assertFalse(env.getI());
+            assertFalse(env.getZ());
+            assertTrue(env.getCarry());
+
+            // value remains in memory (pull does not remove)
+            assertEquals(status, ram.read(pulledFromAddress(sp)));
+            assertEquals(0x8000, env.getPC());
+        }
+
+        @Test
+        void pullWrapsStackPointerFromFfToZeroBeforeReading() {
+            ram.write(0x8000, PLP_IMP.getId());
+            int sp = 0xFF;
+            int status = 0x20 | 0x10 | 0x01; // bit5 and break and carry
+            ram.write(pulledFromAddress(sp), status);
+
+            env.setPC(0x8000);
+            env.setStackPointer(sp);
+
+            env.setN(true);
+            env.setV(true);
+            env.setD(true);
+            env.setI(true);
+            env.setZ(true);
+            env.setCarry(false);
+
+            MOS6502MicroOp.INC_SP.execute(env, latchedBus, new MOS6502ALU(env));
+            MOS6502MicroOp.PULL_PROCESSOR_STATUS.execute(env, latchedBus, new MOS6502ALU(env));
+
+            // after increment from 0xFF -> 0x00
+            assertEquals(0x00, env.getStackPointer());
+            // carry bit was set in status byte
+            assertTrue(env.getCarry());
+            // break/unused bits are ignored by setStatus but should have been read
+            assertEquals(status, ram.read(pulledFromAddress(sp)));
+            assertEquals(0x8000, env.getPC());
+        }
+
+        @Test
+        void pullDoesNotChangeRegistersAorIndexOrRemoveMemoryValue() {
+            ram.write(0x8000, PLP_IMP.getId());
+            int sp = 0xFE;
+            int status = 0x00; // all flags clear
+            ram.write(pulledFromAddress(sp), status);
+
+            env.setPC(0x8000);
+            env.setStackPointer(sp);
+
+            env.setA(0x11);
+            env.setX(0x22);
+            env.setY(0x33);
+
+            env.setN(true);
+            env.setV(true);
+            env.setD(true);
+            env.setI(true);
+            env.setZ(true);
+            env.setCarry(true);
+
+            MOS6502MicroOp.INC_SP.execute(env, latchedBus, new MOS6502ALU(env));
+            MOS6502MicroOp.PULL_PROCESSOR_STATUS.execute(env, latchedBus, new MOS6502ALU(env));
+
+            // registers unchanged
+            assertEquals(0x11, env.getA());
+            assertEquals(0x22, env.getX());
+            assertEquals(0x33, env.getY());
+
+            // flags cleared per status
+            assertFalse(env.getN());
+            assertFalse(env.getV());
+            assertFalse(env.getD());
+            assertFalse(env.getI());
+            assertFalse(env.getZ());
+            assertFalse(env.getCarry());
+
+            // memory value remains
+            assertEquals(status, ram.read(pulledFromAddress(sp)));
+        }
+    }
+
+    @Nested
+    class INC_SP {
+        @Test
+        void incrementsStackPointerAndDoesNotAffectRegistersOrFlags() {
+            ram.write(0x8000, PLA_IMP.getId());
+
+            env.setPC(0x8000);
+            env.setStackPointer(0xFE);
+
+            env.setA(0x44);
+            env.setX(0x55);
+            env.setY(0x66);
+
+            env.setN(true);
+            env.setV(false);
+            env.setD(true);
+            env.setI(false);
+            env.setZ(true);
+            env.setCarry(false);
+
+            MOS6502MicroOp.INC_SP.execute(env, latchedBus, new MOS6502ALU(env));
+
+            assertEquals(0xFF, env.getStackPointer());
+
+            assertEquals(0x44, env.getA());
+            assertEquals(0x55, env.getX());
+            assertEquals(0x66, env.getY());
+
+            assertTrue(env.getN());
+            assertFalse(env.getV());
+            assertTrue(env.getD());
+            assertFalse(env.getI());
+            assertTrue(env.getZ());
+            assertFalse(env.getCarry());
+
+            // PC should not be modified by the micro-op
+            assertEquals(0x8000, env.getPC());
+        }
+
+        @Test
+        void wrapsFromFfToZero() {
+            env.setStackPointer(0xFF);
+
+            MOS6502MicroOp.INC_SP.execute(env, latchedBus, new MOS6502ALU(env));
+
+            assertEquals(0x00, env.getStackPointer());
+        }
+
+        @Test
+        void doesNotModifyMemory() {
+            // ensure memory around stack is unchanged by INC_SP
+            ram.write(0x01FF, 0xAA);
+            ram.write(0x0100, 0xBB);
+
+            env.setStackPointer(0xFE);
+
+            MOS6502MicroOp.INC_SP.execute(env, latchedBus, new MOS6502ALU(env));
+
+            assertEquals(0xAA, ram.read(0x01FF));
+            assertEquals(0xBB, ram.read(0x0100));
+        }
+    }
 
     //TODO is it worth testing actual operations at this level? ADC, AND...
 }
