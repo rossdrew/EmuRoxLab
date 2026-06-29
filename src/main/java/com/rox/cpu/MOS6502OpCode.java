@@ -13,20 +13,20 @@ public enum MOS6502OpCode {
 
     //XXX Possible bug, some instructions might not incremenet the pc, meaning the next instruction will read from the wrong place
 
-    BRK(0x00, clockTicks(
+    BRK_IMP(0x00, clockTicks(
 //  1	Fetch opcode
 //  2	Read and discard the next byte (increment PC again)
             opsInTick(DUMMY_READ, INC_PC),
 //  3	Push PCH onto the stack
-            opsInTick(), //TODO
+            opsInTick(PUSH_PCH),
 //  4	Push PCL onto the stack
-            opsInTick(), //TODO
+            opsInTick(PUSH_PCL),
 //  5	Push processor status (with B flag set), set I flag
-            opsInTick(), //TODO
+            opsInTick(PUSH_PROCESSOR_STATUS_WITH_BREAK, INTERRUPT),
 //  6	Read interrupt vector low byte from $FFFE
-            opsInTick(), //TODO
+            opsInTick(ADDRESS_IV_LOW, PCL_FROM_MEM),
 //  7	Read interrupt vector high byte from $FFFF, load PC
-            opsInTick() //TODO
+            opsInTick(ADDRESS_IV_HIGH, PCH_FROM_MEM)
     )),
 
     NOP(0x6E, clockTicks(
