@@ -5952,5 +5952,304 @@ public class MOS6502OpCodeTest {
         }
     }
 
+    @Nested
+    class BRK {
+        private int expectedStatusWithBreak(boolean n,
+                                            boolean v,
+                                            boolean d,
+                                            boolean i,
+                                            boolean z,
+                                            boolean c) {
+            return (n ? 0x80 : 0x00)
+                    | (v ? 0x40 : 0x00)
+                    | 0x20              // unused/status bit 5 is pushed as set
+                    | 0x10              // break bit is pushed as set by BRK
+                    | (d ? 0x08 : 0x00)
+                    | (i ? 0x04 : 0x00)
+                    | (z ? 0x02 : 0x00)
+                    | (c ? 0x01 : 0x00);
+        }
+
+        @ParameterizedTest(name = "BRK pushes P={0} and vectors to ${8}{7}")
+        @CsvSource({
+                // N,   V,     D,     I,     Z,     C,     SP,   IV Low,     IV High
+                "false, false, false, false, false, false, 0xFF, 0x34,       0x12",
+                "true,  false, false, false, false, false, 0xFF, 0x78,       0x56",
+                "false, true,  false, false, false, false, 0xFE, 0x00,       0x80",
+                "false, false, true,  false, true,  true,  0x80, 0xCD,       0xAB",
+                "true,  true,  true,  true,  true,  true,  0x02, 0xEF,       0xBE"
+        })
+        void brkPushesPcAndProcessorStatusSetsInterruptAndLoadsVector(boolean n,
+                                                                      boolean v,
+                                                                      boolean d,
+                                                                      boolean i,
+                                                                      boolean z,
+                                                                      boolean c,
+                                                                      int stackPointer,
+                                                                      int vectorLow,
+                                                                      int vectorHigh) {
+            ram.write(0x8000, BRK_IMP.getId());
+            ram.write(0x8001, 0xEA); // padding/signature byte ignored by BRK
+
+            ram.write(0xFFFE, vectorLow);
+            ram.write(0xFFFF, vectorHigh);
+
+            env.setPC(0x8000);
+            env.setStackPointer(stackPointer);
+
+            env.setN(n);
+            env.setV(v);
+            env.setD(d);
+            env.setI(i);
+            env.setZ(z);
+            env.setCarry(c);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // read and ignore padding byte, increment PC
+            cpu.tick(); // push PCH of PC + 2
+            cpu.tick(); // push PCL of PC + 2
+            cpu.tick(); // push processor status with break bit set, set interrupt disable
+            cpu.tick(); // read interrupt vector low byte from $FFFE
+            cpu.tick(); // read interrupt vector high byte from $FFFF, load PC
+
+            int returnAddress = 0x8002;
+            int pushedPchAddress = 0x0100 | (stackPointer & 0xFF);
+            int pushedPclAddress = 0x0100 | ((stackPointer - 1) & 0xFF);
+            int pushedStatusAddress = 0x0100 | ((stackPointer - 2) & 0xFF);
+
+            assertEquals((returnAddress >> 8) & 0xFF, ram.read(pushedPchAddress));
+            assertEquals(returnAddress & 0xFF, ram.read(pushedPclAddress));
+            assertEquals(expectedStatusWithBreak(n, v, d, i, z, c), ram.read(pushedStatusAddress));
+
+            assertEquals((stackPointer - 3) & 0xFF, env.getStackPointer());
+            assertTrue(env.getI());
+
+            assertEquals((vectorHigh << 8) | vectorLow, env.getPC());
+        }
+
+        @Test
+        void brkPushesPcPlusTwoNotPcPlusOne() {
+            ram.write(0x8000, BRK_IMP.getId());
+            ram.write(0x8001, 0xEA); // ignored padding/signature byte
+
+            ram.write(0xFFFE, 0x34);
+            ram.write(0xFFFF, 0x12);
+
+            env.setPC(0x8000);
+            env.setStackPointer(0xFF);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // read and ignore padding byte, increment PC
+            cpu.tick(); // push PCH of PC + 2
+            cpu.tick(); // push PCL of PC + 2
+            cpu.tick(); // push processor status with break bit set, set interrupt disable
+            cpu.tick(); // read interrupt vector low byte from $FFFE
+            cpu.tick(); // read interrupt vector high byte from $FFFF, load PC
+
+            assertEquals(0x80, ram.read(0x01FF)); // PCH of $8002
+            assertEquals(0x02, ram.read(0x01FE)); // PCL of $8002
+            assertEquals(0xFC, env.getStackPointer());
+            assertEquals(0x1234, env.getPC());
+        }
+
+        @Test
+        void brkPushesProcessorStatusWithBreakAndUnusedBitsSet() {
+            ram.write(0x8000, BRK_IMP.getId());
+            ram.write(0x8001, 0xEA);
+
+            ram.write(0xFFFE, 0x34);
+            ram.write(0xFFFF, 0x12);
+
+            env.setPC(0x8000);
+            env.setStackPointer(0xFF);
+
+            env.setN(false);
+            env.setV(false);
+            env.setD(false);
+            env.setI(false);
+            env.setZ(false);
+            env.setCarry(false);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // read and ignore padding byte, increment PC
+            cpu.tick(); // push PCH of PC + 2
+            cpu.tick(); // push PCL of PC + 2
+            cpu.tick(); // push processor status with break bit set, set interrupt disable
+            cpu.tick(); // read interrupt vector low byte from $FFFE
+            cpu.tick(); // read interrupt vector high byte from $FFFF, load PC
+
+            int pushedStatus = ram.read(0x01FD);
+
+            assertEquals(0x30, pushedStatus);
+            assertTrue((pushedStatus & 0x20) != 0); // unused bit
+            assertTrue((pushedStatus & 0x10) != 0); // break bit
+
+            assertTrue(env.getI());
+            assertEquals(0xFC, env.getStackPointer());
+            assertEquals(0x1234, env.getPC());
+        }
+
+        @Test
+        void brkDoesNotLoadVectorUntilSeventhTick() {
+            ram.write(0x8000, BRK_IMP.getId());
+            ram.write(0x8001, 0xEA);
+
+            ram.write(0xFFFE, 0x34);
+            ram.write(0xFFFF, 0x12);
+
+            env.setPC(0x8000);
+            env.setStackPointer(0xFF);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // read and ignore padding byte, increment PC
+            cpu.tick(); // push PCH of PC + 2
+            cpu.tick(); // push PCL of PC + 2
+            cpu.tick(); // push processor status with break bit set, set interrupt disable
+            cpu.tick(); // read interrupt vector low byte from $FFFE
+
+            assertNotEquals(0x1234, env.getPC());
+
+            cpu.tick(); // read interrupt vector high byte from $FFFF, load PC
+
+            assertEquals(0x1234, env.getPC());
+            assertEquals(0xFC, env.getStackPointer());
+        }
+
+        @Test
+        void brkDoesNotPushAnythingBeforeThirdTick() {
+            ram.write(0x8000, BRK_IMP.getId());
+            ram.write(0x8001, 0xEA);
+
+            ram.write(0x01FF, 0x99);
+            ram.write(0x01FE, 0x88);
+            ram.write(0x01FD, 0x77);
+
+            ram.write(0xFFFE, 0x34);
+            ram.write(0xFFFF, 0x12);
+
+            env.setPC(0x8000);
+            env.setStackPointer(0xFF);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // read and ignore padding byte, increment PC
+
+            assertEquals(0x99, ram.read(0x01FF));
+            assertEquals(0x88, ram.read(0x01FE));
+            assertEquals(0x77, ram.read(0x01FD));
+            assertEquals(0xFF, env.getStackPointer());
+
+            cpu.tick(); // push PCH of PC + 2
+
+            assertEquals(0x80, ram.read(0x01FF));
+            assertEquals(0xFE, env.getStackPointer());
+        }
+
+        @Test
+        void brkPushesPchThenPclThenStatus() {
+            ram.write(0x8000, BRK_IMP.getId());
+            ram.write(0x8001, 0xEA);
+
+            ram.write(0x01FF, 0x99);
+            ram.write(0x01FE, 0x88);
+            ram.write(0x01FD, 0x77);
+
+            ram.write(0xFFFE, 0x34);
+            ram.write(0xFFFF, 0x12);
+
+            env.setPC(0x8000);
+            env.setStackPointer(0xFF);
+
+            env.setN(false);
+            env.setV(false);
+            env.setD(false);
+            env.setI(false);
+            env.setZ(false);
+            env.setCarry(false);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // read and ignore padding byte, increment PC
+
+            cpu.tick(); // push PCH of PC + 2
+            assertEquals(0x80, ram.read(0x01FF));
+            assertEquals(0x88, ram.read(0x01FE));
+            assertEquals(0x77, ram.read(0x01FD));
+            assertEquals(0xFE, env.getStackPointer());
+
+            cpu.tick(); // push PCL of PC + 2
+            assertEquals(0x80, ram.read(0x01FF));
+            assertEquals(0x02, ram.read(0x01FE));
+            assertEquals(0x77, ram.read(0x01FD));
+            assertEquals(0xFD, env.getStackPointer());
+
+            cpu.tick(); // push processor status with break bit set, set interrupt disable
+            assertEquals(0x80, ram.read(0x01FF));
+            assertEquals(0x02, ram.read(0x01FE));
+            assertEquals(0x30, ram.read(0x01FD));
+            assertEquals(0xFC, env.getStackPointer());
+            assertTrue(env.getI());
+        }
+
+        @Test
+        void brkWrapsStackPointerWhilePushing() {
+            ram.write(0x8000, BRK_IMP.getId());
+            ram.write(0x8001, 0xEA);
+
+            ram.write(0x0101, 0x99);
+            ram.write(0x0100, 0x88);
+            ram.write(0x01FF, 0x77);
+
+            ram.write(0xFFFE, 0x34);
+            ram.write(0xFFFF, 0x12);
+
+            env.setPC(0x8000);
+            env.setStackPointer(0x01);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // read and ignore padding byte, increment PC
+            cpu.tick(); // push PCH of PC + 2
+            cpu.tick(); // push PCL of PC + 2
+            cpu.tick(); // push processor status with break bit set, set interrupt disable
+            cpu.tick(); // read interrupt vector low byte from $FFFE
+            cpu.tick(); // read interrupt vector high byte from $FFFF, load PC
+
+            assertEquals(0x80, ram.read(0x0101));
+            assertEquals(0x02, ram.read(0x0100));
+            assertEquals(0x30, ram.read(0x01FF));
+
+            assertEquals(0xFE, env.getStackPointer());
+            assertEquals(0x1234, env.getPC());
+        }
+
+        @Test
+        void brkDoesNotChangeAccumulatorOrIndexRegisters() {
+            ram.write(0x8000, BRK_IMP.getId());
+            ram.write(0x8001, 0xEA);
+
+            ram.write(0xFFFE, 0x34);
+            ram.write(0xFFFF, 0x12);
+
+            env.setPC(0x8000);
+            env.setA(0x44);
+            env.setX(0x55);
+            env.setY(0x66);
+            env.setStackPointer(0xFF);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // read and ignore padding byte, increment PC
+            cpu.tick(); // push PCH of PC + 2
+            cpu.tick(); // push PCL of PC + 2
+            cpu.tick(); // push processor status with break bit set, set interrupt disable
+            cpu.tick(); // read interrupt vector low byte from $FFFE
+            cpu.tick(); // read interrupt vector high byte from $FFFF, load PC
+
+            assertEquals(0x44, env.getA());
+            assertEquals(0x55, env.getX());
+            assertEquals(0x66, env.getY());
+
+            assertEquals(0xFC, env.getStackPointer());
+            assertEquals(0x1234, env.getPC());
+        }
+    }
+
     //TODO is it worth testing actual operations at this level? ADC, AND...
 }

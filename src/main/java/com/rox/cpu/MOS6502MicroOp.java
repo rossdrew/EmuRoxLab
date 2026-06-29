@@ -242,6 +242,35 @@ enum MOS6502MicroOp implements MOS6502Operation {
         env.setX((env.getX() + 1) & 0xFF);
     }),
 
+    /** Set the interrupt flag to true <code>I := true</code> **/
+    INTERRUPT((env, mem, alu) -> {
+        env.setI(true);
+    }),
+
+    /** Address the low interrupt vector ready to be read <code>mem[$FF:FE)</code> */
+    ADDRESS_IV_LOW((env, mem, alu) -> {
+        mem.loadMemoryAddress(0xFFFE);
+    }),
+
+    /** Address the low interrupt vector ready to be read <code>mem[$FF:FF)</code> */
+    ADDRESS_IV_HIGH((env, mem, alu) -> {
+        mem.loadMemoryAddress(0xFFFF);
+    }),
+
+    /** Push the current value of PCH onto the stack and decrement the stack pointer <code>mem[$01:SP--] := PCH</code> **/
+    PUSH_PCH((env, mem, alu) -> {
+        mem.loadMemoryAddress(0x0100 | env.getStackPointer());
+        mem.store(env.getPCH());
+        env.setStackPointer((env.getStackPointer()-1) & 0xFF);
+    }),
+
+    /** Push the current value of PCL onto the stack and decrement the stack pointer <code>mem[$01:SP--] := PCL</code> **/
+    PUSH_PCL((env, mem, alu) -> {
+        mem.loadMemoryAddress(0x0100 | env.getStackPointer());
+        mem.store(env.getPCL());
+        env.setStackPointer((env.getStackPointer()-1) & 0xFF);
+    }),
+
     /** Push the current value of A onto the stack and decrement the stack pointer <code>mem[$01:SP--] := A</code> **/
     PUSH_A((env, mem, alu) -> {
         mem.loadMemoryAddress(0x0100 | env.getStackPointer());
