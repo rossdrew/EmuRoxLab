@@ -13,6 +13,7 @@ public enum MOS6502OpCode {
 
     //XXX Possible bug, some instructions might not incremenet the pc, meaning the next instruction will read from the wrong place
 
+    /** Stash the program counter and process status and set program counter to the interrupt vectors*/
     BRK_IMP(0x00, clockTicks(
             opsInTick(DUMMY_READ, INC_PC),
             opsInTick(PUSH_PCH),
@@ -22,7 +23,8 @@ public enum MOS6502OpCode {
             opsInTick(ADDRESS_IV_HIGH, PCH_FROM_MEM)
     )),
 
-    NOP(0x6E, clockTicks(
+    /** Do nothing */
+    NOP(0xEA, clockTicks(
             opsInTick() //Do nothing
     )),
 

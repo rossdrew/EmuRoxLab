@@ -39,6 +39,7 @@ In addition, the build system
 # Next up
 1. Working through opcodes to ensure the design works
 ![Current progress...](https://github.com/rossdrew/EmuRoxLab/blob/main/resource/progress290626.png)
+![Current progress...](https://github.com/rossdrew/EmuRoxLab/blob/main/resource/opcodes.svg)
 2. Working towards a trustworthy AI approach and a good AI skillset that allows me to remove myself from the equation more
 
 # Uncovered issues with my approach

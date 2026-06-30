@@ -1,0 +1,872 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1464" height="1176" viewBox="0 0 1464 1176">
+<style>
+        text {
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            dominant-baseline: middle;
+        }
+        .small-note {
+            font-style: italic;
+        }
+    </style>
+<rect x="0" y="0" width="1464" height="1176" rx="0" fill="#020617" stroke="#020617" stroke-width="1"/>
+<text x="24" y="34" text-anchor="start" font-size="32" font-weight="800" fill="#ffffff" >MOS6502 Opcode Implementation Progress</text>
+<text x="24" y="70" text-anchor="start" font-size="20" font-weight="400" fill="#e5e7eb" class="small-note">Based on current EmuRoxLab MOS6502OpCode.java</text>
+<text x="24" y="100" text-anchor="start" font-size="16" font-weight="400" fill="#cbd5e1" class="small-note">Overlaying current code progress on the official NMOS 6502 opcode map</text>
+<rect x="782" y="18" width="210" height="42" rx="6" fill="#052e16" stroke="#22c55e" stroke-width="2"/>
+<text x="887" y="39" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" >88 / 151 implemented</text>
+<rect x="1006" y="18" width="210" height="42" rx="6" fill="#082f49" stroke="#06b6d4" stroke-width="2"/>
+<text x="1111" y="39" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" >58.3% complete</text>
+<rect x="1230" y="18" width="210" height="42" rx="6" fill="#422006" stroke="#f59e0b" stroke-width="2"/>
+<text x="1335" y="39" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" >63 remaining</text>
+<rect x="782" y="74" width="658" height="28" rx="6" fill="#374151" stroke="#4b5563" stroke-width="1"/>
+<rect x="782" y="74" width="383" height="28" rx="6" fill="#22c55e"/>
+<text x="973" y="88" text-anchor="middle" font-size="16" font-weight="800" fill="#ffffff" >58.3%</text>
+<rect x="931" y="116" width="360" height="30" rx="5" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1111" y="131" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff" >105 unused / unofficial opcode slots</text>
+<rect x="24" y="150" width="72" height="42" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
+<text x="60" y="171" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff" >Hi\Lo</text>
+<rect x="96" y="150" width="84" height="42" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
+<text x="138" y="171" text-anchor="middle" font-size="20" font-weight="800" fill="#ffffff" >0</text>
+<rect x="180" y="150" width="84" height="42" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
+<text x="222" y="171" text-anchor="middle" font-size="20" font-weight="800" fill="#ffffff" >1</text>
+<rect x="264" y="150" width="84" height="42" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
+<text x="306" y="171" text-anchor="middle" font-size="20" font-weight="800" fill="#ffffff" >2</text>
+<rect x="348" y="150" width="84" height="42" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
+<text x="390" y="171" text-anchor="middle" font-size="20" font-weight="800" fill="#ffffff" >3</text>
+<rect x="432" y="150" width="84" height="42" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
+<text x="474" y="171" text-anchor="middle" font-size="20" font-weight="800" fill="#ffffff" >4</text>
+<rect x="516" y="150" width="84" height="42" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
+<text x="558" y="171" text-anchor="middle" font-size="20" font-weight="800" fill="#ffffff" >5</text>
+<rect x="600" y="150" width="84" height="42" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
+<text x="642" y="171" text-anchor="middle" font-size="20" font-weight="800" fill="#ffffff" >6</text>
+<rect x="684" y="150" width="84" height="42" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
+<text x="726" y="171" text-anchor="middle" font-size="20" font-weight="800" fill="#ffffff" >7</text>
+<rect x="768" y="150" width="84" height="42" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
+<text x="810" y="171" text-anchor="middle" font-size="20" font-weight="800" fill="#ffffff" >8</text>
+<rect x="852" y="150" width="84" height="42" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
+<text x="894" y="171" text-anchor="middle" font-size="20" font-weight="800" fill="#ffffff" >9</text>
+<rect x="936" y="150" width="84" height="42" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
+<text x="978" y="171" text-anchor="middle" font-size="20" font-weight="800" fill="#ffffff" >A</text>
+<rect x="1020" y="150" width="84" height="42" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
+<text x="1062" y="171" text-anchor="middle" font-size="20" font-weight="800" fill="#ffffff" >B</text>
+<rect x="1104" y="150" width="84" height="42" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
+<text x="1146" y="171" text-anchor="middle" font-size="20" font-weight="800" fill="#ffffff" >C</text>
+<rect x="1188" y="150" width="84" height="42" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
+<text x="1230" y="171" text-anchor="middle" font-size="20" font-weight="800" fill="#ffffff" >D</text>
+<rect x="1272" y="150" width="84" height="42" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
+<text x="1314" y="171" text-anchor="middle" font-size="20" font-weight="800" fill="#ffffff" >E</text>
+<rect x="1356" y="150" width="84" height="42" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
+<text x="1398" y="171" text-anchor="middle" font-size="20" font-weight="800" fill="#ffffff" >F</text>
+<rect x="24" y="192" width="72" height="54" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
+<text x="60" y="219" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" >0x0_</text>
+<rect x="96" y="192" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="138" y="207" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >00</text>
+<text x="138" y="227" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >BRK_IMP</text>
+<rect x="180" y="192" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="222" y="207" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >01</text>
+<text x="222" y="227" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ORA_IND_X</text>
+<rect x="264" y="192" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="306" y="207" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >02</text>
+<text x="306" y="227" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="348" y="192" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="390" y="207" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >03</text>
+<text x="390" y="227" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="432" y="192" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="474" y="207" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >04</text>
+<text x="474" y="227" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="516" y="192" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="558" y="207" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >05</text>
+<text x="558" y="227" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ORA_Z</text>
+<rect x="600" y="192" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="642" y="207" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >06</text>
+<text x="642" y="227" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ASL_Z</text>
+<rect x="684" y="192" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="726" y="207" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >07</text>
+<text x="726" y="227" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="768" y="192" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="810" y="207" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >08</text>
+<text x="810" y="227" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >PHP_IMP</text>
+<rect x="852" y="192" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="894" y="207" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >09</text>
+<text x="894" y="227" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ORA_I</text>
+<rect x="936" y="192" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="978" y="207" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >0A</text>
+<text x="978" y="227" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ASL_A</text>
+<rect x="1020" y="192" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1062" y="207" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >0B</text>
+<text x="1062" y="227" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="1104" y="192" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1146" y="207" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >0C</text>
+<text x="1146" y="227" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="1188" y="192" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="1230" y="207" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >0D</text>
+<text x="1230" y="227" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ORA_ABS</text>
+<rect x="1272" y="192" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="1314" y="207" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >0E</text>
+<text x="1314" y="227" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ASL_ABS</text>
+<rect x="1356" y="192" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1398" y="207" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >0F</text>
+<text x="1398" y="227" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="24" y="246" width="72" height="54" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
+<text x="60" y="273" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" >0x1_</text>
+<rect x="96" y="246" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="138" y="261" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >10</text>
+<text x="138" y="281" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >BPL_REL</text>
+<rect x="180" y="246" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="222" y="261" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >11</text>
+<text x="222" y="281" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ORA_IND_Y</text>
+<rect x="264" y="246" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="306" y="261" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >12</text>
+<text x="306" y="281" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="348" y="246" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="390" y="261" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >13</text>
+<text x="390" y="281" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="432" y="246" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="474" y="261" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >14</text>
+<text x="474" y="281" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="516" y="246" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="558" y="261" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >15</text>
+<text x="558" y="281" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ORA_Z_X</text>
+<rect x="600" y="246" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="642" y="261" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >16</text>
+<text x="642" y="281" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ASL_Z_X</text>
+<rect x="684" y="246" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="726" y="261" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >17</text>
+<text x="726" y="281" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="768" y="246" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="810" y="261" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >18</text>
+<text x="810" y="281" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >CLC_IMP</text>
+<rect x="852" y="246" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="894" y="261" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >19</text>
+<text x="894" y="281" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ORA_ABS_Y</text>
+<rect x="936" y="246" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="978" y="261" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >1A</text>
+<text x="978" y="281" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="1020" y="246" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1062" y="261" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >1B</text>
+<text x="1062" y="281" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="1104" y="246" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1146" y="261" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >1C</text>
+<text x="1146" y="281" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="1188" y="246" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="1230" y="261" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >1D</text>
+<text x="1230" y="281" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ORA_ABS_X</text>
+<rect x="1272" y="246" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="1314" y="261" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >1E</text>
+<text x="1314" y="281" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ASL_ABS_X</text>
+<rect x="1356" y="246" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1398" y="261" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >1F</text>
+<text x="1398" y="281" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="24" y="300" width="72" height="54" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
+<text x="60" y="327" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" >0x2_</text>
+<rect x="96" y="300" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="138" y="315" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >20</text>
+<text x="138" y="335" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >JSR_ABS</text>
+<rect x="180" y="300" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="222" y="315" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >21</text>
+<text x="222" y="335" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >AND_IND_X</text>
+<rect x="264" y="300" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="306" y="315" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >22</text>
+<text x="306" y="335" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="348" y="300" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="390" y="315" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >23</text>
+<text x="390" y="335" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="432" y="300" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="474" y="315" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >24</text>
+<text x="474" y="335" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >BIT_Z</text>
+<rect x="516" y="300" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="558" y="315" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >25</text>
+<text x="558" y="335" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >AND_Z</text>
+<rect x="600" y="300" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="642" y="315" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >26</text>
+<text x="642" y="335" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ROL_Z</text>
+<rect x="684" y="300" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="726" y="315" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >27</text>
+<text x="726" y="335" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="768" y="300" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="810" y="315" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >28</text>
+<text x="810" y="335" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >PLP_IMP</text>
+<rect x="852" y="300" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="894" y="315" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >29</text>
+<text x="894" y="335" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >AND_I</text>
+<rect x="936" y="300" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="978" y="315" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >2A</text>
+<text x="978" y="335" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ROL_A</text>
+<rect x="1020" y="300" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1062" y="315" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >2B</text>
+<text x="1062" y="335" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="1104" y="300" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="1146" y="315" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >2C</text>
+<text x="1146" y="335" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >BIT_ABS</text>
+<rect x="1188" y="300" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="1230" y="315" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >2D</text>
+<text x="1230" y="335" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >AND_ABS</text>
+<rect x="1272" y="300" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="1314" y="315" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >2E</text>
+<text x="1314" y="335" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ROL_ABS</text>
+<rect x="1356" y="300" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1398" y="315" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >2F</text>
+<text x="1398" y="335" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="24" y="354" width="72" height="54" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
+<text x="60" y="381" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" >0x3_</text>
+<rect x="96" y="354" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="138" y="369" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >30</text>
+<text x="138" y="389" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >BMI_REL</text>
+<rect x="180" y="354" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="222" y="369" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >31</text>
+<text x="222" y="389" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >AND_IND_Y</text>
+<rect x="264" y="354" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="306" y="369" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >32</text>
+<text x="306" y="389" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="348" y="354" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="390" y="369" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >33</text>
+<text x="390" y="389" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="432" y="354" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="474" y="369" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >34</text>
+<text x="474" y="389" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="516" y="354" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="558" y="369" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >35</text>
+<text x="558" y="389" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >AND_Z_X</text>
+<rect x="600" y="354" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="642" y="369" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >36</text>
+<text x="642" y="389" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ROL_Z_X</text>
+<rect x="684" y="354" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="726" y="369" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >37</text>
+<text x="726" y="389" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="768" y="354" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="810" y="369" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >38</text>
+<text x="810" y="389" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >SEC_IMP</text>
+<rect x="852" y="354" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="894" y="369" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >39</text>
+<text x="894" y="389" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >AND_ABS_Y</text>
+<rect x="936" y="354" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="978" y="369" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >3A</text>
+<text x="978" y="389" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="1020" y="354" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1062" y="369" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >3B</text>
+<text x="1062" y="389" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="1104" y="354" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1146" y="369" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >3C</text>
+<text x="1146" y="389" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="1188" y="354" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="1230" y="369" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >3D</text>
+<text x="1230" y="389" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >AND_ABS_X</text>
+<rect x="1272" y="354" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="1314" y="369" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >3E</text>
+<text x="1314" y="389" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ROL_ABS_X</text>
+<rect x="1356" y="354" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1398" y="369" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >3F</text>
+<text x="1398" y="389" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="24" y="408" width="72" height="54" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
+<text x="60" y="435" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" >0x4_</text>
+<rect x="96" y="408" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="138" y="423" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >40</text>
+<text x="138" y="443" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >RTI_IMP</text>
+<rect x="180" y="408" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="222" y="423" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >41</text>
+<text x="222" y="443" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >EOR_IND_X</text>
+<rect x="264" y="408" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="306" y="423" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >42</text>
+<text x="306" y="443" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="348" y="408" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="390" y="423" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >43</text>
+<text x="390" y="443" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="432" y="408" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="474" y="423" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >44</text>
+<text x="474" y="443" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="516" y="408" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="558" y="423" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >45</text>
+<text x="558" y="443" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >EOR_Z</text>
+<rect x="600" y="408" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="642" y="423" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >46</text>
+<text x="642" y="443" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >LSR_Z</text>
+<rect x="684" y="408" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="726" y="423" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >47</text>
+<text x="726" y="443" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="768" y="408" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="810" y="423" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >48</text>
+<text x="810" y="443" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >PHA_IMP</text>
+<rect x="852" y="408" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="894" y="423" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >49</text>
+<text x="894" y="443" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >EOR_I</text>
+<rect x="936" y="408" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="978" y="423" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >4A</text>
+<text x="978" y="443" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >LSR_A</text>
+<rect x="1020" y="408" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1062" y="423" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >4B</text>
+<text x="1062" y="443" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="1104" y="408" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="1146" y="423" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >4C</text>
+<text x="1146" y="443" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >JMP_ABS</text>
+<rect x="1188" y="408" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="1230" y="423" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >4D</text>
+<text x="1230" y="443" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >EOR_ABS</text>
+<rect x="1272" y="408" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="1314" y="423" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >4E</text>
+<text x="1314" y="443" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >LSR_ABS</text>
+<rect x="1356" y="408" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1398" y="423" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >4F</text>
+<text x="1398" y="443" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="24" y="462" width="72" height="54" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
+<text x="60" y="489" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" >0x5_</text>
+<rect x="96" y="462" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="138" y="477" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >50</text>
+<text x="138" y="497" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >BVC_REL</text>
+<rect x="180" y="462" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="222" y="477" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >51</text>
+<text x="222" y="497" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >EOR_IND_Y</text>
+<rect x="264" y="462" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="306" y="477" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >52</text>
+<text x="306" y="497" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="348" y="462" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="390" y="477" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >53</text>
+<text x="390" y="497" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="432" y="462" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="474" y="477" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >54</text>
+<text x="474" y="497" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="516" y="462" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="558" y="477" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >55</text>
+<text x="558" y="497" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >EOR_Z_X</text>
+<rect x="600" y="462" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="642" y="477" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >56</text>
+<text x="642" y="497" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >LSR_Z_X</text>
+<rect x="684" y="462" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="726" y="477" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >57</text>
+<text x="726" y="497" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="768" y="462" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="810" y="477" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >58</text>
+<text x="810" y="497" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >CLI_IMP</text>
+<rect x="852" y="462" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="894" y="477" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >59</text>
+<text x="894" y="497" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >EOR_ABS_Y</text>
+<rect x="936" y="462" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="978" y="477" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >5A</text>
+<text x="978" y="497" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="1020" y="462" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1062" y="477" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >5B</text>
+<text x="1062" y="497" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="1104" y="462" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1146" y="477" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >5C</text>
+<text x="1146" y="497" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="1188" y="462" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="1230" y="477" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >5D</text>
+<text x="1230" y="497" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >EOR_ABS_X</text>
+<rect x="1272" y="462" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="1314" y="477" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >5E</text>
+<text x="1314" y="497" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >LSR_ABS_X</text>
+<rect x="1356" y="462" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1398" y="477" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >5F</text>
+<text x="1398" y="497" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="24" y="516" width="72" height="54" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
+<text x="60" y="543" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" >0x6_</text>
+<rect x="96" y="516" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="138" y="531" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >60</text>
+<text x="138" y="551" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >RTS_IMP</text>
+<rect x="180" y="516" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="222" y="531" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >61</text>
+<text x="222" y="551" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ADC_IND_X</text>
+<rect x="264" y="516" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="306" y="531" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >62</text>
+<text x="306" y="551" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="348" y="516" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="390" y="531" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >63</text>
+<text x="390" y="551" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="432" y="516" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="474" y="531" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >64</text>
+<text x="474" y="551" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="516" y="516" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="558" y="531" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >65</text>
+<text x="558" y="551" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ADC_Z</text>
+<rect x="600" y="516" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="642" y="531" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >66</text>
+<text x="642" y="551" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ROR_Z</text>
+<rect x="684" y="516" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="726" y="531" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >67</text>
+<text x="726" y="551" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="768" y="516" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="810" y="531" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >68</text>
+<text x="810" y="551" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >PLA_IMP</text>
+<rect x="852" y="516" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="894" y="531" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >69</text>
+<text x="894" y="551" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ADC_I</text>
+<rect x="936" y="516" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="978" y="531" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >6A</text>
+<text x="978" y="551" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ROR_A</text>
+<rect x="1020" y="516" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1062" y="531" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >6B</text>
+<text x="1062" y="551" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="1104" y="516" width="84" height="54" rx="0" fill="#15803d" stroke="#facc15" stroke-width="3"/>
+<text x="1146" y="531" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >6C</text>
+<text x="1146" y="551" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >JMP_IND</text>
+<text x="1178" y="526" text-anchor="middle" font-size="13" font-weight="900" fill="#facc15" >!</text>
+<rect x="1188" y="516" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="1230" y="531" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >6D</text>
+<text x="1230" y="551" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ADC_ABS</text>
+<rect x="1272" y="516" width="84" height="54" rx="0" fill="#15803d" stroke="#facc15" stroke-width="3"/>
+<text x="1314" y="531" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >6E</text>
+<text x="1314" y="551" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ROR_ABS</text>
+<text x="1346" y="526" text-anchor="middle" font-size="13" font-weight="900" fill="#facc15" >!</text>
+<rect x="1356" y="516" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1398" y="531" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >6F</text>
+<text x="1398" y="551" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="24" y="570" width="72" height="54" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
+<text x="60" y="597" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" >0x7_</text>
+<rect x="96" y="570" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="138" y="585" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >70</text>
+<text x="138" y="605" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >BVS_REL</text>
+<rect x="180" y="570" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="222" y="585" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >71</text>
+<text x="222" y="605" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ADC_IND_Y</text>
+<rect x="264" y="570" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="306" y="585" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >72</text>
+<text x="306" y="605" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="348" y="570" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="390" y="585" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >73</text>
+<text x="390" y="605" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="432" y="570" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="474" y="585" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >74</text>
+<text x="474" y="605" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="516" y="570" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="558" y="585" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >75</text>
+<text x="558" y="605" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ADC_Z_X</text>
+<rect x="600" y="570" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="642" y="585" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >76</text>
+<text x="642" y="605" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ROR_Z_X</text>
+<rect x="684" y="570" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="726" y="585" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >77</text>
+<text x="726" y="605" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="768" y="570" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="810" y="585" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >78</text>
+<text x="810" y="605" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >SEI_IMP</text>
+<rect x="852" y="570" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="894" y="585" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >79</text>
+<text x="894" y="605" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ADC_ABS_Y</text>
+<rect x="936" y="570" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="978" y="585" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >7A</text>
+<text x="978" y="605" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="1020" y="570" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1062" y="585" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >7B</text>
+<text x="1062" y="605" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="1104" y="570" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1146" y="585" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >7C</text>
+<text x="1146" y="605" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="1188" y="570" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="1230" y="585" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >7D</text>
+<text x="1230" y="605" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ADC_ABS_X</text>
+<rect x="1272" y="570" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="1314" y="585" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >7E</text>
+<text x="1314" y="605" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ROR_ABS_X</text>
+<rect x="1356" y="570" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1398" y="585" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >7F</text>
+<text x="1398" y="605" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="24" y="624" width="72" height="54" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
+<text x="60" y="651" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" >0x8_</text>
+<rect x="96" y="624" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="138" y="639" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >80</text>
+<text x="138" y="659" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="180" y="624" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="222" y="639" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >81</text>
+<text x="222" y="659" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >STA_IND_X</text>
+<rect x="264" y="624" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="306" y="639" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >82</text>
+<text x="306" y="659" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="348" y="624" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="390" y="639" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >83</text>
+<text x="390" y="659" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="432" y="624" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="474" y="639" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >84</text>
+<text x="474" y="659" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >STY_Z</text>
+<rect x="516" y="624" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="558" y="639" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >85</text>
+<text x="558" y="659" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >STA_Z</text>
+<rect x="600" y="624" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="642" y="639" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >86</text>
+<text x="642" y="659" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >STX_Z</text>
+<rect x="684" y="624" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="726" y="639" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >87</text>
+<text x="726" y="659" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="768" y="624" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="810" y="639" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >88</text>
+<text x="810" y="659" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >DEY_IMP</text>
+<rect x="852" y="624" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="894" y="639" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >89</text>
+<text x="894" y="659" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="936" y="624" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="978" y="639" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >8A</text>
+<text x="978" y="659" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >TXA_IMP</text>
+<rect x="1020" y="624" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1062" y="639" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >8B</text>
+<text x="1062" y="659" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="1104" y="624" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="1146" y="639" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >8C</text>
+<text x="1146" y="659" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >STY_ABS</text>
+<rect x="1188" y="624" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="1230" y="639" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >8D</text>
+<text x="1230" y="659" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >STA_ABS</text>
+<rect x="1272" y="624" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="1314" y="639" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >8E</text>
+<text x="1314" y="659" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >STX_ABS</text>
+<rect x="1356" y="624" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1398" y="639" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >8F</text>
+<text x="1398" y="659" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="24" y="678" width="72" height="54" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
+<text x="60" y="705" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" >0x9_</text>
+<rect x="96" y="678" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="138" y="693" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >90</text>
+<text x="138" y="713" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >BCC_REL</text>
+<rect x="180" y="678" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="222" y="693" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >91</text>
+<text x="222" y="713" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >STA_IND_Y</text>
+<rect x="264" y="678" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="306" y="693" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >92</text>
+<text x="306" y="713" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="348" y="678" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="390" y="693" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >93</text>
+<text x="390" y="713" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="432" y="678" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="474" y="693" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >94</text>
+<text x="474" y="713" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >STY_Z_X</text>
+<rect x="516" y="678" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="558" y="693" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >95</text>
+<text x="558" y="713" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >STA_Z_X</text>
+<rect x="600" y="678" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="642" y="693" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >96</text>
+<text x="642" y="713" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >STX_Z_Y</text>
+<rect x="684" y="678" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="726" y="693" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >97</text>
+<text x="726" y="713" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="768" y="678" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="810" y="693" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >98</text>
+<text x="810" y="713" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >TYA_IMP</text>
+<rect x="852" y="678" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="894" y="693" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >99</text>
+<text x="894" y="713" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >STA_ABS_Y</text>
+<rect x="936" y="678" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="978" y="693" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >9A</text>
+<text x="978" y="713" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >TXS_IMP</text>
+<rect x="1020" y="678" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1062" y="693" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >9B</text>
+<text x="1062" y="713" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="1104" y="678" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1146" y="693" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >9C</text>
+<text x="1146" y="713" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="1188" y="678" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="1230" y="693" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >9D</text>
+<text x="1230" y="713" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >STA_ABS_X</text>
+<rect x="1272" y="678" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1314" y="693" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >9E</text>
+<text x="1314" y="713" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="1356" y="678" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1398" y="693" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >9F</text>
+<text x="1398" y="713" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="24" y="732" width="72" height="54" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
+<text x="60" y="759" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" >0xA_</text>
+<rect x="96" y="732" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="138" y="747" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >A0</text>
+<text x="138" y="767" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >LDY_I</text>
+<rect x="180" y="732" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="222" y="747" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >A1</text>
+<text x="222" y="767" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >LDA_IND_X</text>
+<rect x="264" y="732" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="306" y="747" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >A2</text>
+<text x="306" y="767" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >LDX_I</text>
+<rect x="348" y="732" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="390" y="747" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >A3</text>
+<text x="390" y="767" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="432" y="732" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="474" y="747" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >A4</text>
+<text x="474" y="767" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >LDY_Z</text>
+<rect x="516" y="732" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="558" y="747" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >A5</text>
+<text x="558" y="767" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >LDA_Z</text>
+<rect x="600" y="732" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="642" y="747" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >A6</text>
+<text x="642" y="767" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >LDX_Z</text>
+<rect x="684" y="732" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="726" y="747" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >A7</text>
+<text x="726" y="767" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="768" y="732" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="810" y="747" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >A8</text>
+<text x="810" y="767" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >TAY_IMP</text>
+<rect x="852" y="732" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="894" y="747" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >A9</text>
+<text x="894" y="767" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >LDA_I</text>
+<rect x="936" y="732" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="978" y="747" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >AA</text>
+<text x="978" y="767" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >TAX_IMP</text>
+<rect x="1020" y="732" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1062" y="747" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >AB</text>
+<text x="1062" y="767" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="1104" y="732" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="1146" y="747" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >AC</text>
+<text x="1146" y="767" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >LDY_ABS</text>
+<rect x="1188" y="732" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="1230" y="747" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >AD</text>
+<text x="1230" y="767" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >LDA_ABS</text>
+<rect x="1272" y="732" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="1314" y="747" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >AE</text>
+<text x="1314" y="767" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >LDX_ABS</text>
+<rect x="1356" y="732" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1398" y="747" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >AF</text>
+<text x="1398" y="767" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="24" y="786" width="72" height="54" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
+<text x="60" y="813" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" >0xB_</text>
+<rect x="96" y="786" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="138" y="801" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >B0</text>
+<text x="138" y="821" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >BCS_REL</text>
+<rect x="180" y="786" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="222" y="801" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >B1</text>
+<text x="222" y="821" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >LDA_IND_Y</text>
+<rect x="264" y="786" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="306" y="801" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >B2</text>
+<text x="306" y="821" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="348" y="786" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="390" y="801" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >B3</text>
+<text x="390" y="821" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="432" y="786" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="474" y="801" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >B4</text>
+<text x="474" y="821" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >LDY_Z_X</text>
+<rect x="516" y="786" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="558" y="801" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >B5</text>
+<text x="558" y="821" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >LDA_Z_X</text>
+<rect x="600" y="786" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="642" y="801" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >B6</text>
+<text x="642" y="821" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >LDX_Z_Y</text>
+<rect x="684" y="786" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="726" y="801" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >B7</text>
+<text x="726" y="821" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="768" y="786" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="810" y="801" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >B8</text>
+<text x="810" y="821" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >CLV_IMP</text>
+<rect x="852" y="786" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="894" y="801" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >B9</text>
+<text x="894" y="821" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >LDA_ABS_Y</text>
+<rect x="936" y="786" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="978" y="801" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >BA</text>
+<text x="978" y="821" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >TSX_IMP</text>
+<rect x="1020" y="786" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1062" y="801" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >BB</text>
+<text x="1062" y="821" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="1104" y="786" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="1146" y="801" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >BC</text>
+<text x="1146" y="821" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >LDY_ABS_X</text>
+<rect x="1188" y="786" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="1230" y="801" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >BD</text>
+<text x="1230" y="821" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >LDA_ABS_X</text>
+<rect x="1272" y="786" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="1314" y="801" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >BE</text>
+<text x="1314" y="821" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >LDX_ABS_Y</text>
+<rect x="1356" y="786" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1398" y="801" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >BF</text>
+<text x="1398" y="821" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="24" y="840" width="72" height="54" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
+<text x="60" y="867" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" >0xC_</text>
+<rect x="96" y="840" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="138" y="855" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >C0</text>
+<text x="138" y="875" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >CPY_I</text>
+<rect x="180" y="840" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="222" y="855" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >C1</text>
+<text x="222" y="875" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >CMP_IND_X</text>
+<rect x="264" y="840" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="306" y="855" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >C2</text>
+<text x="306" y="875" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="348" y="840" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="390" y="855" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >C3</text>
+<text x="390" y="875" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="432" y="840" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="474" y="855" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >C4</text>
+<text x="474" y="875" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >CPY_Z</text>
+<rect x="516" y="840" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="558" y="855" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >C5</text>
+<text x="558" y="875" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >CMP_Z</text>
+<rect x="600" y="840" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="642" y="855" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >C6</text>
+<text x="642" y="875" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >DEC_Z</text>
+<rect x="684" y="840" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="726" y="855" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >C7</text>
+<text x="726" y="875" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="768" y="840" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="810" y="855" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >C8</text>
+<text x="810" y="875" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >INY_IMP</text>
+<rect x="852" y="840" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="894" y="855" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >C9</text>
+<text x="894" y="875" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >CMP_I</text>
+<rect x="936" y="840" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="978" y="855" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >CA</text>
+<text x="978" y="875" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >DEX_IMP</text>
+<rect x="1020" y="840" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1062" y="855" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >CB</text>
+<text x="1062" y="875" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="1104" y="840" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="1146" y="855" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >CC</text>
+<text x="1146" y="875" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >CPY_ABS</text>
+<rect x="1188" y="840" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="1230" y="855" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >CD</text>
+<text x="1230" y="875" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >CMP_ABS</text>
+<rect x="1272" y="840" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="1314" y="855" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >CE</text>
+<text x="1314" y="875" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >DEC_ABS</text>
+<rect x="1356" y="840" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1398" y="855" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >CF</text>
+<text x="1398" y="875" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="24" y="894" width="72" height="54" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
+<text x="60" y="921" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" >0xD_</text>
+<rect x="96" y="894" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="138" y="909" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >D0</text>
+<text x="138" y="929" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >BNE_REL</text>
+<rect x="180" y="894" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="222" y="909" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >D1</text>
+<text x="222" y="929" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >CMP_IND_Y</text>
+<rect x="264" y="894" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="306" y="909" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >D2</text>
+<text x="306" y="929" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="348" y="894" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="390" y="909" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >D3</text>
+<text x="390" y="929" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="432" y="894" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="474" y="909" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >D4</text>
+<text x="474" y="929" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="516" y="894" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="558" y="909" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >D5</text>
+<text x="558" y="929" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >CMP_Z_X</text>
+<rect x="600" y="894" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="642" y="909" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >D6</text>
+<text x="642" y="929" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >DEC_Z_X</text>
+<rect x="684" y="894" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="726" y="909" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >D7</text>
+<text x="726" y="929" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="768" y="894" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="810" y="909" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >D8</text>
+<text x="810" y="929" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >CLD_IMP</text>
+<rect x="852" y="894" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="894" y="909" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >D9</text>
+<text x="894" y="929" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >CMP_ABS_Y</text>
+<rect x="936" y="894" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="978" y="909" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >DA</text>
+<text x="978" y="929" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="1020" y="894" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1062" y="909" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >DB</text>
+<text x="1062" y="929" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="1104" y="894" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1146" y="909" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >DC</text>
+<text x="1146" y="929" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="1188" y="894" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="1230" y="909" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >DD</text>
+<text x="1230" y="929" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >CMP_ABS_X</text>
+<rect x="1272" y="894" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="1314" y="909" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >DE</text>
+<text x="1314" y="929" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >DEC_ABS_X</text>
+<rect x="1356" y="894" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1398" y="909" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >DF</text>
+<text x="1398" y="929" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="24" y="948" width="72" height="54" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
+<text x="60" y="975" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" >0xE_</text>
+<rect x="96" y="948" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="138" y="963" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >E0</text>
+<text x="138" y="983" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >CPX_I</text>
+<rect x="180" y="948" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="222" y="963" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >E1</text>
+<text x="222" y="983" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >SBC_IND_X</text>
+<rect x="264" y="948" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="306" y="963" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >E2</text>
+<text x="306" y="983" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="348" y="948" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="390" y="963" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >E3</text>
+<text x="390" y="983" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="432" y="948" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="474" y="963" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >E4</text>
+<text x="474" y="983" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >CPX_Z</text>
+<rect x="516" y="948" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="558" y="963" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >E5</text>
+<text x="558" y="983" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >SBC_Z</text>
+<rect x="600" y="948" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="642" y="963" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >E6</text>
+<text x="642" y="983" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >INC_Z</text>
+<rect x="684" y="948" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="726" y="963" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >E7</text>
+<text x="726" y="983" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="768" y="948" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="810" y="963" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >E8</text>
+<text x="810" y="983" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >INX_IMP</text>
+<rect x="852" y="948" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="894" y="963" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >E9</text>
+<text x="894" y="983" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >SBC_I</text>
+<rect x="936" y="948" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="978" y="963" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >EA</text>
+<text x="978" y="983" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >NOP_IMP</text>
+<rect x="1020" y="948" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1062" y="963" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >EB</text>
+<text x="1062" y="983" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="1104" y="948" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="1146" y="963" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >EC</text>
+<text x="1146" y="983" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >CPX_ABS</text>
+<rect x="1188" y="948" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="1230" y="963" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >ED</text>
+<text x="1230" y="983" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >SBC_ABS</text>
+<rect x="1272" y="948" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="1314" y="963" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >EE</text>
+<text x="1314" y="983" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >INC_ABS</text>
+<rect x="1356" y="948" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1398" y="963" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >EF</text>
+<text x="1398" y="983" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="24" y="1002" width="72" height="54" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
+<text x="60" y="1029" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" >0xF_</text>
+<rect x="96" y="1002" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="138" y="1017" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >F0</text>
+<text x="138" y="1037" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >BEQ_REL</text>
+<rect x="180" y="1002" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="222" y="1017" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >F1</text>
+<text x="222" y="1037" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >SBC_IND_Y</text>
+<rect x="264" y="1002" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="306" y="1017" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >F2</text>
+<text x="306" y="1037" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="348" y="1002" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="390" y="1017" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >F3</text>
+<text x="390" y="1037" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="432" y="1002" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="474" y="1017" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >F4</text>
+<text x="474" y="1037" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="516" y="1002" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="558" y="1017" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >F5</text>
+<text x="558" y="1037" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >SBC_Z_X</text>
+<rect x="600" y="1002" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="642" y="1017" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >F6</text>
+<text x="642" y="1037" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >INC_Z_X</text>
+<rect x="684" y="1002" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="726" y="1017" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >F7</text>
+<text x="726" y="1037" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="768" y="1002" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="810" y="1017" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >F8</text>
+<text x="810" y="1037" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >SED_IMP</text>
+<rect x="852" y="1002" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="894" y="1017" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >F9</text>
+<text x="894" y="1037" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >SBC_ABS_Y</text>
+<rect x="936" y="1002" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="978" y="1017" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >FA</text>
+<text x="978" y="1037" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="1020" y="1002" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1062" y="1017" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >FB</text>
+<text x="1062" y="1037" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="1104" y="1002" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1146" y="1017" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >FC</text>
+<text x="1146" y="1037" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="1188" y="1002" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="1230" y="1017" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >FD</text>
+<text x="1230" y="1037" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >SBC_ABS_X</text>
+<rect x="1272" y="1002" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="1314" y="1017" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >FE</text>
+<text x="1314" y="1037" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >INC_ABS_X</text>
+<rect x="1356" y="1002" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1398" y="1017" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >FF</text>
+<text x="1398" y="1037" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
+<rect x="292" y="1086" width="42" height="42" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
+<text x="350" y="1104" text-anchor="start" font-size="18" font-weight="700" fill="#ffffff" >= Implemented</text>
+<text x="350" y="1130" text-anchor="start" font-size="14" font-weight="400" fill="#d1d5db" class="small-note">(In MOS6502OpCode.java)</text>
+<rect x="622" y="1086" width="42" height="42" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<text x="680" y="1104" text-anchor="start" font-size="18" font-weight="700" fill="#ffffff" >= Legal but not implemented</text>
+<text x="680" y="1130" text-anchor="start" font-size="14" font-weight="400" fill="#d1d5db" class="small-note">(Official NMOS 6502 opcode)</text>
+<rect x="1012" y="1086" width="42" height="42" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
+<text x="1070" y="1104" text-anchor="start" font-size="18" font-weight="700" fill="#ffffff" >= Unused / unofficial</text>
+<text x="1070" y="1130" text-anchor="start" font-size="14" font-weight="400" fill="#d1d5db" class="small-note">(Not used on NMOS 6502)</text>
+<text x="24" y="1154" text-anchor="start" font-size="13" font-weight="500" fill="#facc15" >Yellow border = implemented enum name differs from official opcode: 6C code=JMP_I, official=JMP_IND, 6E code=NOP, official=ROR_ABS</text>
+</svg>
