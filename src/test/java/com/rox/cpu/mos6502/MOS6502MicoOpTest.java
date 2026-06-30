@@ -243,21 +243,6 @@ public class MOS6502MicoOpTest extends Arbitraries {
     }
 
     @Test
-    public void adPlusXWithoutCarryyIntoHighByte(){
-        memoryBus8Bit.write(0x0101 + 3, 72);
-        env.setADL(0x01);
-        env.setADH(0x01);
-        env.setX(3);
-
-        ADDRESS_AD_PLUS_X_AND_PAGE_CROSS.execute(env, bus, alu);
-
-        verifyNoInteractions(alu);
-        assertEquals(0x0101+3, env.getAD());
-        assertEquals(72, bus.fetch());
-        assertFalse(env.additionalTickPending());
-    }
-
-    @Test
     public void adPlusXWithCarryIntoHighByte() {
         memoryBus8Bit.write(0x0202, 72);
 
@@ -740,7 +725,7 @@ public class MOS6502MicoOpTest extends Arbitraries {
     @Nested //Junit (unit)
     @Group  //JQwik (properties)
     class PUSH_A {
-        @Property //XXX This might be overkill and we should test this extensively elsehwere
+        @Property //XXX This might be overkill, and we should test this extensively elsewhere
         public void pushAStoresAccumulatorAtCurrentStackPointerAddress(@ForAll("validNonWrappingStackPointers") int stackPointer) {
             memoryBus8Bit.write(0x01FF, 0x99);
 

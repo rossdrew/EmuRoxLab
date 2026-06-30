@@ -542,7 +542,7 @@ public enum MOS6502OpCode {
     ));
 
     /*
-    For sample program: INX, CPX, BNE, BRK
+    For sample program: INX, CPX, BNE, BRK (done)
 
     Transfer instructions (TAX, etc.)
     DEX, INY, DEY
