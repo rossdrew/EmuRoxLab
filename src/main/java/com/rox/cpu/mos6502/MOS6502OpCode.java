@@ -24,7 +24,7 @@ public enum MOS6502OpCode {
     )),
 
     /** Do nothing */
-    NOP(0xEA, clockTicks(
+    NOP_IMP(0xEA, clockTicks(
             opsInTick() //Do nothing
     )),
 
@@ -427,7 +427,7 @@ public enum MOS6502OpCode {
             opsInTick(ADDRESS_PC, ADH_FROM_MEM, AD_TO_PC)
     )),
 
-    JMP_I(0x6C, clockTicks(
+    JMP_IND(0x6C, clockTicks(
             opsInTick(ADDRESS_PC, ADL_FROM_MEM),
             opsInTick(ADDRESS_PC, ADH_FROM_MEM),
             opsInTick(ADDRESS_AD, PCL_FROM_MEM),

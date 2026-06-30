@@ -2603,7 +2603,7 @@ public class MOS6502OpCodeTest {
 
         @Test
         void jmpIndirectLoadsPcFromPointerAddress() {
-            ram.write(0x8000, JMP_I.getId());
+            ram.write(0x8000, JMP_IND.getId());
             ram.write(0x8001, 0x34); // pointer low byte
             ram.write(0x8002, 0x12); // pointer high byte
 
@@ -2623,7 +2623,7 @@ public class MOS6502OpCodeTest {
 
         @Test
         void jmpIndirectSetsPcLowThenHigh() {
-            ram.write(0x8000, JMP_I.getId());
+            ram.write(0x8000, JMP_IND.getId());
             ram.write(0x8001, 0x34);
             ram.write(0x8002, 0x12);
 
@@ -2650,7 +2650,7 @@ public class MOS6502OpCodeTest {
 
         @Test
         void jmpIndirectEmulatesPageBoundaryBug() {
-            ram.write(0x8000, JMP_I.getId());
+            ram.write(0x8000, JMP_IND.getId());
             ram.write(0x8001, 0xFF); // pointer low byte
             ram.write(0x8002, 0x12); // pointer high byte => pointer = $12FF
 
@@ -5478,7 +5478,7 @@ public class MOS6502OpCodeTest {
     class NOP {
         @Test
         void nopDoesNothingAndPreservesAllState() {
-            ram.write(0x8000, NOP.getId());
+            ram.write(0x8000, NOP_IMP.getId());
 
             env.setPC(0x8000);
             env.setA(0x44);
@@ -5515,8 +5515,8 @@ public class MOS6502OpCodeTest {
 
         @Test
         void nopTakesExactlyTwoCycles() {
-            ram.write(0x8000, NOP.getId());
-            ram.write(0x8001, NOP.getId()); // next instruction (another NOP)
+            ram.write(0x8000, NOP_IMP.getId());
+            ram.write(0x8001, NOP_IMP.getId()); // next instruction (another NOP)
 
             env.setPC(0x8000);
 

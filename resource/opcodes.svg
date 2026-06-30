@@ -395,17 +395,15 @@
 <rect x="1020" y="516" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
 <text x="1062" y="531" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >6B</text>
 <text x="1062" y="551" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
-<rect x="1104" y="516" width="84" height="54" rx="0" fill="#15803d" stroke="#facc15" stroke-width="3"/>
+<rect x="1104" y="516" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="1146" y="531" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >6C</text>
 <text x="1146" y="551" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >JMP_IND</text>
-<text x="1178" y="526" text-anchor="middle" font-size="13" font-weight="900" fill="#facc15" >!</text>
 <rect x="1188" y="516" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="1230" y="531" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >6D</text>
 <text x="1230" y="551" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ADC_ABS</text>
-<rect x="1272" y="516" width="84" height="54" rx="0" fill="#15803d" stroke="#facc15" stroke-width="3"/>
+<rect x="1272" y="516" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
 <text x="1314" y="531" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >6E</text>
 <text x="1314" y="551" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ROR_ABS</text>
-<text x="1346" y="526" text-anchor="middle" font-size="13" font-weight="900" fill="#facc15" >!</text>
 <rect x="1356" y="516" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
 <text x="1398" y="531" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >6F</text>
 <text x="1398" y="551" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
@@ -791,7 +789,7 @@
 <rect x="852" y="948" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="894" y="963" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >E9</text>
 <text x="894" y="983" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >SBC_I</text>
-<rect x="936" y="948" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<rect x="936" y="948" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="978" y="963" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >EA</text>
 <text x="978" y="983" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >NOP_IMP</text>
 <rect x="1020" y="948" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
@@ -868,5 +866,4 @@
 <rect x="1012" y="1086" width="42" height="42" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
 <text x="1070" y="1104" text-anchor="start" font-size="18" font-weight="700" fill="#ffffff" >= Unused / unofficial</text>
 <text x="1070" y="1130" text-anchor="start" font-size="14" font-weight="400" fill="#d1d5db" class="small-note">(Not used on NMOS 6502)</text>
-<text x="24" y="1154" text-anchor="start" font-size="13" font-weight="500" fill="#facc15" >Yellow border = implemented enum name differs from official opcode: 6C code=JMP_I, official=JMP_IND, 6E code=NOP, official=ROR_ABS</text>
 </svg>
