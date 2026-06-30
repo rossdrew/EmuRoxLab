@@ -1048,9 +1048,542 @@ public class MOS6502MicoOpTest extends Arbitraries {
         }
     }
 
-    //TODO PUSH_PCH
-    //TODO PUSH_PCL
-    //TODO INTERRUPT
-    //TODO ADDRESS_IV_LOW
-    //TODO ADDRESS_IV_HIGH
+    @Nested
+    class PUSH_PCH{
+        @ParameterizedTest(name = "PUSH_PCH PC={0}, PCH={1}, SP={2}")
+        @CsvSource({
+                // PC,   Expected PCH, SP
+                "0x8002, 0x80,         0xFF",
+                "0x1234, 0x12,         0x80",
+                "0x00FF, 0x00,         0x10",
+                "0xFF00, 0xFF,         0x01"
+        })
+        public void pushPchStoresProgramCounterHighByteAtCurrentStackPointerAddress(int pc,
+                                                                                    int expectedPch,
+                                                                                    int stackPointer) {
+            int stackAddress = 0x0100 | (stackPointer & 0xFF);
+
+            memoryBus8Bit.write(stackAddress, 0x99);
+
+            env.setPC(pc);
+            env.setStackPointer(stackPointer);
+
+            PUSH_PCH.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            bus.loadMemoryAddress(stackAddress);
+            assertEquals(expectedPch, bus.fetch());
+
+            assertEquals((stackPointer - 1) & 0xFF, env.getStackPointer());
+            assertEquals(pc, env.getPC());
+        }
+
+        @Test
+        public void pushPchUsesStackPageNotZeroPage() {
+            memoryBus8Bit.write(0x00FF, 0x11);
+            memoryBus8Bit.write(0x01FF, 0x99);
+
+            env.setPC(0x8002);
+            env.setStackPointer(0xFF);
+
+            PUSH_PCH.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            bus.loadMemoryAddress(0x01FF);
+            assertEquals(0x80, bus.fetch());
+
+            bus.loadMemoryAddress(0x00FF);
+            assertEquals(0x11, bus.fetch());
+
+            assertEquals(0xFE, env.getStackPointer());
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @Test
+        public void pushPchWritesBeforeDecrementingStackPointer() {
+            memoryBus8Bit.write(0x01FE, 0x11);
+            memoryBus8Bit.write(0x01FF, 0x99);
+
+            env.setPC(0x8002);
+            env.setStackPointer(0xFF);
+
+            PUSH_PCH.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            bus.loadMemoryAddress(0x01FF);
+            assertEquals(0x80, bus.fetch());
+
+            bus.loadMemoryAddress(0x01FE);
+            assertEquals(0x11, bus.fetch());
+
+            assertEquals(0xFE, env.getStackPointer());
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @Test
+        public void pushPchWrapsStackPointerFromZeroToFf() {
+            memoryBus8Bit.write(0x0100, 0x99);
+
+            env.setPC(0x8002);
+            env.setStackPointer(0x00);
+
+            PUSH_PCH.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            bus.loadMemoryAddress(0x0100);
+            assertEquals(0x80, bus.fetch());
+
+            assertEquals(0xFF, env.getStackPointer());
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @Test
+        public void pushPchDoesNotStoreLowByteOfProgramCounter() {
+            memoryBus8Bit.write(0x01FF, 0x99);
+
+            env.setPC(0xABCD);
+            env.setStackPointer(0xFF);
+
+            PUSH_PCH.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            bus.loadMemoryAddress(0x01FF);
+            int pushedValue = bus.fetch();
+
+            assertEquals(0xAB, pushedValue);
+            assertNotEquals(0xCD, pushedValue);
+
+            assertEquals(0xFE, env.getStackPointer());
+            assertEquals(0xABCD, env.getPC());
+        }
+
+        @Test
+        public void pushPchDoesNotChangeAccumulatorIndexRegistersOrFlags() {
+            env.setPC(0x8002);
+            env.setA(0x11);
+            env.setX(0x22);
+            env.setY(0x33);
+            env.setStackPointer(0xFF);
+
+            env.setN(true);
+            env.setV(false);
+            env.setD(true);
+            env.setI(false);
+            env.setZ(true);
+            env.setCarry(false);
+
+            PUSH_PCH.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x8002, env.getPC());
+            assertEquals(0x11, env.getA());
+            assertEquals(0x22, env.getX());
+            assertEquals(0x33, env.getY());
+
+            assertTrue(env.getN());
+            assertFalse(env.getV());
+            assertTrue(env.getD());
+            assertFalse(env.getI());
+            assertTrue(env.getZ());
+            assertFalse(env.getCarry());
+
+            assertEquals(0xFE, env.getStackPointer());
+        }
+
+        @Nested
+        class PUSH_PCL {
+            @ParameterizedTest(name = "PUSH_PCL PC={0}, PCL={1}, SP={2}")
+            @CsvSource({
+                    // PC,     Expected PCL, SP
+                    "0x8002, 0x02,         0xFF",
+                    "0x1234, 0x34,         0x80",
+                    "0x00FF, 0xFF,         0x10",
+                    "0xFF00, 0x00,         0x01"
+            })
+            public void pushPclStoresProgramCounterLowByteAtCurrentStackPointerAddress(int pc,
+                                                                                       int expectedPcl,
+                                                                                       int stackPointer) {
+                int stackAddress = 0x0100 | (stackPointer & 0xFF);
+
+                memoryBus8Bit.write(stackAddress, 0x99);
+
+                env.setPC(pc);
+                env.setStackPointer(stackPointer);
+
+                MOS6502MicroOp.PUSH_PCL.execute(env, bus, alu);
+
+                verifyNoInteractions(alu);
+
+                bus.loadMemoryAddress(stackAddress);
+                assertEquals(expectedPcl, bus.fetch());
+
+                assertEquals((stackPointer - 1) & 0xFF, env.getStackPointer());
+                assertEquals(pc, env.getPC());
+            }
+
+            @Test
+            public void pushPclUsesStackPageNotZeroPage() {
+                memoryBus8Bit.write(0x00FF, 0x11);
+                memoryBus8Bit.write(0x01FF, 0x99);
+
+                env.setPC(0x8002);
+                env.setStackPointer(0xFF);
+
+                MOS6502MicroOp.PUSH_PCL.execute(env, bus, alu);
+
+                verifyNoInteractions(alu);
+
+                bus.loadMemoryAddress(0x01FF);
+                assertEquals(0x02, bus.fetch());
+
+                bus.loadMemoryAddress(0x00FF);
+                assertEquals(0x11, bus.fetch());
+
+                assertEquals(0xFE, env.getStackPointer());
+                assertEquals(0x8002, env.getPC());
+            }
+
+            @Test
+            public void pushPclWritesBeforeDecrementingStackPointer() {
+                memoryBus8Bit.write(0x01FE, 0x11);
+                memoryBus8Bit.write(0x01FF, 0x99);
+
+                env.setPC(0x8002);
+                env.setStackPointer(0xFF);
+
+                MOS6502MicroOp.PUSH_PCL.execute(env, bus, alu);
+
+                verifyNoInteractions(alu);
+
+                bus.loadMemoryAddress(0x01FF);
+                assertEquals(0x02, bus.fetch());
+
+                bus.loadMemoryAddress(0x01FE);
+                assertEquals(0x11, bus.fetch());
+
+                assertEquals(0xFE, env.getStackPointer());
+                assertEquals(0x8002, env.getPC());
+            }
+
+            @Test
+            public void pushPclWrapsStackPointerFromZeroToFf() {
+                memoryBus8Bit.write(0x0100, 0x99);
+
+                env.setPC(0x8002);
+                env.setStackPointer(0x00);
+
+                MOS6502MicroOp.PUSH_PCL.execute(env, bus, alu);
+
+                verifyNoInteractions(alu);
+
+                bus.loadMemoryAddress(0x0100);
+                assertEquals(0x02, bus.fetch());
+
+                assertEquals(0xFF, env.getStackPointer());
+                assertEquals(0x8002, env.getPC());
+            }
+
+            @Test
+            public void pushPclStoresOnlyLowByteOfProgramCounter() {
+                memoryBus8Bit.write(0x01FF, 0x99);
+
+                env.setPC(0xABCD);
+                env.setStackPointer(0xFF);
+
+                MOS6502MicroOp.PUSH_PCL.execute(env, bus, alu);
+
+                verifyNoInteractions(alu);
+
+                bus.loadMemoryAddress(0x01FF);
+                int pushedValue = bus.fetch();
+
+                assertEquals(0xCD, pushedValue);
+                assertNotEquals(0xAB, pushedValue);
+
+                assertEquals(0xFE, env.getStackPointer());
+                assertEquals(0xABCD, env.getPC());
+            }
+
+            @Test
+            public void pushPclDoesNotChangeAccumulatorIndexRegistersOrFlags() {
+                env.setPC(0x8002);
+                env.setA(0x11);
+                env.setX(0x22);
+                env.setY(0x33);
+                env.setStackPointer(0xFF);
+
+                env.setN(true);
+                env.setV(false);
+                env.setD(true);
+                env.setI(false);
+                env.setZ(true);
+                env.setCarry(false);
+
+                MOS6502MicroOp.PUSH_PCL.execute(env, bus, alu);
+
+                verifyNoInteractions(alu);
+
+                assertEquals(0x8002, env.getPC());
+                assertEquals(0x11, env.getA());
+                assertEquals(0x22, env.getX());
+                assertEquals(0x33, env.getY());
+
+                assertTrue(env.getN());
+                assertFalse(env.getV());
+                assertTrue(env.getD());
+                assertFalse(env.getI());
+                assertTrue(env.getZ());
+                assertFalse(env.getCarry());
+
+                assertEquals(0xFE, env.getStackPointer());
+            }
+        }
+    }
+
+    @Nested
+    class INTERRUPT {
+        @Test
+        public void interruptSetsInterruptDisableFlag() {
+            env.setI(false);
+
+            MOS6502MicroOp.INTERRUPT.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertTrue(env.getI());
+        }
+
+        @Test
+        public void interruptLeavesInterruptDisableFlagSetWhenAlreadySet() {
+            env.setI(true);
+
+            MOS6502MicroOp.INTERRUPT.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertTrue(env.getI());
+        }
+
+        @Test
+        public void interruptDoesNotChangeRegistersProgramCounterOrStackPointer() {
+            env.setPC(0x8000);
+            env.setA(0x11);
+            env.setX(0x22);
+            env.setY(0x33);
+            env.setStackPointer(0xFE);
+
+            env.setI(false);
+
+            MOS6502MicroOp.INTERRUPT.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x8000, env.getPC());
+            assertEquals(0x11, env.getA());
+            assertEquals(0x22, env.getX());
+            assertEquals(0x33, env.getY());
+            assertEquals(0xFE, env.getStackPointer());
+
+            assertTrue(env.getI());
+        }
+
+        @Test
+        public void interruptDoesNotChangeOtherProcessorFlags() {
+            env.setN(true);
+            env.setV(false);
+            env.setD(true);
+            env.setI(false);
+            env.setZ(true);
+            env.setCarry(false);
+
+            MOS6502MicroOp.INTERRUPT.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertTrue(env.getN());
+            assertFalse(env.getV());
+            assertTrue(env.getD());
+            assertTrue(env.getI());
+            assertTrue(env.getZ());
+            assertFalse(env.getCarry());
+        }
+
+        @Test
+        public void interruptDoesNotChangeAddressRegisters() {
+            env.setADL(0x34);
+            env.setADH(0x12);
+            env.setI(false);
+
+            MOS6502MicroOp.INTERRUPT.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x34, env.getADL());
+            assertEquals(0x12, env.getADH());
+            assertEquals(0x1234, env.getAD());
+
+            assertTrue(env.getI());
+        }
+
+        @Test
+        public void interruptDoesNotTouchMemoryBus() {
+            memoryBus8Bit.write(0x1234, 0x99);
+            bus.loadMemoryAddress(0x1234);
+
+            env.setI(false);
+
+            MOS6502MicroOp.INTERRUPT.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x1234, bus.getAddressedMemory());
+            assertEquals(0x99, bus.fetch());
+
+            assertTrue(env.getI());
+        }
+    }
+
+    @Nested
+    class ADDRESS_IV_LOW {
+        @Test
+        public void addressIvLowLoadsInterruptVectorLowAddressOntoBus() {
+            memoryBus8Bit.write(0xFFFE, 0x34);
+
+            MOS6502MicroOp.ADDRESS_IV_LOW.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0xFFFE, bus.getAddressedMemory());
+            assertEquals(0x34, bus.fetch());
+        }
+
+        @Test
+        public void addressIvLowDoesNotChangeRegistersProgramCounterOrStackPointer() {
+            env.setPC(0x8000);
+            env.setA(0x11);
+            env.setX(0x22);
+            env.setY(0x33);
+            env.setStackPointer(0xFE);
+
+            MOS6502MicroOp.ADDRESS_IV_LOW.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x8000, env.getPC());
+            assertEquals(0x11, env.getA());
+            assertEquals(0x22, env.getX());
+            assertEquals(0x33, env.getY());
+            assertEquals(0xFE, env.getStackPointer());
+        }
+
+        @Test
+        public void addressIvLowDoesNotChangeAddressRegisters() {
+            env.setADL(0x34);
+            env.setADH(0x12);
+
+            MOS6502MicroOp.ADDRESS_IV_LOW.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x34, env.getADL());
+            assertEquals(0x12, env.getADH());
+            assertEquals(0x1234, env.getAD());
+        }
+
+        @Test
+        public void addressIvLowDoesNotChangeProcessorFlags() {
+            env.setN(true);
+            env.setV(false);
+            env.setD(true);
+            env.setI(false);
+            env.setZ(true);
+            env.setCarry(false);
+
+            MOS6502MicroOp.ADDRESS_IV_LOW.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertTrue(env.getN());
+            assertFalse(env.getV());
+            assertTrue(env.getD());
+            assertFalse(env.getI());
+            assertTrue(env.getZ());
+            assertFalse(env.getCarry());
+        }
+    }
+
+    @Nested
+    class ADDRESS_IV_HIGH {
+        @Test
+        public void addressIvHighLoadsInterruptVectorHighAddressOntoBus() {
+            memoryBus8Bit.write(0xFFFF, 0x12);
+
+            MOS6502MicroOp.ADDRESS_IV_HIGH.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0xFFFF, bus.getAddressedMemory());
+            assertEquals(0x12, bus.fetch());
+        }
+
+        @Test
+        public void addressIvHighDoesNotChangeRegistersProgramCounterOrStackPointer() {
+            env.setPC(0x8000);
+            env.setA(0x11);
+            env.setX(0x22);
+            env.setY(0x33);
+            env.setStackPointer(0xFE);
+
+            MOS6502MicroOp.ADDRESS_IV_HIGH.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x8000, env.getPC());
+            assertEquals(0x11, env.getA());
+            assertEquals(0x22, env.getX());
+            assertEquals(0x33, env.getY());
+            assertEquals(0xFE, env.getStackPointer());
+        }
+
+        @Test
+        public void addressIvHighDoesNotChangeAddressRegisters() {
+            env.setADL(0x34);
+            env.setADH(0x12);
+
+            MOS6502MicroOp.ADDRESS_IV_HIGH.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x34, env.getADL());
+            assertEquals(0x12, env.getADH());
+            assertEquals(0x1234, env.getAD());
+        }
+
+        @Test
+        public void addressIvHighDoesNotChangeProcessorFlags() {
+            env.setN(true);
+            env.setV(false);
+            env.setD(true);
+            env.setI(false);
+            env.setZ(true);
+            env.setCarry(false);
+
+            MOS6502MicroOp.ADDRESS_IV_HIGH.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertTrue(env.getN());
+            assertFalse(env.getV());
+            assertTrue(env.getD());
+            assertFalse(env.getI());
+            assertTrue(env.getZ());
+            assertFalse(env.getCarry());
+        }
+    }
 }

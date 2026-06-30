@@ -252,7 +252,7 @@ enum MOS6502MicroOp implements MOS6502Operation {
         mem.loadMemoryAddress(0xFFFE);
     }),
 
-    /** Address the low interrupt vector ready to be read <code>mem[$FF:FF)</code> */
+    /** Address the high interrupt vector ready to be read <code>mem[$FF:FF)</code> */
     ADDRESS_IV_HIGH((env, mem, alu) -> {
         mem.loadMemoryAddress(0xFFFF);
     }),
