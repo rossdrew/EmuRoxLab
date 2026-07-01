@@ -1,5 +1,11 @@
 # Testing in Java
 
+Coverage isn't the most imporant metric but it is a guide
+
+<a href="https://codecov.io/gh/rossdrew/emuRoxLab">
+ <img align="right" src="https://codecov.io/gh/rossdrew/emuRoxLab/graphs/sunburst.svg" data-canonical-src="https://codecov.io/gh/rossdrew/emuRoxLab/graphs/sunburst.svg" alt="The current codecov.io coverage chart" width="150" />
+</a>
+
 ## Tools
 - JUnit: A unit testing framework for Java, widely used for writing and running tests.
 - Mockito: A mocking framework for Java used to create and configure mock objects in tests.
