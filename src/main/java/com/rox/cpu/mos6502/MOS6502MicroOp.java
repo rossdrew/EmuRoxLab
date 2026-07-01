@@ -177,9 +177,30 @@ enum MOS6502MicroOp implements MOS6502Operation {
         env.setA(mem.fetch());
     }),
 
+    /** Set A to the value of X <code>A := X</code> */
+    A_FROM_X((env, mem, alu)->{
+        env.setA(env.getX());
+    }),
+
+
+    /** Set A to the value of Y <code>A := Y</code> */
+    A_FROM_Y((env, mem, alu)->{
+        env.setA(env.getY());
+    }),
+
     /** Set X to the value on the data bus: <code>X := mem[address_bus]</code> */
     X_FROM_AD((env, mem, alu) -> {
         env.setX(mem.fetch());
+    }),
+
+    /** Set X to the value of the Stack Pointer <code>X := Stack Pointer</code> */
+    X_FROM_SP((env, mem, alu)->{
+        env.setX(env.getStackPointer());
+    }),
+
+    /** Set the Stack Pointer to the value of X <code>Stack Pointer := X</code> */
+    SP_FROM_X((env, mem, alu)->{
+        env.setStackPointer(env.getX());
     }),
 
     /** Set X to the value on the data bus: <code>X := mem[address_bus]</code> */
@@ -225,6 +246,16 @@ enum MOS6502MicroOp implements MOS6502Operation {
     /** Set the memory locations indicated by the address bus to the value of A: <code>mem[AD] := A</code> */
     MEM_FROM_A((env, mem, alu)->{
         mem.store(env.getA());
+    }),
+
+    /** Set X to the value of A <code>X := A</code> */
+    X_FROM_A((env, mem, alu)->{
+        env.setX(env.getA());
+    }),
+
+    /** Set Y to the value of A <code>Y := A</code> */
+    Y_FROM_A((env, mem, alu)->{
+        env.setY(env.getA());
     }),
 
     /** Set the memory locations indicated by the address bus to the value of X: <code>mem[AD] := X</code> */

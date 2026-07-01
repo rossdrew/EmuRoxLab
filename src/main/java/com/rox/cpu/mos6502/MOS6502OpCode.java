@@ -539,12 +539,35 @@ public enum MOS6502OpCode {
             opsInTick(DUMMY_READ),
             opsInTick(INC_SP),
             opsInTick(PULL_PROCESSOR_STATUS)
+    )),
+
+    TAX_IMP(0xAA, clockTicks(
+            opsInTick(DUMMY_READ, X_FROM_A, SET_FLAGS_ON_X)
+    )),
+
+    TAY_IMP(0xA8, clockTicks(
+            opsInTick(DUMMY_READ, Y_FROM_A, SET_FLAGS_ON_Y)
+    )),
+
+    TXA_IMP(0x8A, clockTicks(
+            opsInTick(DUMMY_READ, A_FROM_X, SET_FLAGS_ON_A)
+    )),
+
+    TYA_IMP(0x98, clockTicks(
+            opsInTick(DUMMY_READ, A_FROM_Y, SET_FLAGS_ON_A)
+    )),
+
+    TSX_IMP(0xBA, clockTicks(
+            opsInTick(DUMMY_READ, X_FROM_SP, SET_FLAGS_ON_X)
+    )),
+
+    TXS_IMP(0x9A, clockTicks(
+            opsInTick(DUMMY_READ, SP_FROM_X)
     ));
 
     /*
     For sample program: INX, CPX, BNE, BRK (done)
 
-    Transfer instructions (TAX, etc.)
     DEX, INY, DEY
     BIT
     Branch instructions

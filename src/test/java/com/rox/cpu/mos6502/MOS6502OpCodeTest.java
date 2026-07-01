@@ -6251,5 +6251,409 @@ public class MOS6502OpCodeTest {
         }
     }
 
+    @Nested
+    class TAX {
+        @ParameterizedTest(name = "TAX A={0} -> X, Z={1}, N={2}")
+        @CsvSource({
+                // A,    Z,     N
+                "0x00, true,  false",
+                "0x7F, false, false",
+                "0x80, false, true",
+                "0xFF, false, true"
+        })
+        void taxTransfersAccumulatorToXAndSetsZeroAndNegativeFlags(int value,
+                                                                   boolean expectedZ,
+                                                                   boolean expectedN) {
+            ram.write(0x8000, TAX_IMP.getId());
+
+            env.setPC(0x8000);
+            env.setA(value);
+            env.setX(0x22);
+            env.setY(0x33);
+            env.setStackPointer(0xFE);
+
+            env.setCarry(true);
+            env.setV(true);
+            env.setD(true);
+            env.setI(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // TAX + SET_FLAGS_ON_X
+
+            assertEquals(value, env.getA());
+            assertEquals(value, env.getX());
+            assertEquals(0x33, env.getY());
+            assertEquals(0xFE, env.getStackPointer());
+
+            assertEquals(expectedZ, env.getZ());
+            assertEquals(expectedN, env.getN());
+
+            assertTrue(env.getCarry());
+            assertTrue(env.getV());
+            assertTrue(env.getD());
+            assertTrue(env.getI());
+
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void taxDoesNotTransferUntilSecondTick() {
+            ram.write(0x8000, TAX_IMP.getId());
+
+            env.setPC(0x8000);
+            env.setA(0x80);
+            env.setX(0x22);
+
+            cpu.tick(); // fetch opcode
+
+            assertEquals(0x80, env.getA());
+            assertEquals(0x22, env.getX());
+            assertEquals(0x8001, env.getPC());
+
+            cpu.tick(); // TAX + SET_FLAGS_ON_X
+
+            assertEquals(0x80, env.getX());
+            assertTrue(env.getN());
+            assertFalse(env.getZ());
+            assertEquals(0x8001, env.getPC());
+        }
+    }
+
+    @Nested
+    class TAY {
+        @ParameterizedTest(name = "TAY A={0} -> Y, Z={1}, N={2}")
+        @CsvSource({
+                // A,    Z,     N
+                "0x00, true,  false",
+                "0x7F, false, false",
+                "0x80, false, true",
+                "0xFF, false, true"
+        })
+        void tayTransfersAccumulatorToYAndSetsZeroAndNegativeFlags(int value,
+                                                                   boolean expectedZ,
+                                                                   boolean expectedN) {
+            ram.write(0x8000, TAY_IMP.getId());
+
+            env.setPC(0x8000);
+            env.setA(value);
+            env.setX(0x22);
+            env.setY(0x33);
+            env.setStackPointer(0xFE);
+
+            env.setCarry(true);
+            env.setV(true);
+            env.setD(true);
+            env.setI(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // TAY + SET_FLAGS_ON_Y
+
+            assertEquals(value, env.getA());
+            assertEquals(0x22, env.getX());
+            assertEquals(value, env.getY());
+            assertEquals(0xFE, env.getStackPointer());
+
+            assertEquals(expectedZ, env.getZ());
+            assertEquals(expectedN, env.getN());
+
+            assertTrue(env.getCarry());
+            assertTrue(env.getV());
+            assertTrue(env.getD());
+            assertTrue(env.getI());
+
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void tayDoesNotTransferUntilSecondTick() {
+            ram.write(0x8000, TAY_IMP.getId());
+
+            env.setPC(0x8000);
+            env.setA(0x80);
+            env.setY(0x33);
+
+            cpu.tick(); // fetch opcode
+
+            assertEquals(0x80, env.getA());
+            assertEquals(0x33, env.getY());
+            assertEquals(0x8001, env.getPC());
+
+            cpu.tick(); // TAY + SET_FLAGS_ON_Y
+
+            assertEquals(0x80, env.getY());
+            assertTrue(env.getN());
+            assertFalse(env.getZ());
+            assertEquals(0x8001, env.getPC());
+        }
+    }
+
+    @Nested
+    class TXA {
+        @ParameterizedTest(name = "TXA X={0} -> A, Z={1}, N={2}")
+        @CsvSource({
+                // X,    Z,     N
+                "0x00, true,  false",
+                "0x7F, false, false",
+                "0x80, false, true",
+                "0xFF, false, true"
+        })
+        void txaTransfersXToAccumulatorAndSetsZeroAndNegativeFlags(int value,
+                                                                   boolean expectedZ,
+                                                                   boolean expectedN) {
+            ram.write(0x8000, TXA_IMP.getId());
+
+            env.setPC(0x8000);
+            env.setA(0x11);
+            env.setX(value);
+            env.setY(0x33);
+            env.setStackPointer(0xFE);
+
+            env.setCarry(true);
+            env.setV(true);
+            env.setD(true);
+            env.setI(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // TXA + SET_FLAGS_ON_A
+
+            assertEquals(value, env.getA());
+            assertEquals(value, env.getX());
+            assertEquals(0x33, env.getY());
+            assertEquals(0xFE, env.getStackPointer());
+
+            assertEquals(expectedZ, env.getZ());
+            assertEquals(expectedN, env.getN());
+
+            assertTrue(env.getCarry());
+            assertTrue(env.getV());
+            assertTrue(env.getD());
+            assertTrue(env.getI());
+
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void txaDoesNotTransferUntilSecondTick() {
+            ram.write(0x8000, TXA_IMP.getId());
+
+            env.setPC(0x8000);
+            env.setA(0x11);
+            env.setX(0x80);
+
+            cpu.tick(); // fetch opcode
+
+            assertEquals(0x11, env.getA());
+            assertEquals(0x80, env.getX());
+            assertEquals(0x8001, env.getPC());
+
+            cpu.tick(); // TXA + SET_FLAGS_ON_A
+
+            assertEquals(0x80, env.getA());
+            assertTrue(env.getN());
+            assertFalse(env.getZ());
+            assertEquals(0x8001, env.getPC());
+        }
+    }
+
+    @Nested
+    class TYA {
+        @ParameterizedTest(name = "TYA Y={0} -> A, Z={1}, N={2}")
+        @CsvSource({
+                // Y,    Z,     N
+                "0x00, true,  false",
+                "0x7F, false, false",
+                "0x80, false, true",
+                "0xFF, false, true"
+        })
+        void tyaTransfersYToAccumulatorAndSetsZeroAndNegativeFlags(int value,
+                                                                   boolean expectedZ,
+                                                                   boolean expectedN) {
+            ram.write(0x8000, TYA_IMP.getId());
+
+            env.setPC(0x8000);
+            env.setA(0x11);
+            env.setX(0x22);
+            env.setY(value);
+            env.setStackPointer(0xFE);
+
+            env.setCarry(true);
+            env.setV(true);
+            env.setD(true);
+            env.setI(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // TYA + SET_FLAGS_ON_A
+
+            assertEquals(value, env.getA());
+            assertEquals(0x22, env.getX());
+            assertEquals(value, env.getY());
+            assertEquals(0xFE, env.getStackPointer());
+
+            assertEquals(expectedZ, env.getZ());
+            assertEquals(expectedN, env.getN());
+
+            assertTrue(env.getCarry());
+            assertTrue(env.getV());
+            assertTrue(env.getD());
+            assertTrue(env.getI());
+
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void tyaDoesNotTransferUntilSecondTick() {
+            ram.write(0x8000, TYA_IMP.getId());
+
+            env.setPC(0x8000);
+            env.setA(0x11);
+            env.setY(0x80);
+
+            cpu.tick(); // fetch opcode
+
+            assertEquals(0x11, env.getA());
+            assertEquals(0x80, env.getY());
+            assertEquals(0x8001, env.getPC());
+
+            cpu.tick(); // TYA + SET_FLAGS_ON_A
+
+            assertEquals(0x80, env.getA());
+            assertTrue(env.getN());
+            assertFalse(env.getZ());
+            assertEquals(0x8001, env.getPC());
+        }
+    }
+
+    @Nested
+    class TSX {
+        @ParameterizedTest(name = "TSX SP={0} -> X, Z={1}, N={2}")
+        @CsvSource({
+                // SP,   Z,     N
+                "0x00, true,  false",
+                "0x7F, false, false",
+                "0x80, false, true",
+                "0xFF, false, true"
+        })
+        void tsxTransfersStackPointerToXAndSetsZeroAndNegativeFlags(int stackPointer,
+                                                                    boolean expectedZ,
+                                                                    boolean expectedN) {
+            ram.write(0x8000, TSX_IMP.getId());
+
+            env.setPC(0x8000);
+            env.setA(0x11);
+            env.setX(0x22);
+            env.setY(0x33);
+            env.setStackPointer(stackPointer);
+
+            env.setCarry(true);
+            env.setV(true);
+            env.setD(true);
+            env.setI(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // TSX + SET_FLAGS_ON_X
+
+            assertEquals(0x11, env.getA());
+            assertEquals(stackPointer, env.getX());
+            assertEquals(0x33, env.getY());
+            assertEquals(stackPointer, env.getStackPointer());
+
+            assertEquals(expectedZ, env.getZ());
+            assertEquals(expectedN, env.getN());
+
+            assertTrue(env.getCarry());
+            assertTrue(env.getV());
+            assertTrue(env.getD());
+            assertTrue(env.getI());
+
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void tsxDoesNotTransferUntilSecondTick() {
+            ram.write(0x8000, TSX_IMP.getId());
+
+            env.setPC(0x8000);
+            env.setX(0x22);
+            env.setStackPointer(0x80);
+
+            cpu.tick(); // fetch opcode
+
+            assertEquals(0x22, env.getX());
+            assertEquals(0x80, env.getStackPointer());
+            assertEquals(0x8001, env.getPC());
+
+            cpu.tick(); // TSX + SET_FLAGS_ON_X
+
+            assertEquals(0x80, env.getX());
+            assertTrue(env.getN());
+            assertFalse(env.getZ());
+            assertEquals(0x8001, env.getPC());
+        }
+    }
+
+    @Nested
+    class TXS {
+        @ParameterizedTest(name = "TXS X={0} -> SP")
+        @CsvSource({
+                "0x00",
+                "0x7F",
+                "0x80",
+                "0xFF"
+        })
+        void txsTransfersXToStackPointerAndDoesNotSetFlags(int value) {
+            ram.write(0x8000, TXS_IMP.getId());
+
+            env.setPC(0x8000);
+            env.setA(0x11);
+            env.setX(value);
+            env.setY(0x33);
+            env.setStackPointer(0xFE);
+
+            env.setN(false);
+            env.setZ(true);
+            env.setCarry(true);
+            env.setV(true);
+            env.setD(true);
+            env.setI(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // TXS
+
+            assertEquals(0x11, env.getA());
+            assertEquals(value, env.getX());
+            assertEquals(0x33, env.getY());
+            assertEquals(value, env.getStackPointer());
+
+            assertFalse(env.getN());
+            assertTrue(env.getZ());
+            assertTrue(env.getCarry());
+            assertTrue(env.getV());
+            assertTrue(env.getD());
+            assertTrue(env.getI());
+
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void txsDoesNotTransferUntilSecondTick() {
+            ram.write(0x8000, TXS_IMP.getId());
+
+            env.setPC(0x8000);
+            env.setX(0x80);
+            env.setStackPointer(0xFE);
+
+            cpu.tick(); // fetch opcode
+
+            assertEquals(0x80, env.getX());
+            assertEquals(0xFE, env.getStackPointer());
+            assertEquals(0x8001, env.getPC());
+
+            cpu.tick(); // TXS
+
+            assertEquals(0x80, env.getStackPointer());
+            assertEquals(0x8001, env.getPC());
+        }
+    }
+
     //TODO is it worth testing actual operations at this level? ADC, AND...
 }

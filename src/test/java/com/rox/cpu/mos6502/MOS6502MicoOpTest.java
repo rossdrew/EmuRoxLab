@@ -1571,4 +1571,11 @@ public class MOS6502MicoOpTest extends Arbitraries {
             assertFalse(env.getCarry());
         }
     }
+
+    //TODO A_FROM_X
+    //TODO X_FROM_A
+    //TODO A_FROM_Y
+    //TODO Y_FROM_A
+    //TODO X_FROM_SP
+    //TODO SP_FROM_X
 }
