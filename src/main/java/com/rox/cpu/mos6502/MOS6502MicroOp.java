@@ -273,9 +273,54 @@ enum MOS6502MicroOp implements MOS6502Operation {
         env.setX((env.getX() + 1) & 0xFF);
     }),
 
+    /** Decrement the value in the X register</code> */
+    DEX((env, mem, alu) -> {
+        env.setX((env.getX() - 1) & 0xFF);
+    }),
+
+    /** Increment the value in the Y register</code> */
+    INY((env, mem, alu) -> {
+        env.setY((env.getY() + 1) & 0xFF);
+    }),
+
+    /** Decrement the value in the Y register</code> */
+    DEY((env, mem, alu) -> {
+        env.setY((env.getY() - 1) & 0xFF);
+    }),
+
     /** Set the interrupt flag to true <code>I := true</code> **/
     INTERRUPT((env, mem, alu) -> {
         env.setI(true);
+    }),
+
+    /** Clear the carry flag <code>C := false</code> **/
+    CLEAR_CARRY((env, mem, alu) -> {
+        env.setCarry(false);
+    }),
+
+    /** Set the carry flag <code>C := true</code> **/
+    SET_CARRY((env, mem, alu) -> {
+        env.setCarry(true);
+    }),
+
+    /** Clear the interrupt disable flag <code>I := false</code> **/
+    CLEAR_INTERRUPT_DISABLE((env, mem, alu) -> {
+        env.setI(false);
+    }),
+
+    /** Clear the overflow flag <code>V := false</code> **/
+    CLEAR_OVERFLOW((env, mem, alu) -> {
+        env.setV(false);
+    }),
+
+    /** Set the decimal flag <code>D := true</code> **/
+    SET_DECIMAL((env, mem, alu) -> {
+        env.setD(true);
+    }),
+
+    /** Clear the decimal flag <code>D := false</code> **/
+    CLEAR_DECIMAL((env, mem, alu) -> {
+        env.setD(false);
     }),
 
     /** Address the low interrupt vector ready to be read <code>mem[$FF:FE)</code> */
@@ -361,6 +406,16 @@ enum MOS6502MicroOp implements MOS6502Operation {
     /** Perform {@link MOS6502ALU#cmp(int)} with the value at <code>mem[address_bus]</code> */
     CMP((env, mem, alu) -> {
         alu.cmp(mem.fetch());
+    }),
+
+    /** Perform {@link MOS6502ALU#cpx(int)} with the value at <code>mem[address_bus]</code> */
+    CPX((env, mem, alu) -> {
+        alu.cpx(mem.fetch());
+    }),
+
+    /** Perform {@link MOS6502ALU#cpy(int)} with the value at <code>mem[address_bus]</code> */
+    CPY((env, mem, alu) -> {
+        alu.cpy(mem.fetch());
     });
 
     private final MOS6502Operation op;

@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.mock;
 
-public class MOS6502MicoOpTest extends Arbitraries {
+public class MOS6502MicroOpTest extends Arbitraries {
     private MOS6502Environment env;
     private MemoryBus8Bit memoryBus8Bit;
     private RAM ram;
@@ -1570,6 +1570,428 @@ public class MOS6502MicoOpTest extends Arbitraries {
             assertTrue(env.getZ());
             assertFalse(env.getCarry());
         }
+    }
+
+    @Nested
+    class DEX {
+        @Test
+        public void dexDecrementsX() {
+            env.setX(0x20);
+
+            DEX.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x1F, env.getX());
+        }
+
+        @Test
+        public void dexWrapsFromZeroToFf() {
+            env.setX(0x00);
+
+            DEX.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0xFF, env.getX());
+        }
+
+        @Test
+        public void dexDoesNotChangeAccumulatorYOrPc() {
+            env.setA(0x11);
+            env.setX(0x20);
+            env.setY(0x33);
+            env.setPC(0x8000);
+
+            DEX.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x11, env.getA());
+            assertEquals(0x1F, env.getX());
+            assertEquals(0x33, env.getY());
+            assertEquals(0x8000, env.getPC());
+        }
+    }
+
+    @Nested
+    class INY {
+        @Test
+        public void inyIncrementsY() {
+            env.setY(0x20);
+
+            INY.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x21, env.getY());
+        }
+
+        @Test
+        public void inyWrapsFromFfToZero() {
+            env.setY(0xFF);
+
+            INY.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x00, env.getY());
+        }
+
+        @Test
+        public void inyDoesNotChangeAccumulatorXOrPc() {
+            env.setA(0x11);
+            env.setX(0x22);
+            env.setY(0x20);
+            env.setPC(0x8000);
+
+            INY.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x11, env.getA());
+            assertEquals(0x22, env.getX());
+            assertEquals(0x21, env.getY());
+            assertEquals(0x8000, env.getPC());
+        }
+    }
+
+    @Nested
+    class DEY {
+        @Test
+        public void deyDecrementsY() {
+            env.setY(0x20);
+
+            DEY.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x1F, env.getY());
+        }
+
+        @Test
+        public void deyWrapsFromZeroToFf() {
+            env.setY(0x00);
+
+            DEY.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0xFF, env.getY());
+        }
+
+        @Test
+        public void deyDoesNotChangeAccumulatorXOrPc() {
+            env.setA(0x11);
+            env.setX(0x22);
+            env.setY(0x20);
+            env.setPC(0x8000);
+
+            DEY.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x11, env.getA());
+            assertEquals(0x22, env.getX());
+            assertEquals(0x1F, env.getY());
+            assertEquals(0x8000, env.getPC());
+        }
+    }
+
+    @Nested
+    class CLEAR_CARRY {
+        @Test
+        public void clearCarrySetsCarryFalse() {
+            env.setCarry(true);
+
+            CLEAR_CARRY.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertFalse(env.getCarry());
+        }
+
+        @Test
+        public void clearCarryLeavesCarryFalseWhenAlreadyFalse() {
+            env.setCarry(false);
+
+            CLEAR_CARRY.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertFalse(env.getCarry());
+        }
+
+        @Test
+        public void clearCarryDoesNotChangeOtherFlags() {
+            env.setN(true);
+            env.setV(true);
+            env.setD(true);
+            env.setI(true);
+            env.setZ(true);
+            env.setCarry(true);
+
+            CLEAR_CARRY.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertTrue(env.getN());
+            assertTrue(env.getV());
+            assertTrue(env.getD());
+            assertTrue(env.getI());
+            assertTrue(env.getZ());
+            assertFalse(env.getCarry());
+        }
+    }
+
+    @Nested
+    class SET_CARRY {
+        @Test
+        public void setCarrySetsCarryTrue() {
+            env.setCarry(false);
+
+            SET_CARRY.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertTrue(env.getCarry());
+        }
+
+        @Test
+        public void setCarryLeavesCarryTrueWhenAlreadyTrue() {
+            env.setCarry(true);
+
+            SET_CARRY.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertTrue(env.getCarry());
+        }
+
+        @Test
+        public void setCarryDoesNotChangeOtherFlags() {
+            env.setN(false);
+            env.setV(false);
+            env.setD(false);
+            env.setI(false);
+            env.setZ(false);
+            env.setCarry(false);
+
+            SET_CARRY.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertFalse(env.getN());
+            assertFalse(env.getV());
+            assertFalse(env.getD());
+            assertFalse(env.getI());
+            assertFalse(env.getZ());
+            assertTrue(env.getCarry());
+        }
+    }
+
+    @Nested
+    class CLEAR_INTERRUPT_DISABLE {
+        @Test
+        public void clearInterruptDisableSetsIFalse() {
+            env.setI(true);
+
+            CLEAR_INTERRUPT_DISABLE.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertFalse(env.getI());
+        }
+
+        @Test
+        public void clearInterruptDisableLeavesIFalseWhenAlreadyFalse() {
+            env.setI(false);
+
+            CLEAR_INTERRUPT_DISABLE.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertFalse(env.getI());
+        }
+
+        @Test
+        public void clearInterruptDisableDoesNotChangeOtherFlags() {
+            env.setN(true);
+            env.setV(true);
+            env.setD(true);
+            env.setI(true);
+            env.setZ(true);
+            env.setCarry(true);
+
+            CLEAR_INTERRUPT_DISABLE.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertTrue(env.getN());
+            assertTrue(env.getV());
+            assertTrue(env.getD());
+            assertFalse(env.getI());
+            assertTrue(env.getZ());
+            assertTrue(env.getCarry());
+        }
+    }
+
+    @Nested
+    class CLEAR_OVERFLOW {
+        @Test
+        public void clearOverflowSetsVFalse() {
+            env.setV(true);
+
+            CLEAR_OVERFLOW.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertFalse(env.getV());
+        }
+
+        @Test
+        public void clearOverflowLeavesVFalseWhenAlreadyFalse() {
+            env.setV(false);
+
+            CLEAR_OVERFLOW.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertFalse(env.getV());
+        }
+
+        @Test
+        public void clearOverflowDoesNotChangeOtherFlags() {
+            env.setN(true);
+            env.setV(true);
+            env.setD(true);
+            env.setI(true);
+            env.setZ(true);
+            env.setCarry(true);
+
+            CLEAR_OVERFLOW.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertTrue(env.getN());
+            assertFalse(env.getV());
+            assertTrue(env.getD());
+            assertTrue(env.getI());
+            assertTrue(env.getZ());
+            assertTrue(env.getCarry());
+        }
+    }
+
+    @Nested
+    class SET_DECIMAL {
+        @Test
+        public void setDecimalSetsDTrue() {
+            env.setD(false);
+
+            SET_DECIMAL.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertTrue(env.getD());
+        }
+
+        @Test
+        public void setDecimalLeavesDTrueWhenAlreadyTrue() {
+            env.setD(true);
+
+            SET_DECIMAL.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertTrue(env.getD());
+        }
+
+        @Test
+        public void setDecimalDoesNotChangeOtherFlags() {
+            env.setN(false);
+            env.setV(false);
+            env.setD(false);
+            env.setI(false);
+            env.setZ(false);
+            env.setCarry(false);
+
+            SET_DECIMAL.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertFalse(env.getN());
+            assertFalse(env.getV());
+            assertTrue(env.getD());
+            assertFalse(env.getI());
+            assertFalse(env.getZ());
+            assertFalse(env.getCarry());
+        }
+    }
+
+    @Nested
+    class CLEAR_DECIMAL {
+        @Test
+        public void clearDecimalSetsDFalse() {
+            env.setD(true);
+
+            CLEAR_DECIMAL.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertFalse(env.getD());
+        }
+
+        @Test
+        public void clearDecimalLeavesDFalseWhenAlreadyFalse() {
+            env.setD(false);
+
+            CLEAR_DECIMAL.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertFalse(env.getD());
+        }
+
+        @Test
+        public void clearDecimalDoesNotChangeOtherFlags() {
+            env.setN(true);
+            env.setV(true);
+            env.setD(true);
+            env.setI(true);
+            env.setZ(true);
+            env.setCarry(true);
+
+            CLEAR_DECIMAL.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertTrue(env.getN());
+            assertTrue(env.getV());
+            assertFalse(env.getD());
+            assertTrue(env.getI());
+            assertTrue(env.getZ());
+            assertTrue(env.getCarry());
+        }
+    }
+
+    @Test
+    public void cpxFetchesOperandAndDelegatesToAlu() {
+        ram.write(0x20, 0x77);
+        bus.loadMemoryAddress(0x20);
+
+        CPX.execute(env, bus, alu);
+
+        verify(alu).cpx(0x77);
+    }
+
+    @Test
+    public void cpyFetchesOperandAndDelegatesToAlu() {
+        ram.write(0x20, 0x77);
+        bus.loadMemoryAddress(0x20);
+
+        CPY.execute(env, bus, alu);
+
+        verify(alu).cpy(0x77);
     }
 
     //TODO A_FROM_X

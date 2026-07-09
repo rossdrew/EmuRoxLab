@@ -6655,5 +6655,709 @@ public class MOS6502OpCodeTest {
         }
     }
 
+    @Nested
+    class DEX {
+        @ParameterizedTest(name = "DEX X={0} -> {1}, Z={2}, N={3}")
+        @CsvSource({
+                // X,    Expected X, Z,     N
+                "0x01, 0x00,       true,  false",
+                "0x80, 0x7F,       false, false",
+                "0x00, 0xFF,       false, true",
+                "0xFF, 0xFE,       false, true"
+        })
+        void dexDecrementsXAndSetsZeroAndNegativeFlags(int x,
+                                                       int expectedX,
+                                                       boolean expectedZero,
+                                                       boolean expectedNegative) {
+            ram.write(0x8000, DEX_IMP.getId());
+
+            env.setPC(0x8000);
+            env.setX(x);
+
+            env.setCarry(true);
+            env.setV(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // decrement X, set Z and N flags
+
+            assertEquals(expectedX & 0xFF, env.getX());
+            assertEquals(expectedZero, env.getZ());
+            assertEquals(expectedNegative, env.getN());
+
+            assertTrue(env.getCarry());
+            assertTrue(env.getV());
+
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void dexWrapsFromZeroToFf() {
+            ram.write(0x8000, DEX_IMP.getId());
+
+            env.setPC(0x8000);
+            env.setX(0x00);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // decrement X, wrapping to 0xFF, set Z and N flags
+
+            assertEquals(0xFF, env.getX());
+            assertFalse(env.getZ());
+            assertTrue(env.getN());
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void dexDoesNotAffectAccumulatorYCarryOrOverflow() {
+            ram.write(0x8000, DEX_IMP.getId());
+
+            env.setPC(0x8000);
+            env.setA(0x44);
+            env.setX(0x20);
+            env.setY(0x55);
+            env.setCarry(true);
+            env.setV(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // decrement X, set Z and N flags
+
+            assertEquals(0x44, env.getA());
+            assertEquals(0x1F, env.getX());
+            assertEquals(0x55, env.getY());
+
+            assertTrue(env.getCarry());
+            assertTrue(env.getV());
+        }
+    }
+
+    @Nested
+    class INY {
+        @ParameterizedTest(name = "INY Y={0} -> {1}, Z={2}, N={3}")
+        @CsvSource({
+                // Y,    Expected Y, Z,     N
+                "0x00, 0x01,       false, false",
+                "0x7F, 0x80,       false, true",
+                "0xFE, 0xFF,       false, true",
+                "0xFF, 0x00,       true,  false"
+        })
+        void inyIncrementsYAndSetsZeroAndNegativeFlags(int y,
+                                                       int expectedY,
+                                                       boolean expectedZero,
+                                                       boolean expectedNegative) {
+            ram.write(0x8000, INY_IMP.getId());
+
+            env.setPC(0x8000);
+            env.setY(y);
+
+            env.setCarry(true);
+            env.setV(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // increment Y, set Z and N flags
+
+            assertEquals(expectedY & 0xFF, env.getY());
+            assertEquals(expectedZero, env.getZ());
+            assertEquals(expectedNegative, env.getN());
+
+            assertTrue(env.getCarry());
+            assertTrue(env.getV());
+
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void inyWrapsFromFfToZero() {
+            ram.write(0x8000, INY_IMP.getId());
+
+            env.setPC(0x8000);
+            env.setY(0xFF);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // increment Y, wrapping to zero, set Z and N flags
+
+            assertEquals(0x00, env.getY());
+            assertTrue(env.getZ());
+            assertFalse(env.getN());
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void inyDoesNotAffectAccumulatorXCarryOrOverflow() {
+            ram.write(0x8000, INY_IMP.getId());
+
+            env.setPC(0x8000);
+            env.setA(0x44);
+            env.setX(0x55);
+            env.setY(0x20);
+            env.setCarry(true);
+            env.setV(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // increment Y, set Z and N flags
+
+            assertEquals(0x44, env.getA());
+            assertEquals(0x55, env.getX());
+            assertEquals(0x21, env.getY());
+
+            assertTrue(env.getCarry());
+            assertTrue(env.getV());
+        }
+    }
+
+    @Nested
+    class DEY {
+        @ParameterizedTest(name = "DEY Y={0} -> {1}, Z={2}, N={3}")
+        @CsvSource({
+                // Y,    Expected Y, Z,     N
+                "0x01, 0x00,       true,  false",
+                "0x80, 0x7F,       false, false",
+                "0x00, 0xFF,       false, true",
+                "0xFF, 0xFE,       false, true"
+        })
+        void deyDecrementsYAndSetsZeroAndNegativeFlags(int y,
+                                                       int expectedY,
+                                                       boolean expectedZero,
+                                                       boolean expectedNegative) {
+            ram.write(0x8000, DEY_IMP.getId());
+
+            env.setPC(0x8000);
+            env.setY(y);
+
+            env.setCarry(true);
+            env.setV(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // decrement Y, set Z and N flags
+
+            assertEquals(expectedY & 0xFF, env.getY());
+            assertEquals(expectedZero, env.getZ());
+            assertEquals(expectedNegative, env.getN());
+
+            assertTrue(env.getCarry());
+            assertTrue(env.getV());
+
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void deyWrapsFromZeroToFf() {
+            ram.write(0x8000, DEY_IMP.getId());
+
+            env.setPC(0x8000);
+            env.setY(0x00);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // decrement Y, wrapping to 0xFF, set Z and N flags
+
+            assertEquals(0xFF, env.getY());
+            assertFalse(env.getZ());
+            assertTrue(env.getN());
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void deyDoesNotAffectAccumulatorXCarryOrOverflow() {
+            ram.write(0x8000, DEY_IMP.getId());
+
+            env.setPC(0x8000);
+            env.setA(0x44);
+            env.setX(0x55);
+            env.setY(0x20);
+            env.setCarry(true);
+            env.setV(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // decrement Y, set Z and N flags
+
+            assertEquals(0x44, env.getA());
+            assertEquals(0x55, env.getX());
+            assertEquals(0x1F, env.getY());
+
+            assertTrue(env.getCarry());
+            assertTrue(env.getV());
+        }
+    }
+
+    @Nested
+    class CLC {
+        @Test
+        void clcClearsCarryFlag() {
+            ram.write(0x8000, CLC_IMP.getId());
+            env.setPC(0x8000);
+            env.setCarry(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // clear carry
+
+            assertFalse(env.getCarry());
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void clcDoesNotAffectOtherFlagsOrRegisters() {
+            ram.write(0x8000, CLC_IMP.getId());
+            env.setPC(0x8000);
+            env.setA(0x11);
+            env.setX(0x22);
+            env.setY(0x33);
+            env.setN(true);
+            env.setV(true);
+            env.setD(true);
+            env.setI(true);
+            env.setZ(true);
+            env.setCarry(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // clear carry
+
+            assertEquals(0x11, env.getA());
+            assertEquals(0x22, env.getX());
+            assertEquals(0x33, env.getY());
+            assertTrue(env.getN());
+            assertTrue(env.getV());
+            assertTrue(env.getD());
+            assertTrue(env.getI());
+            assertTrue(env.getZ());
+            assertFalse(env.getCarry());
+        }
+    }
+
+    @Nested
+    class SEC {
+        @Test
+        void secSetsCarryFlagRegardlessOfPriorState() {
+            ram.write(0x8000, SEC_IMP.getId());
+            env.setPC(0x8000);
+            env.setCarry(false);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // set carry
+
+            assertTrue(env.getCarry());
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void secDoesNotAffectOtherFlagsOrRegisters() {
+            ram.write(0x8000, SEC_IMP.getId());
+            env.setPC(0x8000);
+            env.setA(0x11);
+            env.setX(0x22);
+            env.setY(0x33);
+            env.setN(false);
+            env.setV(false);
+            env.setD(false);
+            env.setI(false);
+            env.setZ(false);
+            env.setCarry(false);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // set carry
+
+            assertEquals(0x11, env.getA());
+            assertEquals(0x22, env.getX());
+            assertEquals(0x33, env.getY());
+            assertFalse(env.getN());
+            assertFalse(env.getV());
+            assertFalse(env.getD());
+            assertFalse(env.getI());
+            assertFalse(env.getZ());
+            assertTrue(env.getCarry());
+        }
+    }
+
+    @Nested
+    class CLI {
+        @Test
+        void cliClearsInterruptDisableFlag() {
+            ram.write(0x8000, CLI_IMP.getId());
+            env.setPC(0x8000);
+            env.setI(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // clear interrupt disable
+
+            assertFalse(env.getI());
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void cliDoesNotAffectOtherFlagsOrRegisters() {
+            ram.write(0x8000, CLI_IMP.getId());
+            env.setPC(0x8000);
+            env.setA(0x11);
+            env.setX(0x22);
+            env.setY(0x33);
+            env.setN(true);
+            env.setV(true);
+            env.setD(true);
+            env.setI(true);
+            env.setZ(true);
+            env.setCarry(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // clear interrupt disable
+
+            assertEquals(0x11, env.getA());
+            assertEquals(0x22, env.getX());
+            assertEquals(0x33, env.getY());
+            assertTrue(env.getN());
+            assertTrue(env.getV());
+            assertTrue(env.getD());
+            assertFalse(env.getI());
+            assertTrue(env.getZ());
+            assertTrue(env.getCarry());
+        }
+    }
+
+    @Nested
+    class SEI {
+        @Test
+        void seiSetsInterruptDisableFlagRegardlessOfPriorState() {
+            ram.write(0x8000, SEI_IMP.getId());
+            env.setPC(0x8000);
+            env.setI(false);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // set interrupt disable
+
+            assertTrue(env.getI());
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void seiDoesNotAffectOtherFlagsOrRegisters() {
+            ram.write(0x8000, SEI_IMP.getId());
+            env.setPC(0x8000);
+            env.setA(0x11);
+            env.setX(0x22);
+            env.setY(0x33);
+            env.setN(false);
+            env.setV(false);
+            env.setD(false);
+            env.setI(false);
+            env.setZ(false);
+            env.setCarry(false);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // set interrupt disable
+
+            assertEquals(0x11, env.getA());
+            assertEquals(0x22, env.getX());
+            assertEquals(0x33, env.getY());
+            assertFalse(env.getN());
+            assertFalse(env.getV());
+            assertFalse(env.getD());
+            assertTrue(env.getI());
+            assertFalse(env.getZ());
+            assertFalse(env.getCarry());
+        }
+    }
+
+    @Nested
+    class CLV {
+        @Test
+        void clvClearsOverflowFlag() {
+            ram.write(0x8000, CLV_IMP.getId());
+            env.setPC(0x8000);
+            env.setV(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // clear overflow
+
+            assertFalse(env.getV());
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void clvDoesNotAffectOtherFlagsOrRegisters() {
+            ram.write(0x8000, CLV_IMP.getId());
+            env.setPC(0x8000);
+            env.setA(0x11);
+            env.setX(0x22);
+            env.setY(0x33);
+            env.setN(true);
+            env.setV(true);
+            env.setD(true);
+            env.setI(true);
+            env.setZ(true);
+            env.setCarry(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // clear overflow
+
+            assertEquals(0x11, env.getA());
+            assertEquals(0x22, env.getX());
+            assertEquals(0x33, env.getY());
+            assertTrue(env.getN());
+            assertFalse(env.getV());
+            assertTrue(env.getD());
+            assertTrue(env.getI());
+            assertTrue(env.getZ());
+            assertTrue(env.getCarry());
+        }
+    }
+
+    @Nested
+    class CLD {
+        @Test
+        void cldClearsDecimalFlag() {
+            ram.write(0x8000, CLD_IMP.getId());
+            env.setPC(0x8000);
+            env.setD(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // clear decimal
+
+            assertFalse(env.getD());
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void cldDoesNotAffectOtherFlagsOrRegisters() {
+            ram.write(0x8000, CLD_IMP.getId());
+            env.setPC(0x8000);
+            env.setA(0x11);
+            env.setX(0x22);
+            env.setY(0x33);
+            env.setN(true);
+            env.setV(true);
+            env.setD(true);
+            env.setI(true);
+            env.setZ(true);
+            env.setCarry(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // clear decimal
+
+            assertEquals(0x11, env.getA());
+            assertEquals(0x22, env.getX());
+            assertEquals(0x33, env.getY());
+            assertTrue(env.getN());
+            assertTrue(env.getV());
+            assertFalse(env.getD());
+            assertTrue(env.getI());
+            assertTrue(env.getZ());
+            assertTrue(env.getCarry());
+        }
+    }
+
+    @Nested
+    class SED {
+        @Test
+        void sedSetsDecimalFlagRegardlessOfPriorState() {
+            ram.write(0x8000, SED_IMP.getId());
+            env.setPC(0x8000);
+            env.setD(false);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // set decimal
+
+            assertTrue(env.getD());
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        void sedDoesNotAffectOtherFlagsOrRegisters() {
+            ram.write(0x8000, SED_IMP.getId());
+            env.setPC(0x8000);
+            env.setA(0x11);
+            env.setX(0x22);
+            env.setY(0x33);
+            env.setN(false);
+            env.setV(false);
+            env.setD(false);
+            env.setI(false);
+            env.setZ(false);
+            env.setCarry(false);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // set decimal
+
+            assertEquals(0x11, env.getA());
+            assertEquals(0x22, env.getX());
+            assertEquals(0x33, env.getY());
+            assertFalse(env.getN());
+            assertFalse(env.getV());
+            assertTrue(env.getD());
+            assertFalse(env.getI());
+            assertFalse(env.getZ());
+            assertFalse(env.getCarry());
+        }
+    }
+
+    @Nested
+    class CPX {
+        @ParameterizedTest(name = "CPX_I X={0}, M={1}")
+        @CsvSource({
+                // X,   Op,    Z,     N,     C
+                "0x00, 0x00, true,  false, true",
+                "0x10, 0x05, false, false, true",
+                "0x05, 0x10, false, true,  false",
+                "0x80, 0x80, true,  false, true"
+        })
+        void cpxImmediateComparesXAndSetsFlags(int x, int operand,
+                                               boolean z, boolean n, boolean c) {
+            ram.write(0x8000, CPX_I.getId());
+            ram.write(0x8001, operand);
+
+            env.setPC(0x8000);
+            env.setX(x);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch operand, CPX, set flags
+
+            assertEquals(x, env.getX());
+            assertEquals(z, env.getZ());
+            assertEquals(n, env.getN());
+            assertEquals(c, env.getCarry());
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @ParameterizedTest(name = "CPX_Z X={0}, M={1}")
+        @CsvSource({
+                // X,  Value,  Z,     N,     C
+                "0x00, 0x00, true,  false, true",
+                "0x10, 0x05, false, false, true",
+                "0x05, 0x10, false, true,  false",
+                "0x80, 0x80, true,  false, true"
+        })
+        void cpxZeroPageComparesXAndSetsFlags(int x, int value,
+                                              boolean z, boolean n, boolean c) {
+            ram.write(0x8000, CPX_Z.getId());
+            ram.write(0x8001, 0x44);
+            ram.write(0x0044, value);
+
+            env.setPC(0x8000);
+            env.setX(x);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch zero-page address
+            cpu.tick(); // read operand, CPX, set flags
+
+            assertEquals(x, env.getX());
+            assertEquals(z, env.getZ());
+            assertEquals(n, env.getN());
+            assertEquals(c, env.getCarry());
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @ParameterizedTest(name = "CPX_ABS X={0}, M={1}")
+        @CsvSource({
+                // X,  Value,  Z,     N,     C
+                "0x00, 0x00, true,  false, true",
+                "0x10, 0x05, false, false, true",
+                "0x05, 0x10, false, true,  false",
+                "0x80, 0x80, true,  false, true"
+        })
+        void cpxAbsoluteComparesXAndSetsFlags(int x, int value,
+                                              boolean z, boolean n, boolean c) {
+            ram.write(0x8000, CPX_ABS.getId());
+            ram.write(0x8001, 0x34);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1234, value);
+
+            env.setPC(0x8000);
+            env.setX(x);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch low address byte
+            cpu.tick(); // fetch high address byte
+            cpu.tick(); // read operand, CPX, set flags
+
+            assertEquals(x, env.getX());
+            assertEquals(z, env.getZ());
+            assertEquals(n, env.getN());
+            assertEquals(c, env.getCarry());
+            assertEquals(0x8003, env.getPC());
+        }
+    }
+
+    @Nested
+    class CPY {
+        @ParameterizedTest(name = "CPY_I Y={0}, M={1}")
+        @CsvSource({
+                // Y,   Op,    Z,     N,     C
+                "0x00, 0x00, true,  false, true",
+                "0x10, 0x05, false, false, true",
+                "0x05, 0x10, false, true,  false",
+                "0x80, 0x80, true,  false, true"
+        })
+        void cpyImmediateComparesYAndSetsFlags(int y, int operand,
+                                               boolean z, boolean n, boolean c) {
+            ram.write(0x8000, CPY_I.getId());
+            ram.write(0x8001, operand);
+
+            env.setPC(0x8000);
+            env.setY(y);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch operand, CPY, set flags
+
+            assertEquals(y, env.getY());
+            assertEquals(z, env.getZ());
+            assertEquals(n, env.getN());
+            assertEquals(c, env.getCarry());
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @ParameterizedTest(name = "CPY_Z Y={0}, M={1}")
+        @CsvSource({
+                // Y,  Value,  Z,     N,     C
+                "0x00, 0x00, true,  false, true",
+                "0x10, 0x05, false, false, true",
+                "0x05, 0x10, false, true,  false",
+                "0x80, 0x80, true,  false, true"
+        })
+        void cpyZeroPageComparesYAndSetsFlags(int y, int value,
+                                              boolean z, boolean n, boolean c) {
+            ram.write(0x8000, CPY_Z.getId());
+            ram.write(0x8001, 0x44);
+            ram.write(0x0044, value);
+
+            env.setPC(0x8000);
+            env.setY(y);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch zero-page address
+            cpu.tick(); // read operand, CPY, set flags
+
+            assertEquals(y, env.getY());
+            assertEquals(z, env.getZ());
+            assertEquals(n, env.getN());
+            assertEquals(c, env.getCarry());
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @ParameterizedTest(name = "CPY_ABS Y={0}, M={1}")
+        @CsvSource({
+                // Y,  Value,  Z,     N,     C
+                "0x00, 0x00, true,  false, true",
+                "0x10, 0x05, false, false, true",
+                "0x05, 0x10, false, true,  false",
+                "0x80, 0x80, true,  false, true"
+        })
+        void cpyAbsoluteComparesYAndSetsFlags(int y, int value,
+                                              boolean z, boolean n, boolean c) {
+            ram.write(0x8000, CPY_ABS.getId());
+            ram.write(0x8001, 0x34);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1234, value);
+
+            env.setPC(0x8000);
+            env.setY(y);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch low address byte
+            cpu.tick(); // fetch high address byte
+            cpu.tick(); // read operand, CPY, set flags
+
+            assertEquals(y, env.getY());
+            assertEquals(z, env.getZ());
+            assertEquals(n, env.getN());
+            assertEquals(c, env.getCarry());
+            assertEquals(0x8003, env.getPC());
+        }
+    }
+
     //TODO is it worth testing actual operations at this level? ADC, AND...
 }

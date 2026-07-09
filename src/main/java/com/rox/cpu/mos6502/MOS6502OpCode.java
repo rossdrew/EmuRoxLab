@@ -563,12 +563,81 @@ public enum MOS6502OpCode {
 
     TXS_IMP(0x9A, clockTicks(
             opsInTick(DUMMY_READ, SP_FROM_X)
+    )),
+
+    DEX_IMP(0xCA, clockTicks(
+            opsInTick(DEX, SET_FLAGS_ON_X)
+    )),
+
+    INY_IMP(0xC8, clockTicks(
+            opsInTick(INY, SET_FLAGS_ON_Y)
+    )),
+
+    DEY_IMP(0x88, clockTicks(
+            opsInTick(DEY, SET_FLAGS_ON_Y)
+    )),
+
+    CLC_IMP(0x18, clockTicks(
+            opsInTick(CLEAR_CARRY)
+    )),
+
+    SEC_IMP(0x38, clockTicks(
+            opsInTick(SET_CARRY)
+    )),
+
+    CLI_IMP(0x58, clockTicks(
+            opsInTick(CLEAR_INTERRUPT_DISABLE)
+    )),
+
+    SEI_IMP(0x78, clockTicks(
+            opsInTick(INTERRUPT)
+    )),
+
+    CLV_IMP(0xB8, clockTicks(
+            opsInTick(CLEAR_OVERFLOW)
+    )),
+
+    CLD_IMP(0xD8, clockTicks(
+            opsInTick(CLEAR_DECIMAL)
+    )),
+
+    SED_IMP(0xF8, clockTicks(
+            opsInTick(SET_DECIMAL)
+    )),
+
+    CPX_I(0xE0, clockTicks(
+            opsInTick(ADDRESS_PC, CPX)
+    )),
+
+    CPX_Z(0xE4, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_ADL, CPX)
+    )),
+
+    CPX_ABS(0xEC, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM),
+            opsInTick(ADDRESS_AD, CPX)
+    )),
+
+    CPY_I(0xC0, clockTicks(
+            opsInTick(ADDRESS_PC, CPY)
+    )),
+
+    CPY_Z(0xC4, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_ADL, CPY)
+    )),
+
+    CPY_ABS(0xCC, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM),
+            opsInTick(ADDRESS_AD, CPY)
     ));
 
     /*
     For sample program: INX, CPX, BNE, BRK (done)
 
-    DEX, INY, DEY
     BIT
     Branch instructions
     Stack instructions
