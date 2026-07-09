@@ -636,14 +636,14 @@ public enum MOS6502OpCode {
     ));
 
     /*
-    For sample program: INX, CPX, BNE, BRK (done)
+    For sample program: INX (done), CPX (done), BNE, BRK (done)
 
     BIT
     Branch instructions
     Stack instructions
     JSR / RTS
     Shifts and rotates
-    Interrupts (BRK, RTI)
+    Interrupts (RTI)
      */
 
     /** 6502 code for this OpCode */
