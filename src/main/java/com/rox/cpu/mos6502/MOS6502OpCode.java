@@ -852,12 +852,43 @@ public enum MOS6502OpCode {
             opsInTick(DUMMY_READ),
             opsInTick(DUMMY_WRITE_MEM),
             opsInTick(ROR_MEM, SET_FLAGS_ON_MEM)
+    )),
+
+    BPL_REL(0x10, clockTicks(
+            opsInTick(ADDRESS_PC, BRANCH_IF_POSITIVE)
+    )),
+
+    BMI_REL(0x30, clockTicks(
+            opsInTick(ADDRESS_PC, BRANCH_IF_NEGATIVE)
+    )),
+
+    BVC_REL(0x50, clockTicks(
+            opsInTick(ADDRESS_PC, BRANCH_IF_OVERFLOW_CLEAR)
+    )),
+
+    BVS_REL(0x70, clockTicks(
+            opsInTick(ADDRESS_PC, BRANCH_IF_OVERFLOW_SET)
+    )),
+
+    BCC_REL(0x90, clockTicks(
+            opsInTick(ADDRESS_PC, BRANCH_IF_CARRY_CLEAR)
+    )),
+
+    BCS_REL(0xB0, clockTicks(
+            opsInTick(ADDRESS_PC, BRANCH_IF_CARRY_SET)
+    )),
+
+    BNE_REL(0xD0, clockTicks(
+            opsInTick(ADDRESS_PC, BRANCH_IF_NOT_EQUAL)
+    )),
+
+    BEQ_REL(0xF0, clockTicks(
+            opsInTick(ADDRESS_PC, BRANCH_IF_EQUAL)
     ));
 
     /*
-    For sample program: INX (done), CPX (done), BNE, BRK (done)
+    For sample program: INX (done), CPX (done), BNE (done), BRK (done)
 
-    Branch instructions
     Stack instructions
     JSR / RTS
     Interrupts (RTI)

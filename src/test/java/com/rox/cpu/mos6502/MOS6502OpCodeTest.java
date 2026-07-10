@@ -8312,4 +8312,624 @@ public class MOS6502OpCodeTest {
             assertEquals(0x8002, env.getPC());
         }
     }
+
+    @Nested
+    class BPL {
+        @Test
+        void notTakenAdvancesPcByTwoInTwoTicks() {
+            ram.write(0x8000, BPL_REL.getId());
+            ram.write(0x8001, 0x05);
+
+            env.setPC(0x8000);
+            env.setN(true); // BPL does not take when N is set
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // address operand, evaluate branch (not taken)
+
+            assertEquals(0x8002, env.getPC());
+            assertFalse(env.additionalTickPending());
+        }
+
+        @Test
+        void takenSamePageAdvancesPcByOffsetInThreeTicks() {
+            ram.write(0x8000, BPL_REL.getId());
+            ram.write(0x8001, 0x05); // +5
+
+            env.setPC(0x8000);
+            env.setN(false); // BPL takes when N is clear
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // address operand, evaluate branch (taken), chain PCL update
+            cpu.tick(); // apply PCL offset
+
+            assertEquals(0x8007, env.getPC());
+            assertFalse(env.additionalTickPending());
+        }
+
+        @Test
+        void takenCrossingPageForwardTakesFourTicks() {
+            ram.write(0x80F8, BPL_REL.getId());
+            ram.write(0x80F9, 0x0A); // +10
+
+            env.setPC(0x80F8);
+            env.setN(false);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // address operand, evaluate branch (taken), chain PCL update
+            cpu.tick(); // apply PCL offset, overflow detected, chain PCH fix
+
+            assertTrue(env.additionalTickPending(), "page cross should require a fourth tick");
+
+            cpu.tick(); // fix PCH
+
+            assertEquals(0x8104, env.getPC());
+            assertFalse(env.additionalTickPending());
+        }
+
+        @Test
+        void takenCrossingPageBackwardTakesFourTicks() {
+            ram.write(0x8003, BPL_REL.getId());
+            ram.write(0x8004, 0xF6); // -10
+
+            env.setPC(0x8003);
+            env.setN(false);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // address operand, evaluate branch (taken), chain PCL update
+            cpu.tick(); // apply PCL offset, underflow detected, chain PCH fix
+
+            assertTrue(env.additionalTickPending(), "page cross should require a fourth tick");
+
+            cpu.tick(); // fix PCH
+
+            assertEquals(0x7FFB, env.getPC());
+            assertFalse(env.additionalTickPending());
+        }
+    }
+
+    @Nested
+    class BMI {
+        @Test
+        void notTakenAdvancesPcByTwoInTwoTicks() {
+            ram.write(0x8000, BMI_REL.getId());
+            ram.write(0x8001, 0x05);
+
+            env.setPC(0x8000);
+            env.setN(false); // BMI does not take when N is clear
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // address operand, evaluate branch (not taken)
+
+            assertEquals(0x8002, env.getPC());
+            assertFalse(env.additionalTickPending());
+        }
+
+        @Test
+        void takenSamePageAdvancesPcByOffsetInThreeTicks() {
+            ram.write(0x8000, BMI_REL.getId());
+            ram.write(0x8001, 0x05); // +5
+
+            env.setPC(0x8000);
+            env.setN(true); // BMI takes when N is set
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // address operand, evaluate branch (taken), chain PCL update
+            cpu.tick(); // apply PCL offset
+
+            assertEquals(0x8007, env.getPC());
+            assertFalse(env.additionalTickPending());
+        }
+
+        @Test
+        void takenCrossingPageForwardTakesFourTicks() {
+            ram.write(0x80F8, BMI_REL.getId());
+            ram.write(0x80F9, 0x0A); // +10
+
+            env.setPC(0x80F8);
+            env.setN(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // address operand, evaluate branch (taken), chain PCL update
+            cpu.tick(); // apply PCL offset, overflow detected, chain PCH fix
+
+            assertTrue(env.additionalTickPending(), "page cross should require a fourth tick");
+
+            cpu.tick(); // fix PCH
+
+            assertEquals(0x8104, env.getPC());
+            assertFalse(env.additionalTickPending());
+        }
+
+        @Test
+        void takenCrossingPageBackwardTakesFourTicks() {
+            ram.write(0x8003, BMI_REL.getId());
+            ram.write(0x8004, 0xF6); // -10
+
+            env.setPC(0x8003);
+            env.setN(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // address operand, evaluate branch (taken), chain PCL update
+            cpu.tick(); // apply PCL offset, underflow detected, chain PCH fix
+
+            assertTrue(env.additionalTickPending(), "page cross should require a fourth tick");
+
+            cpu.tick(); // fix PCH
+
+            assertEquals(0x7FFB, env.getPC());
+            assertFalse(env.additionalTickPending());
+        }
+    }
+
+    @Nested
+    class BVC {
+        @Test
+        void notTakenAdvancesPcByTwoInTwoTicks() {
+            ram.write(0x8000, BVC_REL.getId());
+            ram.write(0x8001, 0x05);
+
+            env.setPC(0x8000);
+            env.setV(true); // BVC does not take when V is set
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // address operand, evaluate branch (not taken)
+
+            assertEquals(0x8002, env.getPC());
+            assertFalse(env.additionalTickPending());
+        }
+
+        @Test
+        void takenSamePageAdvancesPcByOffsetInThreeTicks() {
+            ram.write(0x8000, BVC_REL.getId());
+            ram.write(0x8001, 0x05); // +5
+
+            env.setPC(0x8000);
+            env.setV(false); // BVC takes when V is clear
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // address operand, evaluate branch (taken), chain PCL update
+            cpu.tick(); // apply PCL offset
+
+            assertEquals(0x8007, env.getPC());
+            assertFalse(env.additionalTickPending());
+        }
+
+        @Test
+        void takenCrossingPageForwardTakesFourTicks() {
+            ram.write(0x80F8, BVC_REL.getId());
+            ram.write(0x80F9, 0x0A); // +10
+
+            env.setPC(0x80F8);
+            env.setV(false);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // address operand, evaluate branch (taken), chain PCL update
+            cpu.tick(); // apply PCL offset, overflow detected, chain PCH fix
+
+            assertTrue(env.additionalTickPending(), "page cross should require a fourth tick");
+
+            cpu.tick(); // fix PCH
+
+            assertEquals(0x8104, env.getPC());
+            assertFalse(env.additionalTickPending());
+        }
+
+        @Test
+        void takenCrossingPageBackwardTakesFourTicks() {
+            ram.write(0x8003, BVC_REL.getId());
+            ram.write(0x8004, 0xF6); // -10
+
+            env.setPC(0x8003);
+            env.setV(false);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // address operand, evaluate branch (taken), chain PCL update
+            cpu.tick(); // apply PCL offset, underflow detected, chain PCH fix
+
+            assertTrue(env.additionalTickPending(), "page cross should require a fourth tick");
+
+            cpu.tick(); // fix PCH
+
+            assertEquals(0x7FFB, env.getPC());
+            assertFalse(env.additionalTickPending());
+        }
+    }
+
+    @Nested
+    class BVS {
+        @Test
+        void notTakenAdvancesPcByTwoInTwoTicks() {
+            ram.write(0x8000, BVS_REL.getId());
+            ram.write(0x8001, 0x05);
+
+            env.setPC(0x8000);
+            env.setV(false); // BVS does not take when V is clear
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // address operand, evaluate branch (not taken)
+
+            assertEquals(0x8002, env.getPC());
+            assertFalse(env.additionalTickPending());
+        }
+
+        @Test
+        void takenSamePageAdvancesPcByOffsetInThreeTicks() {
+            ram.write(0x8000, BVS_REL.getId());
+            ram.write(0x8001, 0x05); // +5
+
+            env.setPC(0x8000);
+            env.setV(true); // BVS takes when V is set
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // address operand, evaluate branch (taken), chain PCL update
+            cpu.tick(); // apply PCL offset
+
+            assertEquals(0x8007, env.getPC());
+            assertFalse(env.additionalTickPending());
+        }
+
+        @Test
+        void takenCrossingPageForwardTakesFourTicks() {
+            ram.write(0x80F8, BVS_REL.getId());
+            ram.write(0x80F9, 0x0A); // +10
+
+            env.setPC(0x80F8);
+            env.setV(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // address operand, evaluate branch (taken), chain PCL update
+            cpu.tick(); // apply PCL offset, overflow detected, chain PCH fix
+
+            assertTrue(env.additionalTickPending(), "page cross should require a fourth tick");
+
+            cpu.tick(); // fix PCH
+
+            assertEquals(0x8104, env.getPC());
+            assertFalse(env.additionalTickPending());
+        }
+
+        @Test
+        void takenCrossingPageBackwardTakesFourTicks() {
+            ram.write(0x8003, BVS_REL.getId());
+            ram.write(0x8004, 0xF6); // -10
+
+            env.setPC(0x8003);
+            env.setV(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // address operand, evaluate branch (taken), chain PCL update
+            cpu.tick(); // apply PCL offset, underflow detected, chain PCH fix
+
+            assertTrue(env.additionalTickPending(), "page cross should require a fourth tick");
+
+            cpu.tick(); // fix PCH
+
+            assertEquals(0x7FFB, env.getPC());
+            assertFalse(env.additionalTickPending());
+        }
+    }
+
+    @Nested
+    class BCC {
+        @Test
+        void notTakenAdvancesPcByTwoInTwoTicks() {
+            ram.write(0x8000, BCC_REL.getId());
+            ram.write(0x8001, 0x05);
+
+            env.setPC(0x8000);
+            env.setCarry(true); // BCC does not take when carry is set
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // address operand, evaluate branch (not taken)
+
+            assertEquals(0x8002, env.getPC());
+            assertFalse(env.additionalTickPending());
+        }
+
+        @Test
+        void takenSamePageAdvancesPcByOffsetInThreeTicks() {
+            ram.write(0x8000, BCC_REL.getId());
+            ram.write(0x8001, 0x05); // +5
+
+            env.setPC(0x8000);
+            env.setCarry(false); // BCC takes when carry is clear
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // address operand, evaluate branch (taken), chain PCL update
+            cpu.tick(); // apply PCL offset
+
+            assertEquals(0x8007, env.getPC());
+            assertFalse(env.additionalTickPending());
+        }
+
+        @Test
+        void takenCrossingPageForwardTakesFourTicks() {
+            ram.write(0x80F8, BCC_REL.getId());
+            ram.write(0x80F9, 0x0A); // +10
+
+            env.setPC(0x80F8);
+            env.setCarry(false);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // address operand, evaluate branch (taken), chain PCL update
+            cpu.tick(); // apply PCL offset, overflow detected, chain PCH fix
+
+            assertTrue(env.additionalTickPending(), "page cross should require a fourth tick");
+
+            cpu.tick(); // fix PCH
+
+            assertEquals(0x8104, env.getPC());
+            assertFalse(env.additionalTickPending());
+        }
+
+        @Test
+        void takenCrossingPageBackwardTakesFourTicks() {
+            ram.write(0x8003, BCC_REL.getId());
+            ram.write(0x8004, 0xF6); // -10
+
+            env.setPC(0x8003);
+            env.setCarry(false);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // address operand, evaluate branch (taken), chain PCL update
+            cpu.tick(); // apply PCL offset, underflow detected, chain PCH fix
+
+            assertTrue(env.additionalTickPending(), "page cross should require a fourth tick");
+
+            cpu.tick(); // fix PCH
+
+            assertEquals(0x7FFB, env.getPC());
+            assertFalse(env.additionalTickPending());
+        }
+    }
+
+    @Nested
+    class BCS {
+        @Test
+        void notTakenAdvancesPcByTwoInTwoTicks() {
+            ram.write(0x8000, BCS_REL.getId());
+            ram.write(0x8001, 0x05);
+
+            env.setPC(0x8000);
+            env.setCarry(false); // BCS does not take when carry is clear
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // address operand, evaluate branch (not taken)
+
+            assertEquals(0x8002, env.getPC());
+            assertFalse(env.additionalTickPending());
+        }
+
+        @Test
+        void takenSamePageAdvancesPcByOffsetInThreeTicks() {
+            ram.write(0x8000, BCS_REL.getId());
+            ram.write(0x8001, 0x05); // +5
+
+            env.setPC(0x8000);
+            env.setCarry(true); // BCS takes when carry is set
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // address operand, evaluate branch (taken), chain PCL update
+            cpu.tick(); // apply PCL offset
+
+            assertEquals(0x8007, env.getPC());
+            assertFalse(env.additionalTickPending());
+        }
+
+        @Test
+        void takenCrossingPageForwardTakesFourTicks() {
+            ram.write(0x80F8, BCS_REL.getId());
+            ram.write(0x80F9, 0x0A); // +10
+
+            env.setPC(0x80F8);
+            env.setCarry(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // address operand, evaluate branch (taken), chain PCL update
+            cpu.tick(); // apply PCL offset, overflow detected, chain PCH fix
+
+            assertTrue(env.additionalTickPending(), "page cross should require a fourth tick");
+
+            cpu.tick(); // fix PCH
+
+            assertEquals(0x8104, env.getPC());
+            assertFalse(env.additionalTickPending());
+        }
+
+        @Test
+        void takenCrossingPageBackwardTakesFourTicks() {
+            ram.write(0x8003, BCS_REL.getId());
+            ram.write(0x8004, 0xF6); // -10
+
+            env.setPC(0x8003);
+            env.setCarry(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // address operand, evaluate branch (taken), chain PCL update
+            cpu.tick(); // apply PCL offset, underflow detected, chain PCH fix
+
+            assertTrue(env.additionalTickPending(), "page cross should require a fourth tick");
+
+            cpu.tick(); // fix PCH
+
+            assertEquals(0x7FFB, env.getPC());
+            assertFalse(env.additionalTickPending());
+        }
+    }
+
+    @Nested
+    class BNE {
+        @Test
+        void notTakenAdvancesPcByTwoInTwoTicks() {
+            ram.write(0x8000, BNE_REL.getId());
+            ram.write(0x8001, 0x05);
+
+            env.setPC(0x8000);
+            env.setZ(true); // BNE does not take when Z is set
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // address operand, evaluate branch (not taken)
+
+            assertEquals(0x8002, env.getPC());
+            assertFalse(env.additionalTickPending());
+        }
+
+        @Test
+        void takenSamePageAdvancesPcByOffsetInThreeTicks() {
+            ram.write(0x8000, BNE_REL.getId());
+            ram.write(0x8001, 0x05); // +5
+
+            env.setPC(0x8000);
+            env.setZ(false); // BNE takes when Z is clear
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // address operand, evaluate branch (taken), chain PCL update
+            cpu.tick(); // apply PCL offset
+
+            assertEquals(0x8007, env.getPC());
+            assertFalse(env.additionalTickPending());
+        }
+
+        @Test
+        void takenCrossingPageForwardTakesFourTicks() {
+            ram.write(0x80F8, BNE_REL.getId());
+            ram.write(0x80F9, 0x0A); // +10
+
+            env.setPC(0x80F8);
+            env.setZ(false);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // address operand, evaluate branch (taken), chain PCL update
+            cpu.tick(); // apply PCL offset, overflow detected, chain PCH fix
+
+            assertTrue(env.additionalTickPending(), "page cross should require a fourth tick");
+
+            cpu.tick(); // fix PCH
+
+            assertEquals(0x8104, env.getPC());
+            assertFalse(env.additionalTickPending());
+        }
+
+        @Test
+        void takenCrossingPageBackwardTakesFourTicks() {
+            ram.write(0x8003, BNE_REL.getId());
+            ram.write(0x8004, 0xF6); // -10
+
+            env.setPC(0x8003);
+            env.setZ(false);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // address operand, evaluate branch (taken), chain PCL update
+            cpu.tick(); // apply PCL offset, underflow detected, chain PCH fix
+
+            assertTrue(env.additionalTickPending(), "page cross should require a fourth tick");
+
+            cpu.tick(); // fix PCH
+
+            assertEquals(0x7FFB, env.getPC());
+            assertFalse(env.additionalTickPending());
+        }
+    }
+
+    @Nested
+    class BEQ {
+        @Test
+        void notTakenAdvancesPcByTwoInTwoTicks() {
+            ram.write(0x8000, BEQ_REL.getId());
+            ram.write(0x8001, 0x05);
+
+            env.setPC(0x8000);
+            env.setZ(false); // BEQ does not take when Z is clear
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // address operand, evaluate branch (not taken)
+
+            assertEquals(0x8002, env.getPC());
+            assertFalse(env.additionalTickPending());
+        }
+
+        @Test
+        void takenSamePageAdvancesPcByOffsetInThreeTicks() {
+            ram.write(0x8000, BEQ_REL.getId());
+            ram.write(0x8001, 0x05); // +5
+
+            env.setPC(0x8000);
+            env.setZ(true); // BEQ takes when Z is set
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // address operand, evaluate branch (taken), chain PCL update
+            cpu.tick(); // apply PCL offset
+
+            assertEquals(0x8007, env.getPC());
+            assertFalse(env.additionalTickPending());
+        }
+
+        @Test
+        void takenCrossingPageForwardTakesFourTicks() {
+            ram.write(0x80F8, BEQ_REL.getId());
+            ram.write(0x80F9, 0x0A); // +10
+
+            env.setPC(0x80F8);
+            env.setZ(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // address operand, evaluate branch (taken), chain PCL update
+            cpu.tick(); // apply PCL offset, overflow detected, chain PCH fix
+
+            assertTrue(env.additionalTickPending(), "page cross should require a fourth tick");
+
+            cpu.tick(); // fix PCH
+
+            assertEquals(0x8104, env.getPC());
+            assertFalse(env.additionalTickPending());
+        }
+
+        @Test
+        void takenCrossingPageBackwardTakesFourTicks() {
+            ram.write(0x8003, BEQ_REL.getId());
+            ram.write(0x8004, 0xF6); // -10
+
+            env.setPC(0x8003);
+            env.setZ(true);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // address operand, evaluate branch (taken), chain PCL update
+            cpu.tick(); // apply PCL offset, underflow detected, chain PCH fix
+
+            assertTrue(env.additionalTickPending(), "page cross should require a fourth tick");
+
+            cpu.tick(); // fix PCH
+
+            assertEquals(0x7FFB, env.getPC());
+            assertFalse(env.additionalTickPending());
+        }
+    }
+
+    @ParameterizedTest(name = "{0} never mutates flags")
+    @CsvSource({"BPL_REL", "BMI_REL", "BVC_REL", "BVS_REL", "BCC_REL", "BCS_REL", "BNE_REL", "BEQ_REL"})
+    void branchesNeverMutateFlags(String opcodeName) {
+        final MOS6502OpCode opcode = MOS6502OpCode.valueOf(opcodeName);
+
+        ram.write(0x8000, opcode.getId());
+        ram.write(0x8001, 0x05);
+
+        env.setPC(0x8000);
+        env.setN(true);
+        env.setV(true);
+        env.setZ(true);
+        env.setCarry(true);
+        env.setD(true);
+        env.setI(true);
+
+        final int statusBefore = env.getStatus(false);
+
+        cpu.tick(); // fetch opcode
+        cpu.tick(); // address operand, evaluate branch
+
+        while (env.additionalTickPending()) {
+            cpu.tick(); // resolve any chained PCL/PCH ticks
+        }
+
+        assertEquals(statusBefore, env.getStatus(false));
+    }
 }
