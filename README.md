@@ -47,8 +47,9 @@ In addition, the build system
 
 # Next up
 1. Reviewing the whole design for optimisations
-2. Integrating this back into EmuRox
-3. Looking at where else AI can be integrated.  For example, plans being tickets on a board or local AI review help.  Later, when there's a cohesive it might be good to have AI QA for system testing.
+2. An assembler so that we can run more complex programs and make sure it works as expected.
+3. Integrating this back into EmuRox
+4. Looking at where else AI can be integrated.  For example, plans being tickets on a board or local AI review help.  Later, when there's a cohesive it might be good to have AI QA for system testing.
 
 # Uncovered issues with my approach
 - STA_ABS_X and LDA_ABS_X: LDA_ABS_X is a read instruction, so the 6502 can optimistically try to read from the partially indexed address first; if adding X does not cross a page, that read is valid and the instruction finishes in 4 cycles, but if the low byte overflows, the CPU needs one extra cycle to fix the high byte and reread from the correct address. STA_ABS_X is a write instruction, so the CPU cannot safely do that optimistic access because an early write to the wrong address would corrupt memory; it must always spend the indexing/dummy-read cycle before performing the real write, making it 5 cycles whether or not a page is crossed.  My approach needs fully duplicated MicroOps for the case where an instruction is optionally added and the case where it is always added.
