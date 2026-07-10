@@ -2191,6 +2191,7 @@ public class MOS6502MicroOpTest extends Arbitraries {
 
             assertFalse(env.additionalTickPending());
             assertEquals(0x8006, env.getPC());
+            assertEquals(0x8006, bus.getAddressedMemory(), "dummy read should target the final PC when no page is crossed");
         }
 
         @Test
@@ -2204,11 +2205,13 @@ public class MOS6502MicroOpTest extends Arbitraries {
             env.getPendingOperation().execute(env, bus, alu); // simulate 1st chained tick (PCL only)
 
             assertTrue(env.additionalTickPending(), "page cross should chain a second op");
+            assertEquals(0x8004, bus.getAddressedMemory(), "1st dummy read should target the not-yet-page-corrected PC");
 
             env.getPendingOperation().execute(env, bus, alu); // simulate 2nd chained tick (PCH fix)
 
             assertFalse(env.additionalTickPending());
             assertEquals(0x8104, env.getPC());
+            assertEquals(0x8104, bus.getAddressedMemory(), "2nd dummy read should target the page-corrected PC");
         }
 
         @Test
@@ -2222,11 +2225,13 @@ public class MOS6502MicroOpTest extends Arbitraries {
             env.getPendingOperation().execute(env, bus, alu); // simulate 1st chained tick (PCL only)
 
             assertTrue(env.additionalTickPending(), "page cross should chain a second op");
+            assertEquals(0x80FB, bus.getAddressedMemory(), "1st dummy read should target the not-yet-page-corrected PC");
 
             env.getPendingOperation().execute(env, bus, alu); // simulate 2nd chained tick (PCH fix)
 
             assertFalse(env.additionalTickPending());
             assertEquals(0x7FFB, env.getPC());
+            assertEquals(0x7FFB, bus.getAddressedMemory(), "2nd dummy read should target the page-corrected PC");
         }
 
         @Test

@@ -542,11 +542,15 @@ enum MOS6502MicroOp implements MOS6502Operation {
             final int newLow = e.getPCL() + offset;
             e.setPCL(newLow & 0xFF);
 
+            m.loadMemoryAddress(e.getPC()); //dummy read at (possibly not yet page-corrected) PC
+            m.fetch();
+
             if (newLow < 0 || newLow > 0xFF) {
                 final int correctedPCH = (oldPCH + (newLow > 0xFF ? 1 : -1)) & 0xFF;
                 e.requestAdditionalOp((e2, m2, a2) -> {
                     e2.setPCH(correctedPCH);
-                    m2.fetch(); //dummy read
+                    m2.loadMemoryAddress(e2.getPC()); //dummy read at the corrected PC
+                    m2.fetch();
                     e2.additionalTickCompleted();
                 });
             } else {
