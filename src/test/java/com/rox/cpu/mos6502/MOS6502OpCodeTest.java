@@ -7677,4 +7677,639 @@ public class MOS6502OpCodeTest {
             assertEquals(0x8003, env.getPC());
         }
     }
+
+    @Nested
+    class ASL {
+        @ParameterizedTest(name = "ASL_A A={0} -> {1}, Z={2}, N={3}, C={4}")
+        @CsvSource({
+                // A,     Expected, Z,     N,     C
+                "0x01,   0x02,     false, false, false",
+                "0x40,   0x80,     false, true,  false",
+                "0x80,   0x00,     true,  false, true",
+                "0xC0,   0x80,     false, true,  true"
+        })
+        void aslAccumulatorShiftsAndSetsFlags(int a, int expected, boolean z, boolean n, boolean c) {
+            ram.write(0x8000, ASL_A.getId());
+
+            env.setPC(0x8000);
+            env.setA(a);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // shift accumulator, set flags
+
+            assertEquals(expected, env.getA());
+            assertEquals(z, env.getZ());
+            assertEquals(n, env.getN());
+            assertEquals(c, env.getCarry());
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @ParameterizedTest(name = "ASL_Z {0} -> {1}, Z={2}, N={3}, C={4}")
+        @CsvSource({
+                // Value,  Expected, Z,     N,     C
+                "0x01,   0x02,     false, false, false",
+                "0x40,   0x80,     false, true,  false",
+                "0x80,   0x00,     true,  false, true",
+                "0xC0,   0x80,     false, true,  true"
+        })
+        void aslZeroPageShiftsAndSetsFlags(int value, int expected, boolean z, boolean n, boolean c) {
+            ram.write(0x8000, ASL_Z.getId());
+            ram.write(0x8001, 0x44);
+            ram.write(0x0044, value);
+
+            env.setPC(0x8000);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch zero-page address
+            cpu.tick(); // address effective location
+            cpu.tick(); // dummy write-back of unchanged value
+
+            assertEquals(value, ram.read(0x0044), "value should be unchanged before the real write tick");
+
+            cpu.tick(); // shift and store, set flags
+
+            assertEquals(expected, ram.read(0x0044));
+            assertEquals(z, env.getZ());
+            assertEquals(n, env.getN());
+            assertEquals(c, env.getCarry());
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @Test
+        void aslZeroPageXWrapsAroundZeroPage() {
+            ram.write(0x8000, ASL_Z_X.getId());
+            ram.write(0x8001, 0xFC); // base address in zero page
+            ram.write(0x0001, 0x41); // expected wrapped address: (0xFC + X(5)) & 0xFF = 0x01
+
+            env.setPC(0x8000);
+            env.setX(0x05);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch base address
+            cpu.tick(); // add X
+            cpu.tick(); // dummy read
+            cpu.tick(); // dummy write-back
+            cpu.tick(); // shift and store, set flags
+
+            assertEquals(0x82, ram.read(0x0001));
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @Test
+        void aslAbsoluteShiftsAndSetsFlags() {
+            ram.write(0x8000, ASL_ABS.getId());
+            ram.write(0x8001, 0x34);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1234, 0x40);
+
+            env.setPC(0x8000);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch low address byte
+            cpu.tick(); // fetch high address byte
+            cpu.tick(); // address effective location
+            cpu.tick(); // dummy write-back of unchanged value
+            cpu.tick(); // shift and store, set flags
+
+            assertEquals(0x80, ram.read(0x1234));
+            assertFalse(env.getZ());
+            assertTrue(env.getN());
+            assertFalse(env.getCarry());
+            assertEquals(0x8003, env.getPC());
+        }
+
+        @Test
+        void aslAbsoluteXTakesSevenCyclesRegardlessOfPageCross() {
+            ram.write(0x8000, ASL_ABS_X.getId());
+            ram.write(0x8001, 0x00);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1201, 0x40);
+
+            env.setPC(0x8000);
+            env.setX(0x01);
+
+            cpu.tick(); // fetch opcode (1)
+            cpu.tick(); // fetch low address byte (2)
+            cpu.tick(); // fetch high address byte, add X (3)
+            cpu.tick(); // dummy read (4)
+            cpu.tick(); // dummy read (5)
+            cpu.tick(); // dummy write-back (6)
+
+            assertEquals(0x40, ram.read(0x1201), "value should be unchanged before the final write tick");
+
+            cpu.tick(); // shift and store, set flags (7)
+
+            assertEquals(0x80, ram.read(0x1201));
+            assertEquals(0x8003, env.getPC());
+        }
+
+        @Test
+        void aslAbsoluteXTakesSevenCyclesWhenPageCrosses() {
+            ram.write(0x8000, ASL_ABS_X.getId());
+            ram.write(0x8001, 0xFF);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1304, 0x40);
+
+            env.setPC(0x8000);
+            env.setX(0x05);
+
+            cpu.tick(); // fetch opcode (1)
+            cpu.tick(); // fetch low address byte (2)
+            cpu.tick(); // fetch high address byte, add X, carry into high byte (3)
+            cpu.tick(); // dummy read (4)
+            cpu.tick(); // dummy read (5)
+            cpu.tick(); // dummy write-back (6)
+
+            assertEquals(0x40, ram.read(0x1304), "value should be unchanged before the final write tick");
+
+            cpu.tick(); // shift and store, set flags (7)
+
+            assertEquals(0x80, ram.read(0x1304));
+            assertEquals(0x8003, env.getPC());
+        }
+    }
+
+    @Nested
+    class LSR {
+        @ParameterizedTest(name = "LSR_A A={0} -> {1}, Z={2}, N={3}, C={4}")
+        @CsvSource({
+                // A,     Expected, Z,     N,     C
+                "0x02,   0x01,     false, false, false",
+                "0x01,   0x00,     true,  false, true",
+                "0xFF,   0x7F,     false, false, true",
+                "0x80,   0x40,     false, false, false"
+        })
+        void lsrAccumulatorShiftsAndSetsFlags(int a, int expected, boolean z, boolean n, boolean c) {
+            ram.write(0x8000, LSR_A.getId());
+
+            env.setPC(0x8000);
+            env.setA(a);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // shift accumulator, set flags
+
+            assertEquals(expected, env.getA());
+            assertEquals(z, env.getZ());
+            assertEquals(n, env.getN());
+            assertEquals(c, env.getCarry());
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @ParameterizedTest(name = "LSR_Z {0} -> {1}, Z={2}, N={3}, C={4}")
+        @CsvSource({
+                // Value,  Expected, Z,     N,     C
+                "0x02,   0x01,     false, false, false",
+                "0x01,   0x00,     true,  false, true",
+                "0xFF,   0x7F,     false, false, true",
+                "0x80,   0x40,     false, false, false"
+        })
+        void lsrZeroPageShiftsAndSetsFlags(int value, int expected, boolean z, boolean n, boolean c) {
+            ram.write(0x8000, LSR_Z.getId());
+            ram.write(0x8001, 0x44);
+            ram.write(0x0044, value);
+
+            env.setPC(0x8000);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch zero-page address
+            cpu.tick(); // address effective location
+            cpu.tick(); // dummy write-back of unchanged value
+
+            assertEquals(value, ram.read(0x0044), "value should be unchanged before the real write tick");
+
+            cpu.tick(); // shift and store, set flags
+
+            assertEquals(expected, ram.read(0x0044));
+            assertEquals(z, env.getZ());
+            assertEquals(n, env.getN());
+            assertEquals(c, env.getCarry());
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @Test
+        void lsrZeroPageXWrapsAroundZeroPage() {
+            ram.write(0x8000, LSR_Z_X.getId());
+            ram.write(0x8001, 0xFC); // base address in zero page
+            ram.write(0x0001, 0x41); // expected wrapped address: (0xFC + X(5)) & 0xFF = 0x01
+
+            env.setPC(0x8000);
+            env.setX(0x05);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch base address
+            cpu.tick(); // add X
+            cpu.tick(); // dummy read
+            cpu.tick(); // dummy write-back
+            cpu.tick(); // shift and store, set flags
+
+            assertEquals(0x20, ram.read(0x0001));
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @Test
+        void lsrAbsoluteShiftsAndSetsFlags() {
+            ram.write(0x8000, LSR_ABS.getId());
+            ram.write(0x8001, 0x34);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1234, 0x03);
+
+            env.setPC(0x8000);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch low address byte
+            cpu.tick(); // fetch high address byte
+            cpu.tick(); // address effective location
+            cpu.tick(); // dummy write-back of unchanged value
+            cpu.tick(); // shift and store, set flags
+
+            assertEquals(0x01, ram.read(0x1234));
+            assertFalse(env.getZ());
+            assertFalse(env.getN());
+            assertTrue(env.getCarry());
+            assertEquals(0x8003, env.getPC());
+        }
+
+        @Test
+        void lsrAbsoluteXTakesSevenCyclesRegardlessOfPageCross() {
+            ram.write(0x8000, LSR_ABS_X.getId());
+            ram.write(0x8001, 0x00);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1201, 0x02);
+
+            env.setPC(0x8000);
+            env.setX(0x01);
+
+            cpu.tick(); // fetch opcode (1)
+            cpu.tick(); // fetch low address byte (2)
+            cpu.tick(); // fetch high address byte, add X (3)
+            cpu.tick(); // dummy read (4)
+            cpu.tick(); // dummy read (5)
+            cpu.tick(); // dummy write-back (6)
+
+            assertEquals(0x02, ram.read(0x1201), "value should be unchanged before the final write tick");
+
+            cpu.tick(); // shift and store, set flags (7)
+
+            assertEquals(0x01, ram.read(0x1201));
+            assertEquals(0x8003, env.getPC());
+        }
+
+        @Test
+        void lsrAbsoluteXTakesSevenCyclesWhenPageCrosses() {
+            ram.write(0x8000, LSR_ABS_X.getId());
+            ram.write(0x8001, 0xFF);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1304, 0x02);
+
+            env.setPC(0x8000);
+            env.setX(0x05);
+
+            cpu.tick(); // fetch opcode (1)
+            cpu.tick(); // fetch low address byte (2)
+            cpu.tick(); // fetch high address byte, add X, carry into high byte (3)
+            cpu.tick(); // dummy read (4)
+            cpu.tick(); // dummy read (5)
+            cpu.tick(); // dummy write-back (6)
+
+            assertEquals(0x02, ram.read(0x1304), "value should be unchanged before the final write tick");
+
+            cpu.tick(); // shift and store, set flags (7)
+
+            assertEquals(0x01, ram.read(0x1304));
+            assertEquals(0x8003, env.getPC());
+        }
+    }
+
+    @Nested
+    class ROL {
+        @ParameterizedTest(name = "ROL_A A={0}, C_in={1} -> {2}, Z={3}, N={4}, C_out={5}")
+        @CsvSource({
+                // A,     C_in,  Expected, Z,     N,     C_out
+                "0x01,   false, 0x02,     false, false, false",
+                "0x80,   false, 0x00,     true,  false, true",
+                "0x40,   true,  0x81,     false, true,  false",
+                "0xFF,   true,  0xFF,     false, true,  true"
+        })
+        void rolAccumulatorRotatesAndSetsFlags(int a, boolean carryIn, int expected,
+                                               boolean z, boolean n, boolean carryOut) {
+            ram.write(0x8000, ROL_A.getId());
+
+            env.setPC(0x8000);
+            env.setA(a);
+            env.setCarry(carryIn);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // rotate accumulator, set flags
+
+            assertEquals(expected, env.getA());
+            assertEquals(z, env.getZ());
+            assertEquals(n, env.getN());
+            assertEquals(carryOut, env.getCarry());
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @ParameterizedTest(name = "ROL_Z {0}, C_in={1} -> {2}, Z={3}, N={4}, C_out={5}")
+        @CsvSource({
+                // Value,  C_in,  Expected, Z,     N,     C_out
+                "0x01,   false, 0x02,     false, false, false",
+                "0x80,   false, 0x00,     true,  false, true",
+                "0x40,   true,  0x81,     false, true,  false",
+                "0xFF,   true,  0xFF,     false, true,  true"
+        })
+        void rolZeroPageRotatesAndSetsFlags(int value, boolean carryIn, int expected,
+                                            boolean z, boolean n, boolean carryOut) {
+            ram.write(0x8000, ROL_Z.getId());
+            ram.write(0x8001, 0x44);
+            ram.write(0x0044, value);
+
+            env.setPC(0x8000);
+            env.setCarry(carryIn);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch zero-page address
+            cpu.tick(); // address effective location
+            cpu.tick(); // dummy write-back of unchanged value
+
+            assertEquals(value, ram.read(0x0044), "value should be unchanged before the real write tick");
+
+            cpu.tick(); // rotate and store, set flags
+
+            assertEquals(expected, ram.read(0x0044));
+            assertEquals(z, env.getZ());
+            assertEquals(n, env.getN());
+            assertEquals(carryOut, env.getCarry());
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @Test
+        void rolZeroPageXWrapsAroundZeroPage() {
+            ram.write(0x8000, ROL_Z_X.getId());
+            ram.write(0x8001, 0xFC); // base address in zero page
+            ram.write(0x0001, 0x41); // expected wrapped address: (0xFC + X(5)) & 0xFF = 0x01
+
+            env.setPC(0x8000);
+            env.setX(0x05);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch base address
+            cpu.tick(); // add X
+            cpu.tick(); // dummy read
+            cpu.tick(); // dummy write-back
+            cpu.tick(); // rotate and store, set flags
+
+            assertEquals(0x82, ram.read(0x0001));
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @Test
+        void rolAbsoluteRotatesAndSetsFlags() {
+            ram.write(0x8000, ROL_ABS.getId());
+            ram.write(0x8001, 0x34);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1234, 0x40);
+
+            env.setPC(0x8000);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch low address byte
+            cpu.tick(); // fetch high address byte
+            cpu.tick(); // address effective location
+            cpu.tick(); // dummy write-back of unchanged value
+            cpu.tick(); // rotate and store, set flags
+
+            assertEquals(0x80, ram.read(0x1234));
+            assertFalse(env.getZ());
+            assertTrue(env.getN());
+            assertFalse(env.getCarry());
+            assertEquals(0x8003, env.getPC());
+        }
+
+        @Test
+        void rolAbsoluteXTakesSevenCyclesRegardlessOfPageCross() {
+            ram.write(0x8000, ROL_ABS_X.getId());
+            ram.write(0x8001, 0x00);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1201, 0x40);
+
+            env.setPC(0x8000);
+            env.setX(0x01);
+
+            cpu.tick(); // fetch opcode (1)
+            cpu.tick(); // fetch low address byte (2)
+            cpu.tick(); // fetch high address byte, add X (3)
+            cpu.tick(); // dummy read (4)
+            cpu.tick(); // dummy read (5)
+            cpu.tick(); // dummy write-back (6)
+
+            assertEquals(0x40, ram.read(0x1201), "value should be unchanged before the final write tick");
+
+            cpu.tick(); // rotate and store, set flags (7)
+
+            assertEquals(0x80, ram.read(0x1201));
+            assertEquals(0x8003, env.getPC());
+        }
+
+        @Test
+        void rolAbsoluteXTakesSevenCyclesWhenPageCrosses() {
+            ram.write(0x8000, ROL_ABS_X.getId());
+            ram.write(0x8001, 0xFF);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1304, 0x40);
+
+            env.setPC(0x8000);
+            env.setX(0x05);
+
+            cpu.tick(); // fetch opcode (1)
+            cpu.tick(); // fetch low address byte (2)
+            cpu.tick(); // fetch high address byte, add X, carry into high byte (3)
+            cpu.tick(); // dummy read (4)
+            cpu.tick(); // dummy read (5)
+            cpu.tick(); // dummy write-back (6)
+
+            assertEquals(0x40, ram.read(0x1304), "value should be unchanged before the final write tick");
+
+            cpu.tick(); // rotate and store, set flags (7)
+
+            assertEquals(0x80, ram.read(0x1304));
+            assertEquals(0x8003, env.getPC());
+        }
+    }
+
+    @Nested
+    class ROR {
+        @ParameterizedTest(name = "ROR_A A={0}, C_in={1} -> {2}, Z={3}, N={4}, C_out={5}")
+        @CsvSource({
+                // A,     C_in,  Expected, Z,     N,     C_out
+                "0x02,   false, 0x01,     false, false, false",
+                "0x01,   false, 0x00,     true,  false, true",
+                "0x80,   true,  0xC0,     false, true,  false",
+                "0xFF,   true,  0xFF,     false, true,  true"
+        })
+        void rorAccumulatorRotatesAndSetsFlags(int a, boolean carryIn, int expected,
+                                               boolean z, boolean n, boolean carryOut) {
+            ram.write(0x8000, ROR_A.getId());
+
+            env.setPC(0x8000);
+            env.setA(a);
+            env.setCarry(carryIn);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // rotate accumulator, set flags
+
+            assertEquals(expected, env.getA());
+            assertEquals(z, env.getZ());
+            assertEquals(n, env.getN());
+            assertEquals(carryOut, env.getCarry());
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @ParameterizedTest(name = "ROR_Z {0}, C_in={1} -> {2}, Z={3}, N={4}, C_out={5}")
+        @CsvSource({
+                // Value,  C_in,  Expected, Z,     N,     C_out
+                "0x02,   false, 0x01,     false, false, false",
+                "0x01,   false, 0x00,     true,  false, true",
+                "0x80,   true,  0xC0,     false, true,  false",
+                "0xFF,   true,  0xFF,     false, true,  true"
+        })
+        void rorZeroPageRotatesAndSetsFlags(int value, boolean carryIn, int expected,
+                                            boolean z, boolean n, boolean carryOut) {
+            ram.write(0x8000, ROR_Z.getId());
+            ram.write(0x8001, 0x44);
+            ram.write(0x0044, value);
+
+            env.setPC(0x8000);
+            env.setCarry(carryIn);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch zero-page address
+            cpu.tick(); // address effective location
+            cpu.tick(); // dummy write-back of unchanged value
+
+            assertEquals(value, ram.read(0x0044), "value should be unchanged before the real write tick");
+
+            cpu.tick(); // rotate and store, set flags
+
+            assertEquals(expected, ram.read(0x0044));
+            assertEquals(z, env.getZ());
+            assertEquals(n, env.getN());
+            assertEquals(carryOut, env.getCarry());
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @Test
+        void rorZeroPageXWrapsAroundZeroPage() {
+            ram.write(0x8000, ROR_Z_X.getId());
+            ram.write(0x8001, 0xFC); // base address in zero page
+            ram.write(0x0001, 0x41); // expected wrapped address: (0xFC + X(5)) & 0xFF = 0x01
+
+            env.setPC(0x8000);
+            env.setX(0x05);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch base address
+            cpu.tick(); // add X
+            cpu.tick(); // dummy read
+            cpu.tick(); // dummy write-back
+            cpu.tick(); // rotate and store, set flags
+
+            assertEquals(0x20, ram.read(0x0001));
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @Test
+        void rorAbsoluteRotatesAndSetsFlags() {
+            ram.write(0x8000, ROR_ABS.getId());
+            ram.write(0x8001, 0x34);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1234, 0x02);
+
+            env.setPC(0x8000);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch low address byte
+            cpu.tick(); // fetch high address byte
+            cpu.tick(); // address effective location
+            cpu.tick(); // dummy write-back of unchanged value
+            cpu.tick(); // rotate and store, set flags
+
+            assertEquals(0x01, ram.read(0x1234));
+            assertFalse(env.getZ());
+            assertFalse(env.getN());
+            assertFalse(env.getCarry());
+            assertEquals(0x8003, env.getPC());
+        }
+
+        @Test
+        void rorAbsoluteXTakesSevenCyclesRegardlessOfPageCross() {
+            ram.write(0x8000, ROR_ABS_X.getId());
+            ram.write(0x8001, 0x00);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1201, 0x02);
+
+            env.setPC(0x8000);
+            env.setX(0x01);
+
+            cpu.tick(); // fetch opcode (1)
+            cpu.tick(); // fetch low address byte (2)
+            cpu.tick(); // fetch high address byte, add X (3)
+            cpu.tick(); // dummy read (4)
+            cpu.tick(); // dummy read (5)
+            cpu.tick(); // dummy write-back (6)
+
+            assertEquals(0x02, ram.read(0x1201), "value should be unchanged before the final write tick");
+
+            cpu.tick(); // rotate and store, set flags (7)
+
+            assertEquals(0x01, ram.read(0x1201));
+            assertEquals(0x8003, env.getPC());
+        }
+
+        @Test
+        void rorAbsoluteXTakesSevenCyclesWhenPageCrosses() {
+            ram.write(0x8000, ROR_ABS_X.getId());
+            ram.write(0x8001, 0xFF);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1304, 0x02);
+
+            env.setPC(0x8000);
+            env.setX(0x05);
+
+            cpu.tick(); // fetch opcode (1)
+            cpu.tick(); // fetch low address byte (2)
+            cpu.tick(); // fetch high address byte, add X, carry into high byte (3)
+            cpu.tick(); // dummy read (4)
+            cpu.tick(); // dummy read (5)
+            cpu.tick(); // dummy write-back (6)
+
+            assertEquals(0x02, ram.read(0x1304), "value should be unchanged before the final write tick");
+
+            cpu.tick(); // rotate and store, set flags (7)
+
+            assertEquals(0x01, ram.read(0x1304));
+            assertEquals(0x8003, env.getPC());
+        }
+
+        @Test
+        void secThenRorAccumulatorRotatesTheSetCarryIntoBit7() {
+            // Round-trip through the full scheduler: SEC_IMP (Phase 1) sets carry,
+            // then ROR_A must rotate that carry into the vacated bit 7.
+            ram.write(0x8000, SEC_IMP.getId());
+            ram.write(0x8001, ROR_A.getId());
+
+            env.setPC(0x8000);
+            env.setA(0x00);
+
+            cpu.tick(); // fetch SEC
+            cpu.tick(); // set carry
+
+            assertTrue(env.getCarry());
+
+            cpu.tick(); // fetch ROR_A
+            cpu.tick(); // rotate accumulator, set flags
+
+            assertEquals(0x80, env.getA());
+            assertFalse(env.getCarry()); // bit0 of the original 0x00 was clear
+            assertEquals(0x8002, env.getPC());
+        }
+    }
 }

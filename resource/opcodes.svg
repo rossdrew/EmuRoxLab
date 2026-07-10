@@ -13,14 +13,14 @@
 <text x="24" y="70" text-anchor="start" font-size="20" font-weight="400" fill="#e5e7eb" class="small-note">Based on current EmuRoxLab MOS6502OpCode.java</text>
 <text x="24" y="100" text-anchor="start" font-size="16" font-weight="400" fill="#cbd5e1" class="small-note">Overlaying current code progress on the official NMOS 6502 opcode map</text>
 <rect x="782" y="18" width="210" height="42" rx="6" fill="#052e16" stroke="#22c55e" stroke-width="2"/>
-<text x="887" y="39" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" >120 / 151 implemented</text>
+<text x="887" y="39" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" >140 / 151 implemented</text>
 <rect x="1006" y="18" width="210" height="42" rx="6" fill="#082f49" stroke="#06b6d4" stroke-width="2"/>
-<text x="1111" y="39" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" >79.5% complete</text>
+<text x="1111" y="39" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" >92.7% complete</text>
 <rect x="1230" y="18" width="210" height="42" rx="6" fill="#422006" stroke="#f59e0b" stroke-width="2"/>
-<text x="1335" y="39" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" >31 remaining</text>
+<text x="1335" y="39" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" >11 remaining</text>
 <rect x="782" y="74" width="658" height="28" rx="6" fill="#374151" stroke="#4b5563" stroke-width="1"/>
-<rect x="782" y="74" width="523" height="28" rx="6" fill="#22c55e"/>
-<text x="1043" y="88" text-anchor="middle" font-size="16" font-weight="800" fill="#ffffff" >79.5%</text>
+<rect x="782" y="74" width="610" height="28" rx="6" fill="#22c55e"/>
+<text x="1087" y="88" text-anchor="middle" font-size="16" font-weight="800" fill="#ffffff" >92.7%</text>
 <rect x="931" y="116" width="360" height="30" rx="5" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
 <text x="1111" y="131" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff" >105 unused / unofficial opcode slots</text>
 <rect x="24" y="150" width="72" height="42" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
@@ -77,7 +77,7 @@
 <rect x="516" y="192" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="558" y="207" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >05</text>
 <text x="558" y="227" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ORA_Z</text>
-<rect x="600" y="192" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<rect x="600" y="192" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="642" y="207" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >06</text>
 <text x="642" y="227" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ASL_Z</text>
 <rect x="684" y="192" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
@@ -89,7 +89,7 @@
 <rect x="852" y="192" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="894" y="207" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >09</text>
 <text x="894" y="227" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ORA_I</text>
-<rect x="936" y="192" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<rect x="936" y="192" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="978" y="207" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >0A</text>
 <text x="978" y="227" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ASL_A</text>
 <rect x="1020" y="192" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
@@ -101,7 +101,7 @@
 <rect x="1188" y="192" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="1230" y="207" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >0D</text>
 <text x="1230" y="227" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ORA_ABS</text>
-<rect x="1272" y="192" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<rect x="1272" y="192" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="1314" y="207" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >0E</text>
 <text x="1314" y="227" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ASL_ABS</text>
 <rect x="1356" y="192" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
@@ -127,7 +127,7 @@
 <rect x="516" y="246" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="558" y="261" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >15</text>
 <text x="558" y="281" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ORA_Z_X</text>
-<rect x="600" y="246" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<rect x="600" y="246" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="642" y="261" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >16</text>
 <text x="642" y="281" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ASL_Z_X</text>
 <rect x="684" y="246" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
@@ -151,7 +151,7 @@
 <rect x="1188" y="246" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="1230" y="261" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >1D</text>
 <text x="1230" y="281" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ORA_ABS_X</text>
-<rect x="1272" y="246" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<rect x="1272" y="246" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="1314" y="261" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >1E</text>
 <text x="1314" y="281" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ASL_ABS_X</text>
 <rect x="1356" y="246" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
@@ -177,7 +177,7 @@
 <rect x="516" y="300" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="558" y="315" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >25</text>
 <text x="558" y="335" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >AND_Z</text>
-<rect x="600" y="300" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<rect x="600" y="300" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="642" y="315" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >26</text>
 <text x="642" y="335" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ROL_Z</text>
 <rect x="684" y="300" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
@@ -189,7 +189,7 @@
 <rect x="852" y="300" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="894" y="315" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >29</text>
 <text x="894" y="335" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >AND_I</text>
-<rect x="936" y="300" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<rect x="936" y="300" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="978" y="315" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >2A</text>
 <text x="978" y="335" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ROL_A</text>
 <rect x="1020" y="300" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
@@ -201,7 +201,7 @@
 <rect x="1188" y="300" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="1230" y="315" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >2D</text>
 <text x="1230" y="335" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >AND_ABS</text>
-<rect x="1272" y="300" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<rect x="1272" y="300" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="1314" y="315" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >2E</text>
 <text x="1314" y="335" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ROL_ABS</text>
 <rect x="1356" y="300" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
@@ -227,7 +227,7 @@
 <rect x="516" y="354" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="558" y="369" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >35</text>
 <text x="558" y="389" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >AND_Z_X</text>
-<rect x="600" y="354" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<rect x="600" y="354" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="642" y="369" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >36</text>
 <text x="642" y="389" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ROL_Z_X</text>
 <rect x="684" y="354" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
@@ -251,7 +251,7 @@
 <rect x="1188" y="354" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="1230" y="369" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >3D</text>
 <text x="1230" y="389" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >AND_ABS_X</text>
-<rect x="1272" y="354" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<rect x="1272" y="354" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="1314" y="369" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >3E</text>
 <text x="1314" y="389" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ROL_ABS_X</text>
 <rect x="1356" y="354" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
@@ -277,7 +277,7 @@
 <rect x="516" y="408" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="558" y="423" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >45</text>
 <text x="558" y="443" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >EOR_Z</text>
-<rect x="600" y="408" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<rect x="600" y="408" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="642" y="423" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >46</text>
 <text x="642" y="443" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >LSR_Z</text>
 <rect x="684" y="408" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
@@ -289,7 +289,7 @@
 <rect x="852" y="408" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="894" y="423" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >49</text>
 <text x="894" y="443" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >EOR_I</text>
-<rect x="936" y="408" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<rect x="936" y="408" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="978" y="423" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >4A</text>
 <text x="978" y="443" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >LSR_A</text>
 <rect x="1020" y="408" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
@@ -301,7 +301,7 @@
 <rect x="1188" y="408" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="1230" y="423" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >4D</text>
 <text x="1230" y="443" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >EOR_ABS</text>
-<rect x="1272" y="408" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<rect x="1272" y="408" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="1314" y="423" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >4E</text>
 <text x="1314" y="443" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >LSR_ABS</text>
 <rect x="1356" y="408" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
@@ -327,7 +327,7 @@
 <rect x="516" y="462" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="558" y="477" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >55</text>
 <text x="558" y="497" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >EOR_Z_X</text>
-<rect x="600" y="462" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<rect x="600" y="462" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="642" y="477" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >56</text>
 <text x="642" y="497" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >LSR_Z_X</text>
 <rect x="684" y="462" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
@@ -351,7 +351,7 @@
 <rect x="1188" y="462" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="1230" y="477" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >5D</text>
 <text x="1230" y="497" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >EOR_ABS_X</text>
-<rect x="1272" y="462" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<rect x="1272" y="462" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="1314" y="477" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >5E</text>
 <text x="1314" y="497" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >LSR_ABS_X</text>
 <rect x="1356" y="462" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
@@ -377,7 +377,7 @@
 <rect x="516" y="516" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="558" y="531" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >65</text>
 <text x="558" y="551" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ADC_Z</text>
-<rect x="600" y="516" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<rect x="600" y="516" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="642" y="531" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >66</text>
 <text x="642" y="551" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ROR_Z</text>
 <rect x="684" y="516" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
@@ -389,7 +389,7 @@
 <rect x="852" y="516" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="894" y="531" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >69</text>
 <text x="894" y="551" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ADC_I</text>
-<rect x="936" y="516" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<rect x="936" y="516" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="978" y="531" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >6A</text>
 <text x="978" y="551" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ROR_A</text>
 <rect x="1020" y="516" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
@@ -401,7 +401,7 @@
 <rect x="1188" y="516" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="1230" y="531" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >6D</text>
 <text x="1230" y="551" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ADC_ABS</text>
-<rect x="1272" y="516" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<rect x="1272" y="516" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="1314" y="531" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >6E</text>
 <text x="1314" y="551" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ROR_ABS</text>
 <rect x="1356" y="516" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
@@ -427,7 +427,7 @@
 <rect x="516" y="570" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="558" y="585" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >75</text>
 <text x="558" y="605" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ADC_Z_X</text>
-<rect x="600" y="570" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<rect x="600" y="570" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="642" y="585" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >76</text>
 <text x="642" y="605" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ROR_Z_X</text>
 <rect x="684" y="570" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
@@ -451,7 +451,7 @@
 <rect x="1188" y="570" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="1230" y="585" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >7D</text>
 <text x="1230" y="605" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ADC_ABS_X</text>
-<rect x="1272" y="570" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<rect x="1272" y="570" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="1314" y="585" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >7E</text>
 <text x="1314" y="605" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >ROR_ABS_X</text>
 <rect x="1356" y="570" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>

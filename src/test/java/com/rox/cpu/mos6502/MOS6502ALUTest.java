@@ -1,10 +1,13 @@
 package com.rox.cpu.mos6502;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class MOS6502ALUTest {
     MOS6502Environment env;
@@ -370,5 +373,93 @@ public class MOS6502ALUTest {
         assertEquals(expectedZeroFlag, env.getZ());
         assertEquals(expectedNegativeFlag, env.getN());
         assertEquals(expectedOverflowFlag, env.getV());
+    }
+
+    @ParameterizedTest(name = "ASL: {0} -> {1}, C={2}")
+    @CsvSource({
+            // Operand, Result, Carry
+            "0x01,      0x02,   false",
+            "0x40,      0x80,   false",
+            "0x80,      0x00,   true",
+            "0xFF,      0xFE,   true",
+            "0x00,      0x00,   false"
+    })
+    public void testASL(final int operand, final int expectedResult, final boolean expectedCarry) {
+        assertEquals(expectedResult, alu.asl(operand));
+        assertEquals(expectedCarry, env.getCarry());
+    }
+
+    @ParameterizedTest(name = "LSR: {0} -> {1}, C={2}")
+    @CsvSource({
+            // Operand, Result, Carry
+            "0x02,      0x01,   false",
+            "0x01,      0x00,   true",
+            "0xFF,      0x7F,   true",
+            "0x80,      0x40,   false",
+            "0x00,      0x00,   false"
+    })
+    public void testLSR(final int operand, final int expectedResult, final boolean expectedCarry) {
+        assertEquals(expectedResult, alu.lsr(operand));
+        assertEquals(expectedCarry, env.getCarry());
+    }
+
+    @ParameterizedTest(name = "ROL: {0}, C_in={1} -> {2}, C_out={3}")
+    @CsvSource({
+            // Operand, CarryIn, Result, CarryOut
+            "0x01,      false,   0x02,   false",
+            "0x80,      false,   0x00,   true",
+            "0x40,      true,    0x81,   false",
+            "0xFF,      true,    0xFF,   true",
+            "0x00,      true,    0x01,   false"
+    })
+    public void testROL(final int operand, final boolean carryIn,
+                        final int expectedResult, final boolean expectedCarryOut) {
+        env.setCarry(carryIn);
+
+        assertEquals(expectedResult, alu.rol(operand));
+        assertEquals(expectedCarryOut, env.getCarry());
+    }
+
+    @ParameterizedTest(name = "ROR: {0}, C_in={1} -> {2}, C_out={3}")
+    @CsvSource({
+            // Operand, CarryIn, Result, CarryOut
+            "0x02,      false,   0x01,   false",
+            "0x01,      false,   0x00,   true",
+            "0x80,      true,    0xC0,   false",
+            "0xFF,      true,    0xFF,   true",
+            "0x00,      true,    0x80,   false"
+    })
+    public void testROR(final int operand, final boolean carryIn,
+                        final int expectedResult, final boolean expectedCarryOut) {
+        env.setCarry(carryIn);
+
+        assertEquals(expectedResult, alu.ror(operand));
+        assertEquals(expectedCarryOut, env.getCarry());
+    }
+
+    @Test
+    public void rolChainedRotatePropagatesCarryThroughSuccessiveCalls() {
+        env.setCarry(false);
+
+        int result = alu.rol(0x80); // bit7 set -> carry out true; carry in was false
+        assertEquals(0x00, result);
+        assertTrue(env.getCarry());
+
+        result = alu.rol(result); // bit7 clear -> carry out false; carry in (from above) rotates into bit0
+        assertEquals(0x01, result);
+        assertFalse(env.getCarry());
+    }
+
+    @Test
+    public void rorChainedRotatePropagatesCarryThroughSuccessiveCalls() {
+        env.setCarry(false);
+
+        int result = alu.ror(0x01); // bit0 set -> carry out true; carry in was false
+        assertEquals(0x00, result);
+        assertTrue(env.getCarry());
+
+        result = alu.ror(result); // bit0 clear -> carry out false; carry in (from above) rotates into bit7
+        assertEquals(0x80, result);
+        assertFalse(env.getCarry());
     }
 }
