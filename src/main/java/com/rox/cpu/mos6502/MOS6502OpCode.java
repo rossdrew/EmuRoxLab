@@ -884,14 +884,37 @@ public enum MOS6502OpCode {
 
     BEQ_REL(0xF0, clockTicks(
             opsInTick(ADDRESS_PC, BRANCH_IF_EQUAL)
+    )),
+
+    /** Push the return address onto the stack and jump to the addressed subroutine */
+    JSR_ABS(0x20, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(DUMMY_READ),
+            opsInTick(PUSH_PCH),
+            opsInTick(PUSH_PCL),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM, AD_TO_PC)
+    )),
+
+    /** Pull the return address from the stack (incrementing past the JSR operand) and resume there */
+    RTS_IMP(0x60, clockTicks(
+            opsInTick(DUMMY_READ),
+            opsInTick(INC_SP),
+            opsInTick(PULL_PCL, INC_SP),
+            opsInTick(PULL_PCH),
+            opsInTick(INC_PC)
+    )),
+
+    /** Pull the processor status and return address from the stack, resuming exactly where BRK left off */
+    RTI_IMP(0x40, clockTicks(
+            opsInTick(DUMMY_READ),
+            opsInTick(INC_SP),
+            opsInTick(PULL_PROCESSOR_STATUS, INC_SP),
+            opsInTick(PULL_PCL, INC_SP),
+            opsInTick(PULL_PCH)
     ));
 
     /*
     For sample program: INX (done), CPX (done), BNE (done), BRK (done)
-
-    Stack instructions
-    JSR / RTS
-    Interrupts (RTI)
      */
 
     /** 6502 code for this OpCode */

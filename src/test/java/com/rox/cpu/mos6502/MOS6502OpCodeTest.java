@@ -8932,4 +8932,166 @@ public class MOS6502OpCodeTest {
 
         assertEquals(statusBefore, env.getStatus(false));
     }
+
+    @Nested
+    class JSR {
+        @Test
+        void jsrPushesReturnAddressAndJumpsToTarget() {
+            ram.write(0x8000, JSR_ABS.getId());
+            ram.write(0x8001, 0x34); // target ADL
+            ram.write(0x8002, 0x12); // target ADH -> $1234
+
+            env.setPC(0x8000);
+            env.setStackPointer(0xFF);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch ADL
+            cpu.tick(); // dummy read
+            cpu.tick(); // push PCH
+            cpu.tick(); // push PCL
+            cpu.tick(); // fetch ADH, jump to target
+
+            assertEquals(0x1234, env.getPC());
+            assertEquals(0x80, ram.read(0x01FF), "pushed PCH should be the high byte of the ADH operand's own address");
+            assertEquals(0x02, ram.read(0x01FE), "pushed PCL should be the low byte of the ADH operand's own address");
+            assertEquals(0xFD, env.getStackPointer());
+        }
+
+        @Test
+        void jsrDoesNotJumpUntilTheFinalTick() {
+            ram.write(0x8000, JSR_ABS.getId());
+            ram.write(0x8001, 0x34);
+            ram.write(0x8002, 0x12);
+
+            env.setPC(0x8000);
+            env.setStackPointer(0xFF);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch ADL
+            cpu.tick(); // dummy read
+            cpu.tick(); // push PCH
+            cpu.tick(); // push PCL
+
+            assertEquals(0x8002, env.getPC(), "PC should still point at the ADH operand until the final tick");
+
+            cpu.tick(); // fetch ADH, jump to target
+
+            assertEquals(0x1234, env.getPC());
+        }
+    }
+
+    @Nested
+    class RTS {
+        @Test
+        void rtsPullsReturnAddressAndAdvancesPastIt() {
+            // Seed the stack exactly as JSR would have left it after jumping from an ADH operand at $8002
+            ram.write(0x01FF, 0x80); // pushed PCH
+            ram.write(0x01FE, 0x02); // pushed PCL
+            ram.write(0x9000, RTS_IMP.getId());
+
+            env.setPC(0x9000);
+            env.setStackPointer(0xFD);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // dummy read
+            cpu.tick(); // increment SP
+            cpu.tick(); // pull PCL, increment SP
+            cpu.tick(); // pull PCH
+            cpu.tick(); // increment PC
+
+            assertEquals(0x8003, env.getPC());
+            assertEquals(0xFF, env.getStackPointer());
+        }
+
+        @Test
+        void jsrThenRtsReturnsExactlyAfterTheJsrInstruction() {
+            ram.write(0x8000, JSR_ABS.getId());
+            ram.write(0x8001, 0x00); // target ADL
+            ram.write(0x8002, 0x90); // target ADH -> $9000
+            ram.write(0x9000, RTS_IMP.getId());
+
+            env.setPC(0x8000);
+            env.setStackPointer(0xFF);
+
+            for (int i = 0; i < 6; i++) {
+                cpu.tick(); // JSR: fetch, fetch ADL, dummy read, push PCH, push PCL, fetch ADH + jump
+            }
+
+            assertEquals(0x9000, env.getPC());
+            assertEquals(0xFD, env.getStackPointer());
+
+            for (int i = 0; i < 6; i++) {
+                cpu.tick(); // RTS: fetch, dummy read, inc SP, pull PCL + inc SP, pull PCH, inc PC
+            }
+
+            assertEquals(0x8003, env.getPC(), "should resume exactly after the 3-byte JSR instruction");
+            assertEquals(0xFF, env.getStackPointer(), "stack pointer should return to its pre-JSR value");
+        }
+    }
+
+    @Nested
+    class RTI {
+        @Test
+        void rtiRestoresProcessorStatusAndReturnAddressExactly() {
+            // Seed the stack exactly as BRK would have left it: PCH, PCL, then status (in push order)
+            ram.write(0x01FF, 0x90); // pushed PCH
+            ram.write(0x01FE, 0x02); // pushed PCL
+            ram.write(0x01FD, 0xB2); // pushed status: N=1,V=0,unused=1,B=1,D=0,I=0,Z=1,C=0
+            ram.write(0xA000, RTI_IMP.getId());
+
+            env.setPC(0xA000);
+            env.setStackPointer(0xFC);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // dummy read
+            cpu.tick(); // increment SP
+            cpu.tick(); // pull status, increment SP
+            cpu.tick(); // pull PCL, increment SP
+            cpu.tick(); // pull PCH
+
+            assertEquals(0x9002, env.getPC(), "RTI should resume exactly where BRK left off, with no +1");
+            assertEquals(0xFF, env.getStackPointer());
+
+            assertTrue(env.getN());
+            assertFalse(env.getV());
+            assertTrue(env.getZ());
+            assertFalse(env.getCarry());
+            assertFalse(env.getD());
+            assertFalse(env.getI());
+        }
+
+        @Test
+        void brkThenRtiRestoresFullStateExactly() {
+            ram.write(0x9000, BRK_IMP.getId());
+            ram.write(0xFFFE, 0x00); // interrupt vector low
+            ram.write(0xFFFF, 0xA0); // interrupt vector high -> handler at $A000
+            ram.write(0xA000, RTI_IMP.getId());
+
+            env.setPC(0x9000);
+            env.setStackPointer(0xFF);
+            env.setN(true);
+            env.setV(false);
+            env.setZ(true);
+            env.setCarry(false);
+            env.setD(false);
+            env.setI(false);
+
+            final int statusBefore = env.getStatus(false);
+
+            for (int i = 0; i < 7; i++) {
+                cpu.tick(); // BRK: fetch, dummy read + inc PC, push PCH, push PCL, push status + set I, read IV low, read IV high
+            }
+
+            assertEquals(0xA000, env.getPC());
+            assertEquals(0xFC, env.getStackPointer());
+
+            for (int i = 0; i < 6; i++) {
+                cpu.tick(); // RTI: fetch, dummy read, inc SP, pull status + inc SP, pull PCL + inc SP, pull PCH
+            }
+
+            assertEquals(0x9002, env.getPC(), "should resume exactly where BRK was triggered (post padding-byte skip)");
+            assertEquals(0xFF, env.getStackPointer());
+            assertEquals(statusBefore, env.getStatus(false), "all flags should be restored exactly");
+        }
+    }
 }

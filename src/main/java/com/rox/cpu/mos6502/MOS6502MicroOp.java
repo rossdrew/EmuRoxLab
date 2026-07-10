@@ -360,6 +360,18 @@ enum MOS6502MicroOp implements MOS6502Operation {
         env.setA(mem.fetch());
     }),
 
+    /** Increment the stack pointer and pull the value of PCL from that location <code>PCL := mem[$01:++SP]</code> **/
+    PULL_PCL((env, mem, alu) -> {
+        mem.loadMemoryAddress(0x0100 | env.getStackPointer());
+        env.setPCL(mem.fetch());
+    }),
+
+    /** Increment the stack pointer and pull the value of PCH from that location <code>PCH := mem[$01:++SP]</code> **/
+    PULL_PCH((env, mem, alu) -> {
+        mem.loadMemoryAddress(0x0100 | env.getStackPointer());
+        env.setPCH(mem.fetch());
+    }),
+
     /** Increment the stack pointer <code>SP++</code>*/
     INC_SP((env, mem, alu) -> {
         env.setStackPointer((env.getStackPointer()+1) & 0xFF);
