@@ -1994,6 +1994,87 @@ public class MOS6502MicroOpTest extends Arbitraries {
         verify(alu).cpy(0x77);
     }
 
+    @Test
+    public void dummyWriteMemWritesBackTheSameValue() {
+        ram.write(0x20, 0x77);
+        bus.loadMemoryAddress(0x20);
+
+        DUMMY_WRITE_MEM.execute(env, bus, alu);
+
+        verifyNoInteractions(alu);
+        assertEquals(0x77, bus.fetch());
+    }
+
+    @Nested
+    class INC_MEM {
+        @Test
+        public void incMemIncrementsTheAddressedValue() {
+            ram.write(0x20, 0x77);
+            bus.loadMemoryAddress(0x20);
+
+            INC_MEM.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+            assertEquals(0x78, bus.fetch());
+        }
+
+        @Test
+        public void incMemWrapsFromFfToZero() {
+            ram.write(0x20, 0xFF);
+            bus.loadMemoryAddress(0x20);
+
+            INC_MEM.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+            assertEquals(0x00, bus.fetch());
+        }
+    }
+
+    @Nested
+    class DEC_MEM {
+        @Test
+        public void decMemDecrementsTheAddressedValue() {
+            ram.write(0x20, 0x77);
+            bus.loadMemoryAddress(0x20);
+
+            DEC_MEM.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+            assertEquals(0x76, bus.fetch());
+        }
+
+        @Test
+        public void decMemWrapsFromZeroToFf() {
+            ram.write(0x20, 0x00);
+            bus.loadMemoryAddress(0x20);
+
+            DEC_MEM.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+            assertEquals(0xFF, bus.fetch());
+        }
+    }
+
+    @Test
+    public void setFlagsOnMemDelegatesToAluWithTheAddressedValue() {
+        ram.write(0x20, 0x77);
+        bus.loadMemoryAddress(0x20);
+
+        SET_FLAGS_ON_MEM.execute(env, bus, alu);
+
+        verify(alu).setStaticFlags(0x77);
+    }
+
+    @Test
+    public void bitTestFetchesOperandAndDelegatesToAlu() {
+        ram.write(0x20, 0x77);
+        bus.loadMemoryAddress(0x20);
+
+        BIT_TEST.execute(env, bus, alu);
+
+        verify(alu).bit(0x77);
+    }
+
     //TODO A_FROM_X
     //TODO X_FROM_A
     //TODO A_FROM_Y

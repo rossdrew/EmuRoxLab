@@ -77,6 +77,12 @@ public class MOS6502ALU {
         setStaticFlags(result & 0xFF);
     }
 
+    public void bit(final int operand) {
+        environment.setN((operand & BIT[7]) != 0);
+        environment.setV((operand & BIT[6]) != 0);
+        environment.setZ((environment.getA() & operand) == 0);
+    }
+
     public void setStaticFlags(final int basedOn) {
         environment.setN((basedOn & BIT[7]) != 0); //bit 7 is set
         environment.setZ(basedOn == 0); //result is zero

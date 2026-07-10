@@ -633,12 +633,86 @@ public enum MOS6502OpCode {
             opsInTick(ADDRESS_PC, ADL_FROM_MEM),
             opsInTick(ADDRESS_PC, ADH_FROM_MEM),
             opsInTick(ADDRESS_AD, CPY)
+    )),
+
+    BIT_Z(0x24, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_ADL, BIT_TEST)
+    )),
+
+    BIT_ABS(0x2C, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM),
+            opsInTick(ADDRESS_AD, BIT_TEST)
+    )),
+
+    INC_Z(0xE6, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_ADL),
+            opsInTick(DUMMY_WRITE_MEM),
+            opsInTick(INC_MEM, SET_FLAGS_ON_MEM)
+    )),
+
+    INC_Z_X(0xF6, clockTicks(
+            opsInTick(ADDRESS_PC),
+            opsInTick(X_OFFSET_ADDRESS),
+            opsInTick(DUMMY_READ),
+            opsInTick(DUMMY_WRITE_MEM),
+            opsInTick(INC_MEM, SET_FLAGS_ON_MEM)
+    )),
+
+    INC_ABS(0xEE, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM),
+            opsInTick(ADDRESS_AD),
+            opsInTick(DUMMY_WRITE_MEM),
+            opsInTick(INC_MEM, SET_FLAGS_ON_MEM)
+    )),
+
+    INC_ABS_X(0xFE, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM, ADDRESS_AD_PLUS_X),
+            opsInTick(DUMMY_READ),
+            opsInTick(DUMMY_READ),
+            opsInTick(DUMMY_WRITE_MEM),
+            opsInTick(INC_MEM, SET_FLAGS_ON_MEM)
+    )),
+
+    DEC_Z(0xC6, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_ADL),
+            opsInTick(DUMMY_WRITE_MEM),
+            opsInTick(DEC_MEM, SET_FLAGS_ON_MEM)
+    )),
+
+    DEC_Z_X(0xD6, clockTicks(
+            opsInTick(ADDRESS_PC),
+            opsInTick(X_OFFSET_ADDRESS),
+            opsInTick(DUMMY_READ),
+            opsInTick(DUMMY_WRITE_MEM),
+            opsInTick(DEC_MEM, SET_FLAGS_ON_MEM)
+    )),
+
+    DEC_ABS(0xCE, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM),
+            opsInTick(ADDRESS_AD),
+            opsInTick(DUMMY_WRITE_MEM),
+            opsInTick(DEC_MEM, SET_FLAGS_ON_MEM)
+    )),
+
+    DEC_ABS_X(0xDE, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM, ADDRESS_AD_PLUS_X),
+            opsInTick(DUMMY_READ),
+            opsInTick(DUMMY_READ),
+            opsInTick(DUMMY_WRITE_MEM),
+            opsInTick(DEC_MEM, SET_FLAGS_ON_MEM)
     ));
 
     /*
     For sample program: INX (done), CPX (done), BNE, BRK (done)
 
-    BIT
     Branch instructions
     Stack instructions
     JSR / RTS

@@ -7360,4 +7360,321 @@ public class MOS6502OpCodeTest {
     }
 
     //TODO is it worth testing actual operations at this level? ADC, AND...
+
+    @Nested
+    class BIT {
+        @ParameterizedTest(name = "BIT_Z A={0}, M={1}")
+        @CsvSource({
+                // A,     M,     Z,     N,     V
+                "0xFF,   0x00,  true,  false, false",
+                "0x00,   0xFF,  true,  true,  true",
+                "0x01,   0x01,  false, false, false",
+                "0x00,   0x80,  true,  true,  false",
+                "0x00,   0x40,  true,  false, true"
+        })
+        void bitZeroPageTestsAAgainstOperandAndSetsFlags(int a, int m,
+                                                          boolean z, boolean n, boolean v) {
+            ram.write(0x8000, BIT_Z.getId());
+            ram.write(0x8001, 0x44);
+            ram.write(0x0044, m);
+
+            env.setPC(0x8000);
+            env.setA(a);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch zero-page address
+            cpu.tick(); // read operand, BIT_TEST
+
+            assertEquals(a, env.getA(), "BIT should never modify the accumulator");
+            assertEquals(z, env.getZ());
+            assertEquals(n, env.getN());
+            assertEquals(v, env.getV());
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @ParameterizedTest(name = "BIT_ABS A={0}, M={1}")
+        @CsvSource({
+                // A,     M,     Z,     N,     V
+                "0xFF,   0x00,  true,  false, false",
+                "0x00,   0xFF,  true,  true,  true",
+                "0x01,   0x01,  false, false, false",
+                "0x00,   0x80,  true,  true,  false",
+                "0x00,   0x40,  true,  false, true"
+        })
+        void bitAbsoluteTestsAAgainstOperandAndSetsFlags(int a, int m,
+                                                          boolean z, boolean n, boolean v) {
+            ram.write(0x8000, BIT_ABS.getId());
+            ram.write(0x8001, 0x34);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1234, m);
+
+            env.setPC(0x8000);
+            env.setA(a);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch low address byte
+            cpu.tick(); // fetch high address byte
+            cpu.tick(); // read operand, BIT_TEST
+
+            assertEquals(a, env.getA(), "BIT should never modify the accumulator");
+            assertEquals(z, env.getZ());
+            assertEquals(n, env.getN());
+            assertEquals(v, env.getV());
+            assertEquals(0x8003, env.getPC());
+        }
+    }
+
+    @Nested
+    class INC {
+        @ParameterizedTest(name = "INC_Z {0} -> {1}, Z={2}, N={3}")
+        @CsvSource({
+                // Value, Expected, Z,     N
+                "0x00,   0x01,     false, false",
+                "0x7F,   0x80,     false, true",
+                "0xFE,   0xFF,     false, true",
+                "0xFF,   0x00,     true,  false"
+        })
+        void incZeroPageIncrementsAndSetsFlags(int value, int expected, boolean z, boolean n) {
+            ram.write(0x8000, INC_Z.getId());
+            ram.write(0x8001, 0x44);
+            ram.write(0x0044, value);
+
+            env.setPC(0x8000);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch zero-page address
+            cpu.tick(); // address effective location
+            cpu.tick(); // dummy write-back of unchanged value
+
+            assertEquals(value, ram.read(0x0044), "value should be unchanged before the real write tick");
+
+            cpu.tick(); // increment and store, set flags
+
+            assertEquals(expected, ram.read(0x0044));
+            assertEquals(z, env.getZ());
+            assertEquals(n, env.getN());
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @Test
+        void incZeroPageXWrapsAroundZeroPage() {
+            ram.write(0x8000, INC_Z_X.getId());
+            ram.write(0x8001, 0xFC); // base address in zero page
+            ram.write(0x0001, 0x41); // expected wrapped address: (0xFC + X(5)) & 0xFF = 0x01
+
+            env.setPC(0x8000);
+            env.setX(0x05);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch base address
+            cpu.tick(); // add X
+            cpu.tick(); // dummy read
+            cpu.tick(); // dummy write-back
+            cpu.tick(); // increment and store, set flags
+
+            assertEquals(0x42, ram.read(0x0001));
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @Test
+        void incAbsoluteIncrementsAndSetsFlags() {
+            ram.write(0x8000, INC_ABS.getId());
+            ram.write(0x8001, 0x34);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1234, 0x7F);
+
+            env.setPC(0x8000);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch low address byte
+            cpu.tick(); // fetch high address byte
+            cpu.tick(); // address effective location
+            cpu.tick(); // dummy write-back of unchanged value
+            cpu.tick(); // increment and store, set flags
+
+            assertEquals(0x80, ram.read(0x1234));
+            assertFalse(env.getZ());
+            assertTrue(env.getN());
+            assertEquals(0x8003, env.getPC());
+        }
+
+        @Test
+        void incAbsoluteXTakesSevenCyclesRegardlessOfPageCross() {
+            // No page cross: $12FF + X(1) = $1300, still 7 total ticks (fetch + 6)
+            ram.write(0x8000, INC_ABS_X.getId());
+            ram.write(0x8001, 0x00);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1201, 0x10);
+
+            env.setPC(0x8000);
+            env.setX(0x01);
+
+            cpu.tick(); // fetch opcode (1)
+            cpu.tick(); // fetch low address byte (2)
+            cpu.tick(); // fetch high address byte, add X (3)
+            cpu.tick(); // dummy read (4)
+            cpu.tick(); // dummy read (5)
+            cpu.tick(); // dummy write-back (6)
+
+            assertEquals(0x10, ram.read(0x1201), "value should be unchanged before the final write tick");
+
+            cpu.tick(); // increment and store, set flags (7)
+
+            assertEquals(0x11, ram.read(0x1201));
+            assertEquals(0x8003, env.getPC());
+        }
+
+        @Test
+        void incAbsoluteXTakesSevenCyclesWhenPageCrosses() {
+            // Page cross: $12FF + X(5) = $1304, still 7 total ticks (fetch + 6)
+            ram.write(0x8000, INC_ABS_X.getId());
+            ram.write(0x8001, 0xFF);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1304, 0x10);
+
+            env.setPC(0x8000);
+            env.setX(0x05);
+
+            cpu.tick(); // fetch opcode (1)
+            cpu.tick(); // fetch low address byte (2)
+            cpu.tick(); // fetch high address byte, add X, carry into high byte (3)
+            cpu.tick(); // dummy read (4)
+            cpu.tick(); // dummy read (5)
+            cpu.tick(); // dummy write-back (6)
+
+            assertEquals(0x10, ram.read(0x1304), "value should be unchanged before the final write tick");
+
+            cpu.tick(); // increment and store, set flags (7)
+
+            assertEquals(0x11, ram.read(0x1304));
+            assertEquals(0x8003, env.getPC());
+        }
+    }
+
+    @Nested
+    class DEC {
+        @ParameterizedTest(name = "DEC_Z {0} -> {1}, Z={2}, N={3}")
+        @CsvSource({
+                // Value, Expected, Z,     N
+                "0x01,   0x00,     true,  false",
+                "0x80,   0x7F,     false, false",
+                "0x00,   0xFF,     false, true",
+                "0xFF,   0xFE,     false, true"
+        })
+        void decZeroPageDecrementsAndSetsFlags(int value, int expected, boolean z, boolean n) {
+            ram.write(0x8000, DEC_Z.getId());
+            ram.write(0x8001, 0x44);
+            ram.write(0x0044, value);
+
+            env.setPC(0x8000);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch zero-page address
+            cpu.tick(); // address effective location
+            cpu.tick(); // dummy write-back of unchanged value
+
+            assertEquals(value, ram.read(0x0044), "value should be unchanged before the real write tick");
+
+            cpu.tick(); // decrement and store, set flags
+
+            assertEquals(expected, ram.read(0x0044));
+            assertEquals(z, env.getZ());
+            assertEquals(n, env.getN());
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @Test
+        void decZeroPageXWrapsAroundZeroPage() {
+            ram.write(0x8000, DEC_Z_X.getId());
+            ram.write(0x8001, 0xFC); // base address in zero page
+            ram.write(0x0001, 0x41); // expected wrapped address: (0xFC + X(5)) & 0xFF = 0x01
+
+            env.setPC(0x8000);
+            env.setX(0x05);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch base address
+            cpu.tick(); // add X
+            cpu.tick(); // dummy read
+            cpu.tick(); // dummy write-back
+            cpu.tick(); // decrement and store, set flags
+
+            assertEquals(0x40, ram.read(0x0001));
+            assertEquals(0x8002, env.getPC());
+        }
+
+        @Test
+        void decAbsoluteDecrementsAndSetsFlags() {
+            ram.write(0x8000, DEC_ABS.getId());
+            ram.write(0x8001, 0x34);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1234, 0x01);
+
+            env.setPC(0x8000);
+
+            cpu.tick(); // fetch opcode
+            cpu.tick(); // fetch low address byte
+            cpu.tick(); // fetch high address byte
+            cpu.tick(); // address effective location
+            cpu.tick(); // dummy write-back of unchanged value
+            cpu.tick(); // decrement and store, set flags
+
+            assertEquals(0x00, ram.read(0x1234));
+            assertTrue(env.getZ());
+            assertFalse(env.getN());
+            assertEquals(0x8003, env.getPC());
+        }
+
+        @Test
+        void decAbsoluteXTakesSevenCyclesRegardlessOfPageCross() {
+            // No page cross: $1200 + X(1) = $1201, still 7 total ticks (fetch + 6)
+            ram.write(0x8000, DEC_ABS_X.getId());
+            ram.write(0x8001, 0x00);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1201, 0x10);
+
+            env.setPC(0x8000);
+            env.setX(0x01);
+
+            cpu.tick(); // fetch opcode (1)
+            cpu.tick(); // fetch low address byte (2)
+            cpu.tick(); // fetch high address byte, add X (3)
+            cpu.tick(); // dummy read (4)
+            cpu.tick(); // dummy read (5)
+            cpu.tick(); // dummy write-back (6)
+
+            assertEquals(0x10, ram.read(0x1201), "value should be unchanged before the final write tick");
+
+            cpu.tick(); // decrement and store, set flags (7)
+
+            assertEquals(0x0F, ram.read(0x1201));
+            assertEquals(0x8003, env.getPC());
+        }
+
+        @Test
+        void decAbsoluteXTakesSevenCyclesWhenPageCrosses() {
+            // Page cross: $12FF + X(5) = $1304, still 7 total ticks (fetch + 6)
+            ram.write(0x8000, DEC_ABS_X.getId());
+            ram.write(0x8001, 0xFF);
+            ram.write(0x8002, 0x12);
+            ram.write(0x1304, 0x10);
+
+            env.setPC(0x8000);
+            env.setX(0x05);
+
+            cpu.tick(); // fetch opcode (1)
+            cpu.tick(); // fetch low address byte (2)
+            cpu.tick(); // fetch high address byte, add X, carry into high byte (3)
+            cpu.tick(); // dummy read (4)
+            cpu.tick(); // dummy read (5)
+            cpu.tick(); // dummy write-back (6)
+
+            assertEquals(0x10, ram.read(0x1304), "value should be unchanged before the final write tick");
+
+            cpu.tick(); // decrement and store, set flags (7)
+
+            assertEquals(0x0F, ram.read(0x1304));
+            assertEquals(0x8003, env.getPC());
+        }
+    }
 }
