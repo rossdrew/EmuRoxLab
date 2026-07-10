@@ -1034,6 +1034,164 @@ public class MOS6502MicroOpTest extends Arbitraries {
     }
 
     @Nested
+    class PULL_PCL {
+        @Test
+        public void pullPclLoadsLowByteOfPcFromCurrentStackPointerAddress() {
+            memoryBus8Bit.write(0x01FF, 0x20);
+
+            env.setPC(0x8099);
+            env.setStackPointer(0xFF);
+
+            PULL_PCL.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x8020, env.getPC());
+            assertEquals(0xFF, env.getStackPointer());
+        }
+
+        @Test
+        public void pullPclUsesStackPageNotZeroPage() {
+            memoryBus8Bit.write(0x00FF, 0x11);
+            memoryBus8Bit.write(0x01FF, 0x20);
+
+            env.setPC(0x8099);
+            env.setStackPointer(0xFF);
+
+            PULL_PCL.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x8020, env.getPC());
+        }
+
+        @Test
+        public void pullPclLoadsFromZeroStackOffsetWhenStackPointerIsZero() {
+            memoryBus8Bit.write(0x0100, 0x20);
+
+            env.setPC(0x8099);
+            env.setStackPointer(0x00);
+
+            PULL_PCL.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x8020, env.getPC());
+            assertEquals(0x00, env.getStackPointer());
+        }
+
+        @Test
+        public void pullPclDoesNotChangePchOrOtherRegistersOrFlags() {
+            memoryBus8Bit.write(0x01FF, 0x20);
+
+            env.setPC(0x8099); // PCH = 0x80, PCL = 0x99
+            env.setA(0x11);
+            env.setX(0x22);
+            env.setY(0x33);
+            env.setStackPointer(0xFF);
+
+            env.setZ(true);
+            env.setN(false);
+            env.setCarry(true);
+            env.setV(false);
+
+            PULL_PCL.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x8020, env.getPC(), "PCH should be unchanged, PCL replaced");
+            assertEquals(0x11, env.getA());
+            assertEquals(0x22, env.getX());
+            assertEquals(0x33, env.getY());
+            assertEquals(0xFF, env.getStackPointer());
+
+            assertTrue(env.getZ());
+            assertFalse(env.getN());
+            assertTrue(env.getCarry());
+            assertFalse(env.getV());
+        }
+    }
+
+    @Nested
+    class PULL_PCH {
+        @Test
+        public void pullPchLoadsHighByteOfPcFromCurrentStackPointerAddress() {
+            memoryBus8Bit.write(0x01FF, 0x20);
+
+            env.setPC(0x9980);
+            env.setStackPointer(0xFF);
+
+            PULL_PCH.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x2080, env.getPC());
+            assertEquals(0xFF, env.getStackPointer());
+        }
+
+        @Test
+        public void pullPchUsesStackPageNotZeroPage() {
+            memoryBus8Bit.write(0x00FF, 0x11);
+            memoryBus8Bit.write(0x01FF, 0x20);
+
+            env.setPC(0x9980);
+            env.setStackPointer(0xFF);
+
+            PULL_PCH.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x2080, env.getPC());
+        }
+
+        @Test
+        public void pullPchLoadsFromZeroStackOffsetWhenStackPointerIsZero() {
+            memoryBus8Bit.write(0x0100, 0x20);
+
+            env.setPC(0x9980);
+            env.setStackPointer(0x00);
+
+            PULL_PCH.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x2080, env.getPC());
+            assertEquals(0x00, env.getStackPointer());
+        }
+
+        @Test
+        public void pullPchDoesNotChangePclOrOtherRegistersOrFlags() {
+            memoryBus8Bit.write(0x01FF, 0x20);
+
+            env.setPC(0x9980); // PCH = 0x99, PCL = 0x80
+            env.setA(0x11);
+            env.setX(0x22);
+            env.setY(0x33);
+            env.setStackPointer(0xFF);
+
+            env.setZ(true);
+            env.setN(false);
+            env.setCarry(true);
+            env.setV(false);
+
+            PULL_PCH.execute(env, bus, alu);
+
+            verifyNoInteractions(alu);
+
+            assertEquals(0x2080, env.getPC(), "PCL should be unchanged, PCH replaced");
+            assertEquals(0x11, env.getA());
+            assertEquals(0x22, env.getX());
+            assertEquals(0x33, env.getY());
+            assertEquals(0xFF, env.getStackPointer());
+
+            assertTrue(env.getZ());
+            assertFalse(env.getN());
+            assertTrue(env.getCarry());
+            assertFalse(env.getV());
+        }
+    }
+
+    @Nested
     class PUSH_PCH{
         @ParameterizedTest(name = "PUSH_PCH PC={0}, PCH={1}, SP={2}")
         @CsvSource({
