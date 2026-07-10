@@ -13,14 +13,14 @@
 <text x="24" y="70" text-anchor="start" font-size="20" font-weight="400" fill="#e5e7eb" class="small-note">Based on current EmuRoxLab MOS6502OpCode.java</text>
 <text x="24" y="100" text-anchor="start" font-size="16" font-weight="400" fill="#cbd5e1" class="small-note">Overlaying current code progress on the official NMOS 6502 opcode map</text>
 <rect x="782" y="18" width="210" height="42" rx="6" fill="#052e16" stroke="#22c55e" stroke-width="2"/>
-<text x="887" y="39" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" >110 / 151 implemented</text>
+<text x="887" y="39" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" >120 / 151 implemented</text>
 <rect x="1006" y="18" width="210" height="42" rx="6" fill="#082f49" stroke="#06b6d4" stroke-width="2"/>
-<text x="1111" y="39" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" >72.8% complete</text>
+<text x="1111" y="39" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" >79.5% complete</text>
 <rect x="1230" y="18" width="210" height="42" rx="6" fill="#422006" stroke="#f59e0b" stroke-width="2"/>
-<text x="1335" y="39" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" >41 remaining</text>
+<text x="1335" y="39" text-anchor="middle" font-size="18" font-weight="800" fill="#ffffff" >31 remaining</text>
 <rect x="782" y="74" width="658" height="28" rx="6" fill="#374151" stroke="#4b5563" stroke-width="1"/>
-<rect x="782" y="74" width="479" height="28" rx="6" fill="#22c55e"/>
-<text x="1021" y="88" text-anchor="middle" font-size="16" font-weight="800" fill="#ffffff" >72.8%</text>
+<rect x="782" y="74" width="523" height="28" rx="6" fill="#22c55e"/>
+<text x="1043" y="88" text-anchor="middle" font-size="16" font-weight="800" fill="#ffffff" >79.5%</text>
 <rect x="931" y="116" width="360" height="30" rx="5" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
 <text x="1111" y="131" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff" >105 unused / unofficial opcode slots</text>
 <rect x="24" y="150" width="72" height="42" rx="0" fill="#111827" stroke="#d1d5db" stroke-width="1"/>
@@ -171,7 +171,7 @@
 <rect x="348" y="300" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
 <text x="390" y="315" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >23</text>
 <text x="390" y="335" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
-<rect x="432" y="300" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<rect x="432" y="300" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="474" y="315" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >24</text>
 <text x="474" y="335" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >BIT_Z</text>
 <rect x="516" y="300" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
@@ -195,7 +195,7 @@
 <rect x="1020" y="300" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
 <text x="1062" y="315" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >2B</text>
 <text x="1062" y="335" text-anchor="middle" font-size="12" font-weight="700" fill="#cbd5e1" >unused</text>
-<rect x="1104" y="300" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<rect x="1104" y="300" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="1146" y="315" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >2C</text>
 <text x="1146" y="335" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >BIT_ABS</text>
 <rect x="1188" y="300" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
@@ -677,7 +677,7 @@
 <rect x="516" y="840" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="558" y="855" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >C5</text>
 <text x="558" y="875" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >CMP_Z</text>
-<rect x="600" y="840" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<rect x="600" y="840" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="642" y="855" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >C6</text>
 <text x="642" y="875" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >DEC_Z</text>
 <rect x="684" y="840" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
@@ -701,7 +701,7 @@
 <rect x="1188" y="840" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="1230" y="855" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >CD</text>
 <text x="1230" y="875" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >CMP_ABS</text>
-<rect x="1272" y="840" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<rect x="1272" y="840" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="1314" y="855" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >CE</text>
 <text x="1314" y="875" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >DEC_ABS</text>
 <rect x="1356" y="840" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
@@ -727,7 +727,7 @@
 <rect x="516" y="894" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="558" y="909" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >D5</text>
 <text x="558" y="929" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >CMP_Z_X</text>
-<rect x="600" y="894" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<rect x="600" y="894" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="642" y="909" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >D6</text>
 <text x="642" y="929" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >DEC_Z_X</text>
 <rect x="684" y="894" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
@@ -751,7 +751,7 @@
 <rect x="1188" y="894" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="1230" y="909" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >DD</text>
 <text x="1230" y="929" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >CMP_ABS_X</text>
-<rect x="1272" y="894" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<rect x="1272" y="894" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="1314" y="909" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >DE</text>
 <text x="1314" y="929" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >DEC_ABS_X</text>
 <rect x="1356" y="894" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
@@ -777,7 +777,7 @@
 <rect x="516" y="948" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="558" y="963" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >E5</text>
 <text x="558" y="983" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >SBC_Z</text>
-<rect x="600" y="948" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<rect x="600" y="948" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="642" y="963" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >E6</text>
 <text x="642" y="983" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >INC_Z</text>
 <rect x="684" y="948" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
@@ -801,7 +801,7 @@
 <rect x="1188" y="948" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="1230" y="963" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >ED</text>
 <text x="1230" y="983" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >SBC_ABS</text>
-<rect x="1272" y="948" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<rect x="1272" y="948" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="1314" y="963" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >EE</text>
 <text x="1314" y="983" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >INC_ABS</text>
 <rect x="1356" y="948" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
@@ -827,7 +827,7 @@
 <rect x="516" y="1002" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="558" y="1017" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >F5</text>
 <text x="558" y="1037" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >SBC_Z_X</text>
-<rect x="600" y="1002" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<rect x="600" y="1002" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="642" y="1017" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >F6</text>
 <text x="642" y="1037" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >INC_Z_X</text>
 <rect x="684" y="1002" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>
@@ -851,7 +851,7 @@
 <rect x="1188" y="1002" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="1230" y="1017" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >FD</text>
 <text x="1230" y="1037" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >SBC_ABS_X</text>
-<rect x="1272" y="1002" width="84" height="54" rx="0" fill="#4b5563" stroke="#d1d5db" stroke-width="1"/>
+<rect x="1272" y="1002" width="84" height="54" rx="0" fill="#15803d" stroke="#d1d5db" stroke-width="1"/>
 <text x="1314" y="1017" text-anchor="middle" font-size="15" font-weight="800" fill="#ffffff" >FE</text>
 <text x="1314" y="1037" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff" >INC_ABS_X</text>
 <rect x="1356" y="1002" width="84" height="54" rx="0" fill="#020617" stroke="#d1d5db" stroke-width="1"/>

@@ -342,4 +342,33 @@ public class MOS6502ALUTest {
         assertEquals(expectedNegativeFlag, env.getN());
         assertEquals(expectedCarryFlag, env.getCarry());
     }
+
+    @ParameterizedTest(name = "BIT: A({0}) & M({1})")
+    @CsvSource({
+            // A,     M,    Z,     N,     V
+            "0xFF,   0x00,  true,  false, false",
+            "0x00,   0xFF,  true,  true,  true",
+            "0x01,   0x01,  false, false, false",
+
+            // N/V come from the operand's bits 7/6, independent of the AND result
+            "0xFF,   0x80,  false, true,  false",
+            "0xFF,   0x40,  false, false, true",
+            "0x00,   0x40,  true,  false, true",
+            "0x00,   0x80,  true,  true,  false",
+            "0xC0,   0xC0,  false, true,  true"
+    })
+    public void testBIT(final int accumulator,
+                        final int operand,
+                        final boolean expectedZeroFlag,
+                        final boolean expectedNegativeFlag,
+                        final boolean expectedOverflowFlag) {
+        env.setA(accumulator);
+
+        alu.bit(operand);
+
+        assertEquals(accumulator, env.getA(), "BIT appears to have modified the accumulator and it shouldn't");
+        assertEquals(expectedZeroFlag, env.getZ());
+        assertEquals(expectedNegativeFlag, env.getN());
+        assertEquals(expectedOverflowFlag, env.getV());
+    }
 }

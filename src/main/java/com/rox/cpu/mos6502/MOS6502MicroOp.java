@@ -416,6 +416,31 @@ enum MOS6502MicroOp implements MOS6502Operation {
     /** Perform {@link MOS6502ALU#cpy(int)} with the value at <code>mem[address_bus]</code> */
     CPY((env, mem, alu) -> {
         alu.cpy(mem.fetch());
+    }),
+
+    /** Write the addressed value back unchanged, modeling the 6502's read-modify-write dummy write cycle: <code>mem[address_bus] := mem[address_bus]</code> */
+    DUMMY_WRITE_MEM((env, mem, alu) -> {
+        mem.store(mem.fetch());
+    }),
+
+    /** Increment the addressed memory value, wrapping on overflow: <code>mem[address_bus] := mem[address_bus] + 1</code> */
+    INC_MEM((env, mem, alu) -> {
+        mem.store((mem.fetch() + 1) & 0xFF);
+    }),
+
+    /** Decrement the addressed memory value, wrapping on underflow: <code>mem[address_bus] := mem[address_bus] - 1</code> */
+    DEC_MEM((env, mem, alu) -> {
+        mem.store((mem.fetch() - 1) & 0xFF);
+    }),
+
+    /** Set static flags (N and Z) based on the addressed memory value */
+    SET_FLAGS_ON_MEM((env, mem, alu) -> {
+        alu.setStaticFlags(mem.fetch());
+    }),
+
+    /** Perform {@link MOS6502ALU#bit(int)} with the value at <code>mem[address_bus]</code> */
+    BIT_TEST((env, mem, alu) -> {
+        alu.bit(mem.fetch());
     });
 
     private final MOS6502Operation op;
