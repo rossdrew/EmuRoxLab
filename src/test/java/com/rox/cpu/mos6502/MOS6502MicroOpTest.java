@@ -2075,6 +2075,90 @@ public class MOS6502MicroOpTest extends Arbitraries {
         verify(alu).bit(0x77);
     }
 
+    @Test
+    public void aslAccDelegatesToAluAndSetsAccumulator() {
+        env.setA(0x77);
+        when(alu.asl(0x77)).thenReturn(0x99);
+
+        ASL_ACC.execute(env, bus, alu);
+
+        assertEquals(0x99, env.getA());
+    }
+
+    @Test
+    public void lsrAccDelegatesToAluAndSetsAccumulator() {
+        env.setA(0x77);
+        when(alu.lsr(0x77)).thenReturn(0x99);
+
+        LSR_ACC.execute(env, bus, alu);
+
+        assertEquals(0x99, env.getA());
+    }
+
+    @Test
+    public void rolAccDelegatesToAluAndSetsAccumulator() {
+        env.setA(0x77);
+        when(alu.rol(0x77)).thenReturn(0x99);
+
+        ROL_ACC.execute(env, bus, alu);
+
+        assertEquals(0x99, env.getA());
+    }
+
+    @Test
+    public void rorAccDelegatesToAluAndSetsAccumulator() {
+        env.setA(0x77);
+        when(alu.ror(0x77)).thenReturn(0x99);
+
+        ROR_ACC.execute(env, bus, alu);
+
+        assertEquals(0x99, env.getA());
+    }
+
+    @Test
+    public void aslMemDelegatesToAluAndStoresResult() {
+        ram.write(0x20, 0x77);
+        bus.loadMemoryAddress(0x20);
+        when(alu.asl(0x77)).thenReturn(0x99);
+
+        ASL_MEM.execute(env, bus, alu);
+
+        assertEquals(0x99, bus.fetch());
+    }
+
+    @Test
+    public void lsrMemDelegatesToAluAndStoresResult() {
+        ram.write(0x20, 0x77);
+        bus.loadMemoryAddress(0x20);
+        when(alu.lsr(0x77)).thenReturn(0x99);
+
+        LSR_MEM.execute(env, bus, alu);
+
+        assertEquals(0x99, bus.fetch());
+    }
+
+    @Test
+    public void rolMemDelegatesToAluAndStoresResult() {
+        ram.write(0x20, 0x77);
+        bus.loadMemoryAddress(0x20);
+        when(alu.rol(0x77)).thenReturn(0x99);
+
+        ROL_MEM.execute(env, bus, alu);
+
+        assertEquals(0x99, bus.fetch());
+    }
+
+    @Test
+    public void rorMemDelegatesToAluAndStoresResult() {
+        ram.write(0x20, 0x77);
+        bus.loadMemoryAddress(0x20);
+        when(alu.ror(0x77)).thenReturn(0x99);
+
+        ROR_MEM.execute(env, bus, alu);
+
+        assertEquals(0x99, bus.fetch());
+    }
+
     //TODO A_FROM_X
     //TODO X_FROM_A
     //TODO A_FROM_Y

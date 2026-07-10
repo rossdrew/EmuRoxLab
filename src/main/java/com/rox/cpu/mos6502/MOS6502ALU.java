@@ -83,6 +83,38 @@ public class MOS6502ALU {
         environment.setZ((environment.getA() & operand) == 0);
     }
 
+    public int asl(final int operand) {
+        environment.setCarry((operand & BIT[7]) != 0);
+        return (operand << 1) & 0xFF;
+    }
+
+    public int lsr(final int operand) {
+        environment.setCarry((operand & BIT[0]) != 0);
+        return (operand >> 1) & 0xFF;
+    }
+
+    public int rol(final int operand) {
+        final boolean oldCarry = environment.getCarry();
+
+        environment.setCarry((operand & BIT[7]) != 0);
+        int result = (operand << 1) & 0xFF;
+        if (oldCarry) {
+            result |= BIT[0];
+        }
+        return result;
+    }
+
+    public int ror(final int operand) {
+        final boolean oldCarry = environment.getCarry();
+
+        environment.setCarry((operand & BIT[0]) != 0);
+        int result = (operand >> 1) & 0xFF;
+        if (oldCarry) {
+            result |= BIT[7];
+        }
+        return result;
+    }
+
     public void setStaticFlags(final int basedOn) {
         environment.setN((basedOn & BIT[7]) != 0); //bit 7 is set
         environment.setZ(basedOn == 0); //result is zero

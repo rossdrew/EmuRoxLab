@@ -708,6 +708,150 @@ public enum MOS6502OpCode {
             opsInTick(DUMMY_READ),
             opsInTick(DUMMY_WRITE_MEM),
             opsInTick(DEC_MEM, SET_FLAGS_ON_MEM)
+    )),
+
+    ASL_A(0x0A, clockTicks(
+            opsInTick(ASL_ACC, SET_FLAGS_ON_A)
+    )),
+
+    ASL_Z(0x06, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_ADL),
+            opsInTick(DUMMY_WRITE_MEM),
+            opsInTick(ASL_MEM, SET_FLAGS_ON_MEM)
+    )),
+
+    ASL_Z_X(0x16, clockTicks(
+            opsInTick(ADDRESS_PC),
+            opsInTick(X_OFFSET_ADDRESS),
+            opsInTick(DUMMY_READ),
+            opsInTick(DUMMY_WRITE_MEM),
+            opsInTick(ASL_MEM, SET_FLAGS_ON_MEM)
+    )),
+
+    ASL_ABS(0x0E, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM),
+            opsInTick(ADDRESS_AD),
+            opsInTick(DUMMY_WRITE_MEM),
+            opsInTick(ASL_MEM, SET_FLAGS_ON_MEM)
+    )),
+
+    ASL_ABS_X(0x1E, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM, ADDRESS_AD_PLUS_X),
+            opsInTick(DUMMY_READ),
+            opsInTick(DUMMY_READ),
+            opsInTick(DUMMY_WRITE_MEM),
+            opsInTick(ASL_MEM, SET_FLAGS_ON_MEM)
+    )),
+
+    LSR_A(0x4A, clockTicks(
+            opsInTick(LSR_ACC, SET_FLAGS_ON_A)
+    )),
+
+    LSR_Z(0x46, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_ADL),
+            opsInTick(DUMMY_WRITE_MEM),
+            opsInTick(LSR_MEM, SET_FLAGS_ON_MEM)
+    )),
+
+    LSR_Z_X(0x56, clockTicks(
+            opsInTick(ADDRESS_PC),
+            opsInTick(X_OFFSET_ADDRESS),
+            opsInTick(DUMMY_READ),
+            opsInTick(DUMMY_WRITE_MEM),
+            opsInTick(LSR_MEM, SET_FLAGS_ON_MEM)
+    )),
+
+    LSR_ABS(0x4E, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM),
+            opsInTick(ADDRESS_AD),
+            opsInTick(DUMMY_WRITE_MEM),
+            opsInTick(LSR_MEM, SET_FLAGS_ON_MEM)
+    )),
+
+    LSR_ABS_X(0x5E, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM, ADDRESS_AD_PLUS_X),
+            opsInTick(DUMMY_READ),
+            opsInTick(DUMMY_READ),
+            opsInTick(DUMMY_WRITE_MEM),
+            opsInTick(LSR_MEM, SET_FLAGS_ON_MEM)
+    )),
+
+    ROL_A(0x2A, clockTicks(
+            opsInTick(ROL_ACC, SET_FLAGS_ON_A)
+    )),
+
+    ROL_Z(0x26, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_ADL),
+            opsInTick(DUMMY_WRITE_MEM),
+            opsInTick(ROL_MEM, SET_FLAGS_ON_MEM)
+    )),
+
+    ROL_Z_X(0x36, clockTicks(
+            opsInTick(ADDRESS_PC),
+            opsInTick(X_OFFSET_ADDRESS),
+            opsInTick(DUMMY_READ),
+            opsInTick(DUMMY_WRITE_MEM),
+            opsInTick(ROL_MEM, SET_FLAGS_ON_MEM)
+    )),
+
+    ROL_ABS(0x2E, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM),
+            opsInTick(ADDRESS_AD),
+            opsInTick(DUMMY_WRITE_MEM),
+            opsInTick(ROL_MEM, SET_FLAGS_ON_MEM)
+    )),
+
+    ROL_ABS_X(0x3E, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM, ADDRESS_AD_PLUS_X),
+            opsInTick(DUMMY_READ),
+            opsInTick(DUMMY_READ),
+            opsInTick(DUMMY_WRITE_MEM),
+            opsInTick(ROL_MEM, SET_FLAGS_ON_MEM)
+    )),
+
+    ROR_A(0x6A, clockTicks(
+            opsInTick(ROR_ACC, SET_FLAGS_ON_A)
+    )),
+
+    ROR_Z(0x66, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_ADL),
+            opsInTick(DUMMY_WRITE_MEM),
+            opsInTick(ROR_MEM, SET_FLAGS_ON_MEM)
+    )),
+
+    ROR_Z_X(0x76, clockTicks(
+            opsInTick(ADDRESS_PC),
+            opsInTick(X_OFFSET_ADDRESS),
+            opsInTick(DUMMY_READ),
+            opsInTick(DUMMY_WRITE_MEM),
+            opsInTick(ROR_MEM, SET_FLAGS_ON_MEM)
+    )),
+
+    ROR_ABS(0x6E, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM),
+            opsInTick(ADDRESS_AD),
+            opsInTick(DUMMY_WRITE_MEM),
+            opsInTick(ROR_MEM, SET_FLAGS_ON_MEM)
+    )),
+
+    ROR_ABS_X(0x7E, clockTicks(
+            opsInTick(ADDRESS_PC, ADL_FROM_MEM),
+            opsInTick(ADDRESS_PC, ADH_FROM_MEM, ADDRESS_AD_PLUS_X),
+            opsInTick(DUMMY_READ),
+            opsInTick(DUMMY_READ),
+            opsInTick(DUMMY_WRITE_MEM),
+            opsInTick(ROR_MEM, SET_FLAGS_ON_MEM)
     ));
 
     /*
@@ -716,7 +860,6 @@ public enum MOS6502OpCode {
     Branch instructions
     Stack instructions
     JSR / RTS
-    Shifts and rotates
     Interrupts (RTI)
      */
 

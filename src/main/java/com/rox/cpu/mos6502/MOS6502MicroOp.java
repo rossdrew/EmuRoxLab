@@ -441,6 +441,46 @@ enum MOS6502MicroOp implements MOS6502Operation {
     /** Perform {@link MOS6502ALU#bit(int)} with the value at <code>mem[address_bus]</code> */
     BIT_TEST((env, mem, alu) -> {
         alu.bit(mem.fetch());
+    }),
+
+    /** Perform {@link MOS6502ALU#asl(int)} on the accumulator: <code>A := ASL(A)</code> */
+    ASL_ACC((env, mem, alu) -> {
+        env.setA(alu.asl(env.getA()));
+    }),
+
+    /** Perform {@link MOS6502ALU#lsr(int)} on the accumulator: <code>A := LSR(A)</code> */
+    LSR_ACC((env, mem, alu) -> {
+        env.setA(alu.lsr(env.getA()));
+    }),
+
+    /** Perform {@link MOS6502ALU#rol(int)} on the accumulator: <code>A := ROL(A)</code> */
+    ROL_ACC((env, mem, alu) -> {
+        env.setA(alu.rol(env.getA()));
+    }),
+
+    /** Perform {@link MOS6502ALU#ror(int)} on the accumulator: <code>A := ROR(A)</code> */
+    ROR_ACC((env, mem, alu) -> {
+        env.setA(alu.ror(env.getA()));
+    }),
+
+    /** Perform {@link MOS6502ALU#asl(int)} on the addressed memory value: <code>mem[address_bus] := ASL(mem[address_bus])</code> */
+    ASL_MEM((env, mem, alu) -> {
+        mem.store(alu.asl(mem.fetch()));
+    }),
+
+    /** Perform {@link MOS6502ALU#lsr(int)} on the addressed memory value: <code>mem[address_bus] := LSR(mem[address_bus])</code> */
+    LSR_MEM((env, mem, alu) -> {
+        mem.store(alu.lsr(mem.fetch()));
+    }),
+
+    /** Perform {@link MOS6502ALU#rol(int)} on the addressed memory value: <code>mem[address_bus] := ROL(mem[address_bus])</code> */
+    ROL_MEM((env, mem, alu) -> {
+        mem.store(alu.rol(mem.fetch()));
+    }),
+
+    /** Perform {@link MOS6502ALU#ror(int)} on the addressed memory value: <code>mem[address_bus] := ROR(mem[address_bus])</code> */
+    ROR_MEM((env, mem, alu) -> {
+        mem.store(alu.ror(mem.fetch()));
     });
 
     private final MOS6502Operation op;
