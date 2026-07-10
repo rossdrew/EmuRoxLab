@@ -2159,6 +2159,241 @@ public class MOS6502MicroOpTest extends Arbitraries {
         assertEquals(0x99, bus.fetch());
     }
 
+    // Branch mechanics are shared by all 8 branch microops via a private helper; exercised here
+    // through BRANCH_IF_EQUAL as a representative. Per-microop tests below only check condition polarity.
+    @Nested
+    class BranchMechanics {
+        @Test
+        public void notTakenReadsOffsetButLeavesPcAndPendingOpUntouched() {
+            ram.write(0x20, 0x05);
+            bus.loadMemoryAddress(0x20);
+            env.setPC(0x8001);
+            env.setZ(false); // BEQ not taken
+
+            BRANCH_IF_EQUAL.execute(env, bus, alu);
+
+            assertFalse(env.additionalTickPending());
+            assertEquals(0x8001, env.getPC());
+        }
+
+        @Test
+        public void takenSamePageChainsExactlyOneOpThatAdvancesPcl() {
+            ram.write(0x20, 0x05); // offset +5
+            bus.loadMemoryAddress(0x20);
+            env.setPC(0x8001);
+            env.setZ(true); // BEQ taken
+
+            BRANCH_IF_EQUAL.execute(env, bus, alu);
+
+            assertTrue(env.additionalTickPending());
+
+            env.getPendingOperation().execute(env, bus, alu); // simulate the chained tick
+
+            assertFalse(env.additionalTickPending());
+            assertEquals(0x8006, env.getPC());
+        }
+
+        @Test
+        public void takenCrossingPageForwardChainsASecondOpThatFixesPch() {
+            ram.write(0x20, 0x0A); // offset +10
+            bus.loadMemoryAddress(0x20);
+            env.setPC(0x80FA); // PCL(0xFA) + 10 overflows past 0xFF
+            env.setZ(true);
+
+            BRANCH_IF_EQUAL.execute(env, bus, alu);
+            env.getPendingOperation().execute(env, bus, alu); // simulate 1st chained tick (PCL only)
+
+            assertTrue(env.additionalTickPending(), "page cross should chain a second op");
+
+            env.getPendingOperation().execute(env, bus, alu); // simulate 2nd chained tick (PCH fix)
+
+            assertFalse(env.additionalTickPending());
+            assertEquals(0x8104, env.getPC());
+        }
+
+        @Test
+        public void takenCrossingPageBackwardChainsASecondOpThatFixesPch() {
+            ram.write(0x20, 0xF6); // offset -10
+            bus.loadMemoryAddress(0x20);
+            env.setPC(0x8005); // PCL(0x05) - 10 underflows below 0x00
+            env.setZ(true);
+
+            BRANCH_IF_EQUAL.execute(env, bus, alu);
+            env.getPendingOperation().execute(env, bus, alu); // simulate 1st chained tick (PCL only)
+
+            assertTrue(env.additionalTickPending(), "page cross should chain a second op");
+
+            env.getPendingOperation().execute(env, bus, alu); // simulate 2nd chained tick (PCH fix)
+
+            assertFalse(env.additionalTickPending());
+            assertEquals(0x7FFB, env.getPC());
+        }
+
+        @Test
+        public void takenWithMaximumPositiveOffsetAppliesCorrectSignExtension() {
+            ram.write(0x20, 0x7F); // +127
+            bus.loadMemoryAddress(0x20);
+            env.setPC(0x8000);
+            env.setZ(true);
+
+            BRANCH_IF_EQUAL.execute(env, bus, alu);
+            env.getPendingOperation().execute(env, bus, alu);
+
+            assertFalse(env.additionalTickPending(), "0x00 + 127 should not cross a page");
+            assertEquals(0x807F, env.getPC());
+        }
+
+        @Test
+        public void takenWithMaximumNegativeOffsetAppliesCorrectSignExtension() {
+            ram.write(0x20, 0x80); // -128, not +128 - the classic two's-complement sign bug
+            bus.loadMemoryAddress(0x20);
+            env.setPC(0x8080); // PCL = 0x80 (128)
+            env.setZ(true);
+
+            BRANCH_IF_EQUAL.execute(env, bus, alu);
+            env.getPendingOperation().execute(env, bus, alu);
+
+            assertFalse(env.additionalTickPending(), "128 + (-128) should not cross a page");
+            assertEquals(0x8000, env.getPC());
+        }
+    }
+
+    @Test
+    public void branchIfPositiveTakesWhenNIsClearAndNotWhenSet() {
+        ram.write(0x20, 0x05);
+        env.setPC(0x8001);
+
+        bus.loadMemoryAddress(0x20);
+        env.setN(false);
+        BRANCH_IF_POSITIVE.execute(env, bus, alu);
+        assertTrue(env.additionalTickPending());
+        env.additionalTickCompleted();
+
+        bus.loadMemoryAddress(0x20);
+        env.setN(true);
+        BRANCH_IF_POSITIVE.execute(env, bus, alu);
+        assertFalse(env.additionalTickPending());
+    }
+
+    @Test
+    public void branchIfNegativeTakesWhenNIsSetAndNotWhenClear() {
+        ram.write(0x20, 0x05);
+        env.setPC(0x8001);
+
+        bus.loadMemoryAddress(0x20);
+        env.setN(true);
+        BRANCH_IF_NEGATIVE.execute(env, bus, alu);
+        assertTrue(env.additionalTickPending());
+        env.additionalTickCompleted();
+
+        bus.loadMemoryAddress(0x20);
+        env.setN(false);
+        BRANCH_IF_NEGATIVE.execute(env, bus, alu);
+        assertFalse(env.additionalTickPending());
+    }
+
+    @Test
+    public void branchIfOverflowClearTakesWhenVIsClearAndNotWhenSet() {
+        ram.write(0x20, 0x05);
+        env.setPC(0x8001);
+
+        bus.loadMemoryAddress(0x20);
+        env.setV(false);
+        BRANCH_IF_OVERFLOW_CLEAR.execute(env, bus, alu);
+        assertTrue(env.additionalTickPending());
+        env.additionalTickCompleted();
+
+        bus.loadMemoryAddress(0x20);
+        env.setV(true);
+        BRANCH_IF_OVERFLOW_CLEAR.execute(env, bus, alu);
+        assertFalse(env.additionalTickPending());
+    }
+
+    @Test
+    public void branchIfOverflowSetTakesWhenVIsSetAndNotWhenClear() {
+        ram.write(0x20, 0x05);
+        env.setPC(0x8001);
+
+        bus.loadMemoryAddress(0x20);
+        env.setV(true);
+        BRANCH_IF_OVERFLOW_SET.execute(env, bus, alu);
+        assertTrue(env.additionalTickPending());
+        env.additionalTickCompleted();
+
+        bus.loadMemoryAddress(0x20);
+        env.setV(false);
+        BRANCH_IF_OVERFLOW_SET.execute(env, bus, alu);
+        assertFalse(env.additionalTickPending());
+    }
+
+    @Test
+    public void branchIfCarryClearTakesWhenCarryIsClearAndNotWhenSet() {
+        ram.write(0x20, 0x05);
+        env.setPC(0x8001);
+
+        bus.loadMemoryAddress(0x20);
+        env.setCarry(false);
+        BRANCH_IF_CARRY_CLEAR.execute(env, bus, alu);
+        assertTrue(env.additionalTickPending());
+        env.additionalTickCompleted();
+
+        bus.loadMemoryAddress(0x20);
+        env.setCarry(true);
+        BRANCH_IF_CARRY_CLEAR.execute(env, bus, alu);
+        assertFalse(env.additionalTickPending());
+    }
+
+    @Test
+    public void branchIfCarrySetTakesWhenCarryIsSetAndNotWhenClear() {
+        ram.write(0x20, 0x05);
+        env.setPC(0x8001);
+
+        bus.loadMemoryAddress(0x20);
+        env.setCarry(true);
+        BRANCH_IF_CARRY_SET.execute(env, bus, alu);
+        assertTrue(env.additionalTickPending());
+        env.additionalTickCompleted();
+
+        bus.loadMemoryAddress(0x20);
+        env.setCarry(false);
+        BRANCH_IF_CARRY_SET.execute(env, bus, alu);
+        assertFalse(env.additionalTickPending());
+    }
+
+    @Test
+    public void branchIfNotEqualTakesWhenZIsClearAndNotWhenSet() {
+        ram.write(0x20, 0x05);
+        env.setPC(0x8001);
+
+        bus.loadMemoryAddress(0x20);
+        env.setZ(false);
+        BRANCH_IF_NOT_EQUAL.execute(env, bus, alu);
+        assertTrue(env.additionalTickPending());
+        env.additionalTickCompleted();
+
+        bus.loadMemoryAddress(0x20);
+        env.setZ(true);
+        BRANCH_IF_NOT_EQUAL.execute(env, bus, alu);
+        assertFalse(env.additionalTickPending());
+    }
+
+    @Test
+    public void branchIfEqualTakesWhenZIsSetAndNotWhenClear() {
+        ram.write(0x20, 0x05);
+        env.setPC(0x8001);
+
+        bus.loadMemoryAddress(0x20);
+        env.setZ(true);
+        BRANCH_IF_EQUAL.execute(env, bus, alu);
+        assertTrue(env.additionalTickPending());
+        env.additionalTickCompleted();
+
+        bus.loadMemoryAddress(0x20);
+        env.setZ(false);
+        BRANCH_IF_EQUAL.execute(env, bus, alu);
+        assertFalse(env.additionalTickPending());
+    }
+
     //TODO A_FROM_X
     //TODO X_FROM_A
     //TODO A_FROM_Y

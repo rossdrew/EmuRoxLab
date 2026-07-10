@@ -481,7 +481,79 @@ enum MOS6502MicroOp implements MOS6502Operation {
     /** Perform {@link MOS6502ALU#ror(int)} on the addressed memory value: <code>mem[address_bus] := ROR(mem[address_bus])</code> */
     ROR_MEM((env, mem, alu) -> {
         mem.store(alu.ror(mem.fetch()));
+    }),
+
+    /** Branch if N is clear: <code>if !N then pc := pc + offset</code> */
+    BRANCH_IF_POSITIVE((env, mem, alu) -> {
+        branch(env, mem, !env.getN());
+    }),
+
+    /** Branch if N is set: <code>if N then pc := pc + offset</code> */
+    BRANCH_IF_NEGATIVE((env, mem, alu) -> {
+        branch(env, mem, env.getN());
+    }),
+
+    /** Branch if V is clear: <code>if !V then pc := pc + offset</code> */
+    BRANCH_IF_OVERFLOW_CLEAR((env, mem, alu) -> {
+        branch(env, mem, !env.getV());
+    }),
+
+    /** Branch if V is set: <code>if V then pc := pc + offset</code> */
+    BRANCH_IF_OVERFLOW_SET((env, mem, alu) -> {
+        branch(env, mem, env.getV());
+    }),
+
+    /** Branch if carry is clear: <code>if !C then pc := pc + offset</code> */
+    BRANCH_IF_CARRY_CLEAR((env, mem, alu) -> {
+        branch(env, mem, !env.getCarry());
+    }),
+
+    /** Branch if carry is set: <code>if C then pc := pc + offset</code> */
+    BRANCH_IF_CARRY_SET((env, mem, alu) -> {
+        branch(env, mem, env.getCarry());
+    }),
+
+    /** Branch if Z is clear: <code>if !Z then pc := pc + offset</code> */
+    BRANCH_IF_NOT_EQUAL((env, mem, alu) -> {
+        branch(env, mem, !env.getZ());
+    }),
+
+    /** Branch if Z is set: <code>if Z then pc := pc + offset</code> */
+    BRANCH_IF_EQUAL((env, mem, alu) -> {
+        branch(env, mem, env.getZ());
     });
+
+    /**
+     * Shared PC-relative branch logic. The offset operand is fetched from the already-addressed
+     * location (via {@code ADDRESS_PC} in the same tick). If not taken, this is the full cost (2 cycles
+     * total including FETCH). If taken, an additional tick is chained to apply the low-byte offset
+     * (3 cycles total); if that crosses a page boundary, a further tick is chained to correct the high
+     * byte (4 cycles total) &mdash; mirroring the real 6502's extra page-cross penalty.
+     */
+    private static void branch(final MOS6502Environment env, final LatchedMemoryBus mem, final boolean take) {
+        final byte offset = (byte) mem.fetch();
+
+        if (!take) {
+            return;
+        }
+
+        env.requestAdditionalOp((e, m, a) -> {
+            final int oldPCH = e.getPCH();
+            final int newLow = e.getPCL() + offset;
+            e.setPCL(newLow & 0xFF);
+
+            if (newLow < 0 || newLow > 0xFF) {
+                final int correctedPCH = (oldPCH + (newLow > 0xFF ? 1 : -1)) & 0xFF;
+                e.requestAdditionalOp((e2, m2, a2) -> {
+                    e2.setPCH(correctedPCH);
+                    m2.fetch(); //dummy read
+                    e2.additionalTickCompleted();
+                });
+            } else {
+                e.additionalTickCompleted();
+            }
+        });
+    }
 
     private final MOS6502Operation op;
 
