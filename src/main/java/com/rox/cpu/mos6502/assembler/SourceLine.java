@@ -9,4 +9,13 @@ package com.rox.cpu.mos6502.assembler;
  * @param operandText the raw, untyped operand text (e.g. {@code "$0200,X"}), or {@code ""} if there is none
  */
 record SourceLine(int lineNumber, String label, String mnemonic, String operandText) {
+    /** Does this line contain a reference label */
+    boolean isLabelled() {
+        return label != null;
+    }
+
+    /** Does this line contain code */
+    boolean containsCode() {
+        return mnemonic != null;
+    }
 }
