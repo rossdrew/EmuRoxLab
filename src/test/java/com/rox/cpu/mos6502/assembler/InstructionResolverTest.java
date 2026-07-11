@@ -65,11 +65,26 @@ public class InstructionResolverTest {
     }
 
     @Test
+    public void zeroPageYModeWidensToAbsoluteYWhenTheMnemonicHasNoZeroPageYVariant() {
+        // LDA has no zero-page,Y form at all (only LDX/STX do) - it should widen straight to absolute,Y
+        assertEquals(MOS6502OpCode.LDA_ABS_Y, InstructionResolver.resolve("LDA", Operand.of(AddressingMode.ZERO_PAGE_Y, 0x05), 1));
+    }
+
+    @Test
     public void unsupportedDirectModeListsWhatIsSupported() {
         final AssemblyException exception = assertThrows(AssemblyException.class,
                 () -> InstructionResolver.resolve("STA", Operand.of(AddressingMode.IMMEDIATE, 0x00), 1));
 
         assertTrue(exception.getMessage().contains("STA does not support IMMEDIATE addressing"));
         assertTrue(exception.getMessage().contains("supported:"));
+    }
+
+    @Test
+    public void widenedModeIsStillRejectedWhenTheMnemonicSupportsNeitherZeroPageNorAbsolute() {
+        // INX supports only IMPLIED, so a zero-page-shaped operand should fail even after widening to absolute
+        final AssemblyException exception = assertThrows(AssemblyException.class,
+                () -> InstructionResolver.resolve("INX", Operand.of(AddressingMode.ZERO_PAGE, 0x05), 1));
+
+        assertTrue(exception.getMessage().contains("INX does not support ZERO_PAGE addressing"));
     }
 }

@@ -48,6 +48,16 @@ public class OpCodeTableTest {
     }
 
     @Test
+    public void supportsIsFalseForACompletelyUnknownMnemonic() {
+        assertFalse(OpCodeTable.supports("XXX", IMPLIED));
+    }
+
+    @Test
+    public void resolveThrowsForACompletelyUnknownMnemonic() {
+        assertThrows(IllegalStateException.class, () -> OpCodeTable.resolve("XXX", IMPLIED));
+    }
+
+    @Test
     public void supportedModesListsExactlyWhatTheMnemonicSupports() {
         assertEquals(Set.of(IMMEDIATE, ZERO_PAGE, ZERO_PAGE_X, ABSOLUTE, ABSOLUTE_X, ABSOLUTE_Y, INDIRECT_X, INDIRECT_Y),
                 OpCodeTable.supportedModes("LDA"));

@@ -62,12 +62,18 @@ public class OperandParserTest {
         public void malformedHexDigitsAreRejected() {
             assertThrows(AssemblyException.class, () -> OperandParser.parse(1, "#$ZZ"));
         }
+
+        @Test
+        public void negativeValueIsRejected() {
+            assertThrows(AssemblyException.class, () -> OperandParser.parse(1, "#-5"));
+        }
     }
 
     @Nested
     class ZeroPageAndAbsolute {
         @ParameterizedTest(name = "{0} -> {1}={2}")
         @CsvSource({
+                "5,     ZERO_PAGE, 5", // single-digit literal: shorter than the ,X/,Y suffix itself
                 "$05,   ZERO_PAGE, 5",
                 "$FF,   ZERO_PAGE, 255",
                 "$ff,   ZERO_PAGE, 255",
@@ -142,7 +148,7 @@ public class OperandParserTest {
     @Nested
     class LabelReferences {
         @ParameterizedTest
-        @CsvSource({"LOOP", "SUB1", "_start"})
+        @CsvSource({"LOOP", "SUB1", "_start", "MY_LABEL"})
         public void bareIdentifiersAreLabelReferences(String text) {
             final Operand operand = OperandParser.parse(1, text);
 

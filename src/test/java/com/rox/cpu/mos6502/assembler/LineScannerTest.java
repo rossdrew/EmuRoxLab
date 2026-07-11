@@ -107,6 +107,22 @@ public class LineScannerTest {
             assertEquals(new SourceLine(1, "FOO", null, ""), lines.get(0));
             assertEquals(new SourceLine(2, "BAR", "LDA", "#$00"), lines.get(1));
         }
+
+        @Test
+        public void emptyTextBeforeAColonIsNotTreatedAsALabel() {
+            final List<SourceLine> lines = LineScanner.scan(": BRK");
+
+            assertEquals(1, lines.size());
+            assertEquals(null, lines.get(0).label());
+        }
+
+        @Test
+        public void anInvalidCharacterAfterTheStartOfACandidateLabelPreventsItBeingRecognisedAsALabel() {
+            final List<SourceLine> lines = LineScanner.scan("LOOP!: BRK");
+
+            assertEquals(1, lines.size());
+            assertEquals(null, lines.get(0).label());
+        }
     }
 
     @Nested

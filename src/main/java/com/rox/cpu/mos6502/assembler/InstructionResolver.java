@@ -66,7 +66,11 @@ final class InstructionResolver {
     private static AddressingMode widenZeroPageToAbsolute(final AddressingMode mode) {
         return switch (mode) {
             case ZERO_PAGE -> AddressingMode.ABSOLUTE;
-            case ZERO_PAGE_X -> AddressingMode.ABSOLUTE_X;
+            // ZERO_PAGE_X -> ABSOLUTE_X is unreachable for the current official opcode set: every
+            // mnemonic with an ABSOLUTE_X form also has a ZERO_PAGE_X form, unlike ABSOLUTE_Y (below),
+            // whose mnemonics never have a ZERO_PAGE_Y form. Re-enable if that ever stops holding -
+            // e.g. a future opcode adds ABSOLUTE_X support without a matching ZERO_PAGE_X.
+            // case ZERO_PAGE_X -> AddressingMode.ABSOLUTE_X;
             case ZERO_PAGE_Y -> AddressingMode.ABSOLUTE_Y;
             default -> null;
         };
