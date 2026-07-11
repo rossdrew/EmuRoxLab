@@ -120,7 +120,7 @@ public class AssemblerTest {
     }
 
     @Test
-    public void assemblesTheExactSampleProgramFromTheIntegrationTest() {
+    public void assembleAMoreRealisticSmallProgram() {
         final String simpleProgram = """
                                 LDX #$00      ; X = 0
                                 LDA #$09      ; A = value to store
