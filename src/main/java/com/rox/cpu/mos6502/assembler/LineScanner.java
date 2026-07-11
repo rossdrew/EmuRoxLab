@@ -2,6 +2,7 @@ package com.rox.cpu.mos6502.assembler;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Splits 6502 assembly source into comment-stripped, label/mnemonic/operand-separated {@link SourceLine}s.
@@ -54,7 +55,7 @@ final class LineScanner {
         }
 
         final String[] parts = lineWithoutLabel.split("\\s+", 2);
-        final String operationMnemonic = parts[0].toUpperCase();
+        final String operationMnemonic = parts[0].toUpperCase(Locale.ROOT);
         final String operandText = parts.length > 1 ? parts[1].trim() : "";
 
         //Content line, possibly with label
