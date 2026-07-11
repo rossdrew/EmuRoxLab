@@ -31,6 +31,9 @@ pitest {
     threads.set(Runtime.getRuntime().availableProcessors())
     outputFormats.set(listOf("HTML", "XML"))
     timestampedReports.set(false)
+    mutationThreshold.set(90)
+    coverageThreshold.set(90)
+    failWhenNoMutations.set(true)
 }
 
 dependencies {
