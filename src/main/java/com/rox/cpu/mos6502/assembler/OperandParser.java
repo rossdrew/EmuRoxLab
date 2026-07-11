@@ -37,7 +37,7 @@ final class OperandParser {
         if (looksLikeNumericLiteral(operandText)) {
             return parseDirect(lineNumber, operandText, AddressingMode.ZERO_PAGE, AddressingMode.ABSOLUTE);
         }
-        if (isValidLabelName(operandText)) {
+        if (Identifiers.isValidLabelName(operandText)) {
             return Operand.labelRef(operandText);
         }
         throw new AssemblyException(lineNumber, "Invalid operand syntax: " + operandText);
@@ -74,19 +74,6 @@ final class OperandParser {
 
     private static boolean looksLikeNumericLiteral(final String text) {
         return text.startsWith("$") || Character.isDigit(text.charAt(0));
-    }
-
-    private static boolean isValidLabelName(final String text) {
-        if (!(Character.isLetter(text.charAt(0)) || text.charAt(0) == '_')) {
-            return false;
-        }
-        for (int i = 1; i < text.length(); i++) {
-            final char c = text.charAt(i);
-            if (!Character.isLetterOrDigit(c) && c != '_') {
-                return false;
-            }
-        }
-        return true;
     }
 
     private static int parseNumberInRange(final int lineNumber, final String literal, final int maxValue) {

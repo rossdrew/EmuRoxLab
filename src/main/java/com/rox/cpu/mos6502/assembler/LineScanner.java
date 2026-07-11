@@ -41,8 +41,11 @@ final class LineScanner {
 
         final int endLabelIndex = lineWithoutLabel.indexOf(LABEL_END);
         if (endLabelIndex != -1) {
-            labelForThisLine = lineWithoutLabel.substring(0, endLabelIndex).trim();
-            lineWithoutLabel = lineWithoutLabel.substring(endLabelIndex + 1).trim();
+            final String candidateLabel = lineWithoutLabel.substring(0, endLabelIndex).trim();
+            if (Identifiers.isValidLabelName(candidateLabel)) {
+                labelForThisLine = candidateLabel;
+                lineWithoutLabel = lineWithoutLabel.substring(endLabelIndex + 1).trim();
+            }
         }
 
         if (lineWithoutLabel.isEmpty()) {

@@ -12,6 +12,10 @@ public record AssembledProgram(int startAddress, int[] bytes, Map<String, Intege
         labels = Map.copyOf(labels);
     }
 
+    public int[] bytes() {
+        return bytes.clone();
+    }
+
     public int length() {
         return bytes.length;
     }
