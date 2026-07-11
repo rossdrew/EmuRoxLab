@@ -11,7 +11,6 @@ import com.rox.mem.RAM;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class MOS6502IntegrationTest {
 
@@ -61,6 +60,6 @@ public class MOS6502IntegrationTest {
             ticks++;
         } while (env.getIR() != MOS6502OpCode.BRK_IMP.getId() && ticks < MAX_TICKS);
 
-        assertTrue(ticks < MAX_TICKS, "Program did not reach BRK within the tick budget");
+        assertEquals(MOS6502OpCode.BRK_IMP.getId(), env.getIR(), "Program did not reach BRK within the tick budget");
     }
 }
