@@ -33,10 +33,11 @@ and after a little over half the opcodes were implemented, setting a standard mo
 
 # Current state
 1. a CPU clock that can run at a given Hz and Frame Rate
-2. some memory structures in place so that instructions work on something sensible
-3. a reusable (new) [functional enum](https://dev.to/rossdrew/functional-enums-in-java-34o1) design for building micro ops and op codes
-4. All 6502 opcodes implemented
-![Current progress...](https://github.com/rossdrew/EmuRoxLab/blob/main/resource/opcodes.svg)
+2. Some memory structures in place so that instructions work on something sensible
+3. A reusable (new) [functional enum](https://dev.to/rossdrew/functional-enums-in-java-34o1) design for building micro ops and op codes
+   - All 6502 opcodes implemented
+   ![Current progress...](https://github.com/rossdrew/EmuRoxLab/blob/main/resource/opcodes.svg)
+4. A [6502 assembler](https://github.com/rossdrew/EmuRoxLab/tree/main/src/main/java/com/rox/cpu/mos6502/assembler)
 
 In addition, the build system
 1. Builds the code using Gradle and Kotlin
@@ -47,9 +48,8 @@ In addition, the build system
 
 # Next up
 1. Reviewing the whole design for optimisations
-2. An assembler so that we can run more complex programs and make sure it works as expected.
-3. Integrating this back into EmuRox
-4. Looking at where else AI can be integrated.  For example, plans being tickets on a board or local AI review help.  Later, when there's a cohesive it might be good to have AI QA for system testing.
+2. Integrating this back into EmuRox
+3. Looking at where else AI can be integrated.  For example, plans being tickets on a board or local AI review help.  Later, when there's a cohesive it might be good to have AI QA for system testing.
 
 # Uncovered issues with my approach
 - STA_ABS_X and LDA_ABS_X: LDA_ABS_X is a read instruction, so the 6502 can optimistically try to read from the partially indexed address first; if adding X does not cross a page, that read is valid and the instruction finishes in 4 cycles, but if the low byte overflows, the CPU needs one extra cycle to fix the high byte and reread from the correct address. STA_ABS_X is a write instruction, so the CPU cannot safely do that optimistic access because an early write to the wrong address would corrupt memory; it must always spend the indexing/dummy-read cycle before performing the real write, making it 5 cycles whether or not a page is crossed.  My approach needs fully duplicated MicroOps for the case where an instruction is optionally added and the case where it is always added.
