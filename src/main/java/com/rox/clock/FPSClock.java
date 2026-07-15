@@ -1,4 +1,4 @@
-package com.rox;
+package com.rox.clock;
 
 import com.rox.time.Sleeper;
 import com.rox.time.TimeSource;

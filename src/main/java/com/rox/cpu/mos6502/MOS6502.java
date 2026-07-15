@@ -1,6 +1,6 @@
 package com.rox.cpu.mos6502;
 
-import com.rox.ClockWatcher;
+import com.rox.clock.ClockWatcher;
 import com.rox.mem.*;
 
 import java.util.*;
@@ -48,7 +48,7 @@ public class MOS6502 implements ClockWatcher {
                 /*DEBUG*///System.out.println("TICK> " + op + "\t - " + environment);
             }
 
-            //Add (optional) additional requested operation
+            //XXX Add (optional) additional requested operation
             if (environment.additionalTickPending()){
                 opsInTicksStack.push(new MOS6502Operation[] { environment.getPendingOperation() });
             }

@@ -1,4 +1,4 @@
-package com.rox;
+package com.rox.clock;
 
 /**
  * Something which watches things that tick {@link Ticker}
