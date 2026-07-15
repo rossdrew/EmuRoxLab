@@ -8,6 +8,27 @@ import java.util.*;
 import static com.rox.cpu.mos6502.MOS6502MicroOp.*;
 
 public class MOS6502 implements ClockWatcher {
+    /** 7-cycle hardware interrupt sequence: 2 dummy PC reads, push PCH/PCL/status (B=0), set I, jump to vector */
+    private static final MOS6502Operation[][] IRQ_SEQUENCE = {
+            { ADDRESS_CURRENT_PC, DUMMY_READ },
+            { ADDRESS_CURRENT_PC, DUMMY_READ },
+            { PUSH_PCH },
+            { PUSH_PCL },
+            { PUSH_PROCESSOR_STATUS_WITHOUT_BREAK, INTERRUPT },
+            { ADDRESS_IV_LOW, PCL_FROM_MEM },
+            { ADDRESS_IV_HIGH, PCH_FROM_MEM }
+    };
+
+    private static final MOS6502Operation[][] NMI_SEQUENCE = {
+            { ADDRESS_CURRENT_PC, DUMMY_READ },
+            { ADDRESS_CURRENT_PC, DUMMY_READ },
+            { PUSH_PCH },
+            { PUSH_PCL },
+            { PUSH_PROCESSOR_STATUS_WITHOUT_BREAK, INTERRUPT },
+            { ADDRESS_NMI_LOW, PCL_FROM_MEM },
+            { ADDRESS_NMI_HIGH, PCH_FROM_MEM }
+    };
+
     private final LatchedMemoryBus latchedMemory;
 
     private Deque<MOS6502Operation[]> opsInTicksStack = new ArrayDeque<>();
@@ -28,10 +49,27 @@ public class MOS6502 implements ClockWatcher {
         this.alu = new MOS6502ALU(this.environment);
     }
 
+    /** Assert (true) or deassert (false) the level-sensitive hardware IRQ line, as a device such as the APU would */
+    public void assertIRQLine(boolean asserted){
+        environment.setIRQLine(asserted);
+    }
+
+    /** Signal a non-maskable interrupt, latched until serviced */
+    public void signalNMI(){
+        environment.signalNMI();
+    }
+
     @Override
     public void tick() {
         if (opsInTicksStack.isEmpty()){
-            stackMicroOperations(fetchNextOp());
+            if (environment.hasPendingInterrupt()){
+                // Mirrors fetchNextOp(): the cycle that schedules the sequence also performs its first tick's work
+                stackMicroOperations(environment.consumeNMI() ? NMI_SEQUENCE : IRQ_SEQUENCE);
+                executeNextInstructionInStack();
+                performAdditionalRequestedMicroOp();
+            } else {
+                stackMicroOperations(fetchNextOp());
+            }
         } else {
             executeNextInstructionInStack();
             performAdditionalRequestedMicroOp();
@@ -46,7 +84,11 @@ public class MOS6502 implements ClockWatcher {
 
     /** Schedule micro operatiosn of opcdoe in reverse defined order in stack */
     private void stackMicroOperations(MOS6502OpCode opcode) {
-        final MOS6502Operation[][] operations = opcode.getOperations();
+        stackMicroOperations(opcode.getOperations());
+    }
+
+    /** Schedule the given per-tick operations in reverse order onto the stack */
+    private void stackMicroOperations(MOS6502Operation[][] operations) {
         for (int tick=operations.length-1; tick>=0; tick--){
             opsInTicksStack.push(operations[tick]);
         }

@@ -208,6 +208,49 @@ class MOS6502Environment {
         setCarry((newStatus & 0x01) != 0);
     }
 
+    private boolean irqLineAsserted;
+    private boolean nmiPending;
+
+    /**
+     * Level-sensitive hardware IRQ line, held asserted by a device until it's serviced or the device deasserts it.<br/>
+     *<br/>
+     * Vector: FFFE/FFFF<br/>
+     * Maskable: using {@link MOS6502Environment#setI(boolean)} flag.<br/>
+     */
+    public void setIRQLine(boolean asserted){
+        this.irqLineAsserted = asserted;
+    }
+
+    public boolean isIRQLineAsserted(){
+        return irqLineAsserted;
+    }
+
+    /**
+     * Edge-latched hardware NMI signal, set by a device and cleared once serviced.<br/>
+     *<br/>
+     * Vector: FFFA/FFFB<br/>
+     * Maskable: No<br/>
+     * <br>
+     * <b>Edge-latched</b> <i>This toggles on a flag {@link MOS6502Environment#hasPendingInterrupt()} on when electronic
+     * signal falling edge occurs.  In a circuit this would mean that in order to retrigger, the signal would need to
+     * rise to high then fall again.  To us this means it's toggled on until it is addressed.</i>
+     */
+    public void signalNMI(){
+        this.nmiPending = true;
+    }
+
+    /** @return true and clears the pending flag if an NMI was latched, false (no change) otherwise */
+    public boolean consumeNMI(){
+        boolean pending = nmiPending;
+        nmiPending = false;
+        return pending;
+    }
+
+    /** @return true if a hardware interrupt should be serviced at the next instruction boundary. NMI is non-maskable and takes priority over IRQ. */
+    public boolean hasPendingInterrupt(){
+        return nmiPending || (irqLineAsserted && !getI());
+    }
+
     public boolean additionalTickPending(){
         //XXX (1/4) Workaround for opcodes which have varying cycles
         return onGoingExpensiveOp;
