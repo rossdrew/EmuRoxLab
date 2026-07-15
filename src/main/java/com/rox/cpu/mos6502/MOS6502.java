@@ -14,13 +14,6 @@ public class MOS6502 implements ClockWatcher {
     private MOS6502Environment environment;
     private MOS6502ALU alu;
 
-    @FunctionalInterface
-    interface MOS6502Operation {
-        void execute(final MOS6502Environment environment,
-                     final LatchedMemoryBus memory,
-                     final MOS6502ALU alu);
-    }
-
     public MOS6502Environment getEnvironmentSnapshot(){
         return environment.clone();
     }

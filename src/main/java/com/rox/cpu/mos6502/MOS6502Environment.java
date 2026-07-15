@@ -1,7 +1,5 @@
 package com.rox.cpu.mos6502;
 
-import com.rox.cpu.mos6502.MOS6502.MOS6502Operation;
-
 /**
  * WIP
  */
