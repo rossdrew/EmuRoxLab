@@ -1,14 +1,16 @@
 package com.rox.cpu.mos6502;
 
 /**
- * WIP
+ * WIP...
+ *
+ *  Status Flags
+ *  Bit:   7 6 5 4 3 2 1 0
+ *        +---------------+
+ *        |N|V|1|B|D|I|Z|C|
+ *        +---------------+
  */
 class MOS6502Environment {
-     // Status Flags
-     // Bit:   7 6 5 4 3 2 1 0
-     //       +---------------+
-     //       |N|V|1|B|D|I|Z|C|
-     //       +---------------+
+
     public boolean negative;         //0x80
     public boolean signedOverflow;   //0x40
     public boolean breakFlag;        //0x10
@@ -26,7 +28,10 @@ class MOS6502Environment {
     private int y;                   //Y registers
     private int stackPointer = 0xFF; //Low byte of the stack pointer $01:XX
 
-    private boolean onGoingExpensiveOp = false;
+    private boolean irqLineAsserted;
+    private boolean nmiPending;
+    
+    private MOS6502Operation pendingOperation;
 
     MOS6502Environment(){
         this(false, false, false, false, 0,0,0,0,0, 0);
@@ -208,9 +213,6 @@ class MOS6502Environment {
         setCarry((newStatus & 0x01) != 0);
     }
 
-    private boolean irqLineAsserted;
-    private boolean nmiPending;
-
     /**
      * Level-sensitive hardware IRQ line, held asserted by a device until it's serviced or the device deasserts it.<br/>
      *<br/>
@@ -253,13 +255,11 @@ class MOS6502Environment {
 
     public boolean additionalTickPending(){
         //XXX (1/4) Workaround for opcodes which have varying cycles
-        return onGoingExpensiveOp;
+        return pendingOperation!=null;
     }
 
-    private MOS6502Operation pendingOperation;
     public void requestAdditionalOp(MOS6502Operation operation) {
         //XXX (2/4) Workaround for opcodes which have varying cycles
-        onGoingExpensiveOp = true;
         this.pendingOperation = operation;
     }
 
@@ -270,9 +270,8 @@ class MOS6502Environment {
 
     public void additionalTickCompleted(){
         //XXX (4/4) Workaround for opcodes which have varying cycles
-        onGoingExpensiveOp = false;
+        pendingOperation = null;
     }
-
 
     /** Overflow safe PC + increment */
     public int getAndIncrementPC(){
