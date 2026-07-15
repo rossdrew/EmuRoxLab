@@ -31,27 +31,40 @@ public class MOS6502 implements ClockWatcher {
     @Override
     public void tick() {
         if (opsInTicksStack.isEmpty()){
-            FETCH.execute(environment, latchedMemory, alu);
-            final MOS6502OpCode opcode = MOS6502OpCode.from(environment.getIR()); //decode
-            /*DEBUG*///System.out.println("TICK>(!) Fetched next opcode: " + opcode + "\t - " + environment);
-
-            //Schedule: push (reversed) to stack
-            final MOS6502Operation[][] operations = opcode.getOperations();
-            for (int tick=operations.length-1; tick>=0; tick--){
-                opsInTicksStack.push(operations[tick]);
-            }
+            stackMicroOperations(fetchNextOp());
         } else {
-            final MOS6502Operation[] opsThisTick = opsInTicksStack.pop();
+            executeNextInstructionInStack();
+            performAdditionalRequestedMicroOp();
+        }
+    }
 
-            for (MOS6502Operation op : opsThisTick){
-                op.execute(environment, latchedMemory, alu);
-                /*DEBUG*///System.out.println("TICK> " + op + "\t - " + environment);
-            }
+    private MOS6502OpCode fetchNextOp() {
+        FETCH.execute(environment, latchedMemory, alu);
+        /*DEBUG*///System.out.println("TICK>(!) Fetched next opcode: " + opcode + "\t - " + environment);
+        return MOS6502OpCode.from(environment.getIR()); //decode
+    }
 
-            //XXX Add (optional) additional requested operation
-            if (environment.additionalTickPending()){
-                opsInTicksStack.push(new MOS6502Operation[] { environment.getPendingOperation() });
-            }
+    /** Schedule micro operatiosn of opcdoe in reverse defined order in stack */
+    private void stackMicroOperations(MOS6502OpCode opcode) {
+        final MOS6502Operation[][] operations = opcode.getOperations();
+        for (int tick=operations.length-1; tick>=0; tick--){
+            opsInTicksStack.push(operations[tick]);
+        }
+    }
+
+    private void executeNextInstructionInStack() {
+        final MOS6502Operation[] opsThisTick = opsInTicksStack.pop();
+
+        for (MOS6502Operation op : opsThisTick){
+            op.execute(environment, latchedMemory, alu);
+            /*DEBUG*///System.out.println("TICK> " + op + "\t - " + environment);
+        }
+    }
+
+    /** Execute additional requested micro operations, for use in page crosses for example */
+    private void performAdditionalRequestedMicroOp() {
+        if (environment.additionalTickPending()){
+            opsInTicksStack.push(new MOS6502Operation[] { environment.getPendingOperation() });
         }
     }
 }
