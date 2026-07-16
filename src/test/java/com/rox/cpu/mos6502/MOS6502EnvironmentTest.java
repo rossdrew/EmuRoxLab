@@ -82,8 +82,8 @@ public class MOS6502EnvironmentTest extends Arbitraries {
 
     @Property
     public void hasPendingInterruptMatchesTruthTable(@ForAll boolean irqAsserted,
-                                                       @ForAll boolean interruptDisable,
-                                                       @ForAll boolean nmiSignalled){
+                                                     @ForAll boolean interruptDisable,
+                                                     @ForAll boolean nmiSignalled){
         final MOS6502Environment localEnv = new MOS6502Environment();
         localEnv.setIRQLine(irqAsserted);
         localEnv.setI(interruptDisable);
