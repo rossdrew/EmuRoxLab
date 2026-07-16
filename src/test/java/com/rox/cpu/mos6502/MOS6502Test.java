@@ -102,7 +102,7 @@ public class MOS6502Test {
     public void servicingIRQSetsInterruptDisableFlagAndConsumesNMISeparately(){
         final MOS6502Environment env = new MOS6502Environment();
         final MOS6502 localCpu = new MOS6502(bus, env);
-        env.setIRQLine(true);
+        localCpu.setIRQLine(true);
 
         for (int i = 0; i < 7; i++) {
             localCpu.tick();
@@ -115,8 +115,8 @@ public class MOS6502Test {
     public void nmiServicedInPreferenceToPendingIRQ(){
         final MOS6502Environment env = new MOS6502Environment();
         final MOS6502 localCpu = new MOS6502(bus, env);
-        env.setIRQLine(true);
-        env.signalNMI();
+        localCpu.setIRQLine(true);
+        localCpu.signalNMI();
 
         for (int i = 0; i < 7; i++) {
             localCpu.tick();

@@ -49,8 +49,8 @@ public class MOS6502 implements ClockWatcher {
         this.alu = new MOS6502ALU(this.environment);
     }
 
-    /** Assert (true) or deassert (false) the level-sensitive hardware IRQ line, as a device such as the APU would */
-    public void assertIRQLine(boolean asserted){
+    /** Set the level-sensitive hardware IRQ line, as a device such as the APU would */
+    public void setIRQLine(boolean asserted){
         environment.setIRQLine(asserted);
     }
 
