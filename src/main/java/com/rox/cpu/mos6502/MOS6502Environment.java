@@ -9,8 +9,7 @@ package com.rox.cpu.mos6502;
  *        |N|V|1|B|D|I|Z|C|
  *        +---------------+
  */
-class MOS6502Environment {
-
+public class MOS6502Environment {
     public boolean negative;         //0x80
     public boolean signedOverflow;   //0x40
     public boolean breakFlag;        //0x10
@@ -30,7 +29,7 @@ class MOS6502Environment {
 
     private boolean irqLineAsserted;
     private boolean nmiPending;
-    
+
     private MOS6502Operation pendingOperation;
 
     MOS6502Environment(){
