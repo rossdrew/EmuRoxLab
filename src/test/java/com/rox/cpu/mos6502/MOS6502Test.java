@@ -64,5 +64,68 @@ public class MOS6502Test {
 
         cpu.tick(); //BRK (0x0) TODO: Validate when BRK ready
     }
+
+    @Test
+    public void pendingInterruptNotServicedMidInstruction(){
+        final MOS6502Environment env = new MOS6502Environment();
+        final MOS6502 localCpu = new MOS6502(bus, env);
+        when(bus.fetch()).thenReturn(MOS6502OpCode.ADC_ABS.getId(), 0x00, 0x00, 0x00);
+
+        localCpu.tick(); //fetch ADC_ABS opcode, 3 ticks remain on the stack
+
+        env.setIRQLine(true);
+        localCpu.tick(); //still mid-instruction (fetching ADL)
+
+        verify(bus, never()).loadMemoryAddress(0xFFFE);
+        verify(bus, never()).loadMemoryAddress(0xFFFF);
+    }
+
+    @Test
+    public void pendingIRQServicedAtNextFetchBoundary(){
+        final MOS6502Environment env = new MOS6502Environment();
+        final MOS6502 localCpu = new MOS6502(bus, env);
+        when(bus.fetch()).thenReturn(MOS6502OpCode.NOP_IMP.getId());
+
+        localCpu.tick(); //fetch NOP_IMP
+        localCpu.tick(); //execute NOP_IMP's single (empty) tick, stack now empty
+
+        env.setIRQLine(true);
+        for (int i = 0; i < 7; i++) {
+            localCpu.tick(); //service the 7-cycle interrupt sequence
+        }
+
+        verify(bus).loadMemoryAddress(0xFFFE);
+        verify(bus).loadMemoryAddress(0xFFFF);
+    }
+
+    @Test
+    public void servicingIRQSetsInterruptDisableFlagAndConsumesNMISeparately(){
+        final MOS6502Environment env = new MOS6502Environment();
+        final MOS6502 localCpu = new MOS6502(bus, env);
+        localCpu.setIRQLine(true);
+
+        for (int i = 0; i < 7; i++) {
+            localCpu.tick();
+        }
+
+        assertTrue(env.getI(), "servicing a hardware interrupt should set the interrupt-disable flag");
+    }
+
+    @Test
+    public void nmiServicedInPreferenceToPendingIRQ(){
+        final MOS6502Environment env = new MOS6502Environment();
+        final MOS6502 localCpu = new MOS6502(bus, env);
+        localCpu.setIRQLine(true);
+        localCpu.signalNMI();
+
+        for (int i = 0; i < 7; i++) {
+            localCpu.tick();
+        }
+
+        verify(bus).loadMemoryAddress(0xFFFA);
+        verify(bus).loadMemoryAddress(0xFFFB);
+        verify(bus, never()).loadMemoryAddress(0xFFFE);
+        verify(bus, never()).loadMemoryAddress(0xFFFF);
+    }
 }
 

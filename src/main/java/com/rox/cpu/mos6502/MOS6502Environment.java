@@ -1,14 +1,15 @@
 package com.rox.cpu.mos6502;
 
 /**
- * WIP
+ * WIP...
+ *
+ *  Status Flags
+ *  Bit:   7 6 5 4 3 2 1 0
+ *        +---------------+
+ *        |N|V|1|B|D|I|Z|C|
+ *        +---------------+
  */
-class MOS6502Environment {
-     // Status Flags
-     // Bit:   7 6 5 4 3 2 1 0
-     //       +---------------+
-     //       |N|V|1|B|D|I|Z|C|
-     //       +---------------+
+public class MOS6502Environment {
     public boolean negative;         //0x80
     public boolean signedOverflow;   //0x40
     public boolean breakFlag;        //0x10
@@ -26,24 +27,29 @@ class MOS6502Environment {
     private int y;                   //Y registers
     private int stackPointer = 0xFF; //Low byte of the stack pointer $01:XX
 
-    private boolean onGoingExpensiveOp = false;
+    private boolean irqLineAsserted;
+    private boolean nmiPending;
+
+    private MOS6502Operation pendingOperation;
 
     MOS6502Environment(){
-        this(false, false, false, false, 0,0,0,0,0, 0);
+        this(false, false, false, false, false, 0,0,0,0,0, 0,0);
     }
 
-    MOS6502Environment(boolean c, boolean z, boolean n, boolean v,
-                       int pc, int ir, int adl, int adh, int a, int x){
+    MOS6502Environment(boolean c, boolean z, boolean n, boolean v, boolean breakFlag,
+                       int pc, int ir, int adl, int adh, int a, int x, int y){
         this.carry = c;
         this.zero = z;
         this.negative = n;
         this.signedOverflow = v;
+        this.breakFlag = breakFlag;
         this.pc = pc;
         this.ir = ir;
         this.adl = adl;
         this.adh = adh;
         this.a = a;
         this.x = x;
+        this.y = y;
     }
 
     public int getIR(){
@@ -208,15 +214,53 @@ class MOS6502Environment {
         setCarry((newStatus & 0x01) != 0);
     }
 
-    public boolean additionalTickPending(){
-        //XXX (1/4) Workaround for opcodes which have varying cycles
-        return onGoingExpensiveOp;
+    /**
+     * Level-sensitive hardware IRQ line, held asserted by a device until it's serviced or the device deasserts it.<br/>
+     *<br/>
+     * Vector: FFFE/FFFF<br/>
+     * Maskable: using {@link MOS6502Environment#setI(boolean)} flag.<br/>
+     */
+    public void setIRQLine(boolean asserted){
+        this.irqLineAsserted = asserted;
     }
 
-    private MOS6502Operation pendingOperation;
+    public boolean isIRQLineAsserted(){
+        return irqLineAsserted;
+    }
+
+    /**
+     * Edge-latched hardware NMI signal, set by a device and cleared once serviced.<br/>
+     *<br/>
+     * Vector: FFFA/FFFB<br/>
+     * Maskable: No<br/>
+     * <br>
+     * <b>Edge-latched</b> <i>This toggles on a flag {@link MOS6502Environment#hasPendingInterrupt()} on when electronic
+     * signal falling edge occurs.  In a circuit this would mean that in order to retrigger, the signal would need to
+     * rise to high then fall again.  To us this means it's toggled on until it is addressed.</i>
+     */
+    public void signalNMI(){
+        this.nmiPending = true;
+    }
+
+    /** @return true and clears the pending flag if an NMI was latched, false (no change) otherwise */
+    public boolean consumeNMI(){
+        boolean pending = nmiPending;
+        nmiPending = false;
+        return pending;
+    }
+
+    /** @return true if a hardware interrupt should be serviced at the next instruction boundary. NMI is non-maskable and takes priority over IRQ. */
+    public boolean hasPendingInterrupt(){
+        return nmiPending || (irqLineAsserted && !getI());
+    }
+
+    public boolean additionalTickPending(){
+        //XXX (1/4) Workaround for opcodes which have varying cycles
+        return pendingOperation!=null;
+    }
+
     public void requestAdditionalOp(MOS6502Operation operation) {
         //XXX (2/4) Workaround for opcodes which have varying cycles
-        onGoingExpensiveOp = true;
         this.pendingOperation = operation;
     }
 
@@ -227,9 +271,8 @@ class MOS6502Environment {
 
     public void additionalTickCompleted(){
         //XXX (4/4) Workaround for opcodes which have varying cycles
-        onGoingExpensiveOp = false;
+        pendingOperation = null;
     }
-
 
     /** Overflow safe PC + increment */
     public int getAndIncrementPC(){
@@ -239,7 +282,11 @@ class MOS6502Environment {
     }
 
     public MOS6502Environment clone(){
-        return new MOS6502Environment(carry, zero, negative, signedOverflow, pc, ir, adl, adh, a, x);
+        final MOS6502Environment copy = new MOS6502Environment(carry, zero, negative, signedOverflow, breakFlag, pc, ir, adl, adh, a, x, y);
+        copy.i = i;
+        copy.irqLineAsserted = irqLineAsserted;
+        copy.nmiPending = nmiPending;
+        return copy;
     }
 
     @Override

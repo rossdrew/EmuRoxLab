@@ -23,6 +23,11 @@ enum MOS6502MicroOp implements MOS6502Operation {
         mem.loadMemoryAddress(env.getAndIncrementPC());
     }),
 
+    /** Load address from program counter into address bus without advancing it : <code>address_bus := mem[pc]</code> */
+    ADDRESS_CURRENT_PC((env, mem, alu) -> {
+        mem.loadMemoryAddress(env.getPC());
+    }),
+
     /** Pull addressed value and load into address bus : <code>address_bus := mem[address_bus]</code> */
     ADDRESS_MEM_POINTER((env, mem, alu) -> {
         mem.loadMemoryAddress(mem.fetch());
@@ -332,6 +337,16 @@ enum MOS6502MicroOp implements MOS6502Operation {
         mem.loadMemoryAddress(0xFFFF);
     }),
 
+    /** Address the low byte of the NMI vector ready to be read <code>mem[$FF:FA)</code> */
+    ADDRESS_NMI_LOW((env, mem, alu) -> {
+        mem.loadMemoryAddress(0xFFFA);
+    }),
+
+    /** Address the high byte of the NMI vector ready to be read <code>mem[$FF:FB)</code> */
+    ADDRESS_NMI_HIGH((env, mem, alu) -> {
+        mem.loadMemoryAddress(0xFFFB);
+    }),
+
     /** Push the current value of PCH onto the stack and decrement the stack pointer <code>mem[$01:SP--] := PCH</code> **/
     PUSH_PCH((env, mem, alu) -> {
         mem.loadMemoryAddress(0x0100 | env.getStackPointer());
@@ -380,6 +395,13 @@ enum MOS6502MicroOp implements MOS6502Operation {
     PUSH_PROCESSOR_STATUS_WITH_BREAK((env, mem, alu) -> {
         mem.loadMemoryAddress(0x0100 | env.getStackPointer());
         mem.store(env.getStatus(true));
+        env.setStackPointer((env.getStackPointer()-1) & 0xFF);
+    }),
+
+    /** Push the current state of the processor onto the stack with break flag set to 0 and decrement the stack pointer, as a hardware IRQ/NMI does (distinguishing it from BRK/PHP) <code>mem[$01:SP--] := Processor Status</code> **/
+    PUSH_PROCESSOR_STATUS_WITHOUT_BREAK((env, mem, alu) -> {
+        mem.loadMemoryAddress(0x0100 | env.getStackPointer());
+        mem.store(env.getStatus(false));
         env.setStackPointer((env.getStackPointer()-1) & 0xFF);
     }),
 
