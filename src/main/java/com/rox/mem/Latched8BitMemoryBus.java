@@ -4,7 +4,7 @@ package com.rox.mem;
  * 16bit addressed, 8bit data memory
  */
 public class Latched8BitMemoryBus implements LatchedMemoryBus {
-    private final MemoryBus memoryBus;
+    private final MemoryBus memoryBus; //XXX: Should probably make this MemoryBus8Bit which would do the masking for us
     private int addressedMemory;
 
     public final static int ADDRESS_MASK = 0xFFFF;
