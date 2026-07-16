@@ -86,16 +86,16 @@ public class MOS6502IntegrationTest {
                         BRK           ; Stop
                 """;
 
-        final AssembledProgram program = Assembler.assemble(simpleProgram, 0x8000);
-
-        writeProgram(ram, program);
-
-        final MemoryBus bus = new MemoryBus8Bit(ram);
-        final LatchedMemoryBus latchedBus = new Latched8BitMemoryBus(bus);
         final MOS6502Environment env = new MOS6502Environment();
-        env.setPC(program.startAddress());
-
-        final MOS6502 cpu = new MOS6502(latchedBus, env);
+        final Latched8BitMemoryBus latched8BitMemoryBus = assembleCodeInMemory(
+                simpleProgram,
+                0x8000,
+                null,
+                0,
+                0,
+                0,
+                env);
+        final MOS6502 cpu = new MOS6502(latched8BitMemoryBus, env);
 
         runUntilBrk(cpu, env);
 
@@ -124,7 +124,14 @@ public class MOS6502IntegrationTest {
                 """;
 
         final MOS6502Environment env = new MOS6502Environment();
-        final Latched8BitMemoryBus bus = assembleCodeInMemory(mainProgram, 0x8000, irqHandler, 0x9000, 0xFFFE, 0xFFFF, env);
+        final Latched8BitMemoryBus bus = assembleCodeInMemory(
+                mainProgram,
+                0x8000,
+                irqHandler,
+                0x9000,
+                0xFFFE,
+                0xFFFF,
+                env);
         final MOS6502 cpu = new MOS6502(bus, env);
         env.setIRQLine(true);
 
@@ -154,7 +161,14 @@ public class MOS6502IntegrationTest {
                 """;
 
         final MOS6502Environment env = new MOS6502Environment();
-        final Latched8BitMemoryBus bus = assembleCodeInMemory(mainProgram, 0x8000, nmiHandler, 0x9100, 0xFFFA, 0xFFFB, env);
+        final Latched8BitMemoryBus bus = assembleCodeInMemory(
+                mainProgram,
+                0x8000,
+                nmiHandler,
+                0x9100,
+                0xFFFA,
+                0xFFFB,
+                env);
         final MOS6502 cpu = new MOS6502(bus, env);
 
         cpu.tick(); //fetch SEI
@@ -180,7 +194,14 @@ public class MOS6502IntegrationTest {
                 """;
 
         final MOS6502Environment env = new MOS6502Environment();
-        final Latched8BitMemoryBus bus = assembleCodeInMemory(mainProgram, 0x8000, irqHandler, 0x9000, 0xFFFE, 0xFFFF, env);
+        final Latched8BitMemoryBus bus = assembleCodeInMemory(
+                mainProgram,
+                0x8000,
+                irqHandler,
+                0x9000,
+                0xFFFE,
+                0xFFFF,
+                env);
         final MOS6502 cpu = new MOS6502(bus, env);
 
         env.setIRQLine(true); //fires before the very first NOP, since I defaults to false
@@ -193,6 +214,28 @@ public class MOS6502IntegrationTest {
         assertEquals(1, env.getX(), "handler should have run exactly once");
         assertEquals(0x8004, env.getPC(), "should have resumed at $8000 and executed exactly the 3 NOPs before reaching this BRK "
                 + "(most of RAM is zero-initialised/BRK, so reaching *any* BRK isn't enough - the PC must land here precisely)");
+    }
+
+    @Test
+    public void brkPushesStatusWithBreakFlagSet(){
+        final MOS6502Environment env = new MOS6502Environment();
+        final Latched8BitMemoryBus latched8BitMemoryBus = assembleCodeInMemory(
+                "BRK",
+                0x8000,
+                null,
+                0x00,
+                0x90,
+                0xFFFF,
+                env);
+        final MOS6502 cpu = new MOS6502(latched8BitMemoryBus, env);
+
+        for (int i = 0; i < 7; i++) {
+            cpu.tick(); //BRK's fetch + 6 explicit ticks
+        }
+
+        final int pushedStatusAddress = 0x0100 | ((env.getStackPointer() + 1) & 0xFF);
+        final int pushedStatus = ram.read(pushedStatusAddress);
+        assertEquals(0x10, pushedStatus & 0x10, "BRK must push status with the break flag set");
     }
 
     @Test
@@ -214,27 +257,5 @@ public class MOS6502IntegrationTest {
         final int pushedStatusAddress = 0x0100 | ((env.getStackPointer() + 1) & 0xFF);
         final int pushedStatus = ram.read(pushedStatusAddress);
         assertEquals(0, pushedStatus & 0x10, "hardware interrupts must push status with the break flag clear");
-    }
-
-    @Test
-    public void brkPushesStatusWithBreakFlagSet(){
-        final AssembledProgram main = Assembler.assemble("BRK", 0x8000);
-
-        writeProgram(ram, main);
-        ram.write(0xFFFE, 0x00);
-        ram.write(0xFFFF, 0x90);
-
-        final LatchedMemoryBus bus = new Latched8BitMemoryBus(new MemoryBus8Bit(ram));
-        final MOS6502Environment env = new MOS6502Environment();
-        env.setPC(main.startAddress());
-        final MOS6502 cpu = new MOS6502(bus, env);
-
-        for (int i = 0; i < 7; i++) {
-            cpu.tick(); //BRK's fetch + 6 explicit ticks
-        }
-
-        final int pushedStatusAddress = 0x0100 | ((env.getStackPointer() + 1) & 0xFF);
-        final int pushedStatus = ram.read(pushedStatusAddress);
-        assertEquals(0x10, pushedStatus & 0x10, "BRK must push status with the break flag set");
     }
 }
