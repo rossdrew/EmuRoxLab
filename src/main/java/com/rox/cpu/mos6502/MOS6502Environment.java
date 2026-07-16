@@ -33,21 +33,23 @@ public class MOS6502Environment {
     private MOS6502Operation pendingOperation;
 
     MOS6502Environment(){
-        this(false, false, false, false, 0,0,0,0,0, 0);
+        this(false, false, false, false, false, 0,0,0,0,0, 0,0);
     }
 
-    MOS6502Environment(boolean c, boolean z, boolean n, boolean v,
-                       int pc, int ir, int adl, int adh, int a, int x){
+    MOS6502Environment(boolean c, boolean z, boolean n, boolean v, boolean breakFlag,
+                       int pc, int ir, int adl, int adh, int a, int x, int y){
         this.carry = c;
         this.zero = z;
         this.negative = n;
         this.signedOverflow = v;
+        this.breakFlag = breakFlag;
         this.pc = pc;
         this.ir = ir;
         this.adl = adl;
         this.adh = adh;
         this.a = a;
         this.x = x;
+        this.y = y;
     }
 
     public int getIR(){
@@ -280,7 +282,11 @@ public class MOS6502Environment {
     }
 
     public MOS6502Environment clone(){
-        return new MOS6502Environment(carry, zero, negative, signedOverflow, pc, ir, adl, adh, a, x);
+        final MOS6502Environment copy = new MOS6502Environment(carry, zero, negative, signedOverflow, breakFlag, pc, ir, adl, adh, a, x, y);
+        copy.i = i;
+        copy.irqLineAsserted = irqLineAsserted;
+        copy.nmiPending = nmiPending;
+        return copy;
     }
 
     @Override
