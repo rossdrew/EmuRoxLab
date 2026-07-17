@@ -1,12 +1,11 @@
 package com.rox.apu;
 
+import com.rox.clock.ClockWatcher;
 import net.jqwik.api.Arbitrary;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
 import net.jqwik.api.lifecycle.BeforeTry;
-
-import static net.jqwik.api.Arbitraries.integers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -15,6 +14,7 @@ import static com.rox.apu.FrameSequencer.FOUR_STEP_END;
 import static com.rox.apu.FrameSequencer.HALF_FRAME_1;
 import static com.rox.apu.FrameSequencer.QUARTER_FRAME_1;
 import static com.rox.apu.FrameSequencer.QUARTER_FRAME_2;
+import static net.jqwik.api.Arbitraries.integers;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -28,7 +28,8 @@ public class FrameSequencerTest {
     private static final int IRQ_INHIBIT = 0x40;
 
     private FrameSequencer sequencer;
-    private FrameClockListener listener;
+    private ClockWatcher quarterWatcher;
+    private ClockWatcher halfWatcher;
 
     @Provide
     Arbitrary<Integer> tickCount(){
@@ -39,8 +40,10 @@ public class FrameSequencerTest {
     @BeforeTry
     public void setup(){
         sequencer = new FrameSequencer();
-        listener = mock(FrameClockListener.class);
-        sequencer.addListener(listener);
+        quarterWatcher = mock(ClockWatcher.class);
+        halfWatcher = mock(ClockWatcher.class);
+        sequencer.addQuarterFrameWatcher(quarterWatcher);
+        sequencer.addHalfFrameWatcher(halfWatcher);
     }
 
     private void clock(final int times){
@@ -53,32 +56,32 @@ public class FrameSequencerTest {
     public void fourStepModeFirstQuarterBoundary(){
         clock(QUARTER_FRAME_1);
 
-        verify(listener, times(1)).quarterFrameClock();
-        verify(listener, times(0)).halfFrameClock();
+        verify(quarterWatcher, times(1)).tick();
+        verify(halfWatcher, times(0)).tick();
     }
 
     @Test
     public void fourStepModeHalfBoundaryAlsoFiresQuarter(){
         clock(HALF_FRAME_1);
 
-        verify(listener, times(2)).quarterFrameClock();
-        verify(listener, times(1)).halfFrameClock();
+        verify(quarterWatcher, times(2)).tick();
+        verify(halfWatcher, times(1)).tick();
     }
 
     @Test
     public void fourStepModeSecondQuarterBoundary(){
         clock(QUARTER_FRAME_2);
 
-        verify(listener, times(3)).quarterFrameClock();
-        verify(listener, times(1)).halfFrameClock();
+        verify(quarterWatcher, times(3)).tick();
+        verify(halfWatcher, times(1)).tick();
     }
 
     @Test
     public void fourStepModeEndBoundaryFiresHalfAndSetsIrq(){
         clock(FOUR_STEP_END);
 
-        verify(listener, times(4)).quarterFrameClock();
-        verify(listener, times(2)).halfFrameClock();
+        verify(quarterWatcher, times(4)).tick();
+        verify(halfWatcher, times(2)).tick();
         assertTrue(sequencer.isFrameIrqPending());
     }
 
@@ -115,8 +118,8 @@ public class FrameSequencerTest {
         clock(FOUR_STEP_END);
         clock(FOUR_STEP_END);
 
-        verify(listener, times(8)).quarterFrameClock();
-        verify(listener, times(4)).halfFrameClock();
+        verify(quarterWatcher, times(8)).tick();
+        verify(halfWatcher, times(4)).tick();
     }
 
     @Test
@@ -125,8 +128,8 @@ public class FrameSequencerTest {
 
         clock(QUARTER_FRAME_1);
 
-        verify(listener, times(2)).quarterFrameClock();
-        verify(listener, times(1)).halfFrameClock();
+        verify(quarterWatcher, times(2)).tick();
+        verify(halfWatcher, times(1)).tick();
     }
 
     @Test
@@ -135,8 +138,8 @@ public class FrameSequencerTest {
 
         clock(FOUR_STEP_END); //passes Q1, H1, Q2, but 29829 is not a boundary in 5-step mode
 
-        verify(listener, times(4)).quarterFrameClock();
-        verify(listener, times(2)).halfFrameClock();
+        verify(quarterWatcher, times(4)).tick();
+        verify(halfWatcher, times(2)).tick();
         assertFalse(sequencer.isFrameIrqPending());
     }
 
@@ -146,8 +149,8 @@ public class FrameSequencerTest {
 
         clock(FIVE_STEP_END);
 
-        verify(listener, times(5)).quarterFrameClock();
-        verify(listener, times(3)).halfFrameClock();
+        verify(quarterWatcher, times(5)).tick();
+        verify(halfWatcher, times(3)).tick();
         assertFalse(sequencer.isFrameIrqPending());
     }
 
@@ -156,15 +159,15 @@ public class FrameSequencerTest {
         clock(1000); //safely below the first boundary at QUARTER_FRAME_1
         sequencer.writeControlRegister(FOUR_STEP_MODE);
 
-        verifyNoMoreInteractions(listener);
+        verifyNoMoreInteractions(quarterWatcher, halfWatcher);
     }
 
     @Test
     public void writingFiveStepModeFiresOneImmediateHalfAndQuarterClock(){
         sequencer.writeControlRegister(FIVE_STEP_MODE);
 
-        verify(listener, times(1)).quarterFrameClock();
-        verify(listener, times(1)).halfFrameClock();
+        verify(quarterWatcher, times(1)).tick();
+        verify(halfWatcher, times(1)).tick();
     }
 
     @Test
@@ -172,8 +175,8 @@ public class FrameSequencerTest {
         sequencer.writeControlRegister(FIVE_STEP_MODE);
         sequencer.writeControlRegister(FOUR_STEP_MODE);
 
-        verify(listener, times(1)).quarterFrameClock();
-        verify(listener, times(1)).halfFrameClock();
+        verify(quarterWatcher, times(1)).tick();
+        verify(halfWatcher, times(1)).tick();
     }
 
     @Test
@@ -189,10 +192,8 @@ public class FrameSequencerTest {
     @Property
     public void quarterClocksAreRoughlyTwiceHalfClocks(@ForAll("tickCount") int tickCount){
         final int[] counts = new int[2];
-        sequencer.addListener(new FrameClockListener(){
-            @Override public void quarterFrameClock(){ counts[0]++; }
-            @Override public void halfFrameClock(){ counts[1]++; }
-        });
+        sequencer.addQuarterFrameWatcher(() -> counts[0]++);
+        sequencer.addHalfFrameWatcher(() -> counts[1]++);
 
         for (int i = 0; i < tickCount; i++){
             sequencer.clock();
