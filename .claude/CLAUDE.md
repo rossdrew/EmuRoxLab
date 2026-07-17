@@ -11,6 +11,10 @@ After implementing any new code, before marking it complete:
    - Line coverage ≥ 95%
 3. Stop and get confirmation from user on any code that cannot reach that number
 
+## Phase Execution Checklist
+
+1. Create a branch with the pattern `claude/<description of plan>/<phase number>/<phase description>` before making any changes
+
 ## Phase Completion Checklist
 
 After implementing any planned phase, before marking it complete:
@@ -21,3 +25,4 @@ After implementing any planned phase, before marking it complete:
    - Line coverage is ≥ 90%
    - Mutation score is ≥ 80%
 4. If thresholds are not met, write additional tests before proceeding
+
