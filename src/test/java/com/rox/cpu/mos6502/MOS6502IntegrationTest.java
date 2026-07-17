@@ -53,7 +53,7 @@ public class MOS6502IntegrationTest {
         assertEquals(MOS6502OpCode.BRK_IMP.getId(), env.getIR(), "Program did not reach BRK within the tick budget");
     }
 
-    /** Assemble a program, place it in memory and if present an interrupt handler program also, initialising the env.pc to the start address */
+    /** Utility: Assemble a program, place it in memory and if present an interrupt handler program also, initialising the env.pc to the start address */
     public Latched8BitMemoryBus assembleCodeInMemory(final String mainProgram, final int mainProgramLocation,
                                                      final String handlerProgram, final int handlerLocation, final int lowVectorAddress, final int hiVectorAddress,
                                                      final MOS6502Environment env){
