@@ -59,6 +59,11 @@ public class MOS6502 implements ClockWatcher {
         environment.signalNMI();
     }
 
+    /** Set the program counter, e.g. to point at the start of an assembled program */
+    public void setPC(final int newPC){
+        environment.setPC(newPC);
+    }
+
     @Override
     public void tick() {
         if (opsInTicksStack.isEmpty()){
