@@ -10,7 +10,7 @@
 
 I don't want to do #1 yet.  It's no fun.  So I've created this project to run some experiments regarding #2.  Of course starting with the [6502](https://github.com/rossdrew/EmuRoxLab/tree/main/src/main/java/com/rox/cpu) and of course making sure we build [great regression testing](https://github.com/rossdrew/EmuRoxLab/tree/main/src/test/java) in from the start.  
 
-# Approach
+# The AI Development Story so Far
 
 I'm using this to get familiar with sensibly integrating AI into my workflow, rather than the current industry standard which is to put it everywhere and gain speed over any achievable human governance.  Currently that means coming up with a design, writing a poc manually that lays down
  1. My coding, commenting & formatting standards
@@ -31,26 +31,29 @@ and after a little over half the opcodes were implemented, setting a standard mo
  3. Approving the whole piece of work before committing to a branch
  4. Using PR (tagged as AI work), link in AI code reviews with CodeRabbit and doing one more manual review
 
-# Current state
+I want to get to a quicker, more automated agent reviewer loop but I'm finding issues with Claudes output too often to be comfortable with.
+
+# Current state of Development
 1. a CPU clock that can run at a given Hz and Frame Rate
 2. Some memory structures in place so that instructions work on something sensible
-3. A reusable (new) [functional enum](https://dev.to/rossdrew/functional-enums-in-java-34o1) design for building micro ops and op codes
-   - All 6502 opcodes implemented
-   ![Current progress...](https://github.com/rossdrew/EmuRoxLab/blob/main/resource/opcodes.svg)
+3. A [6502 implemented](https://github.com/rossdrew/EmuRoxLab/blob/main/resource/opcodes.svg) using a new approach to the old [functional enum](https://dev.to/rossdrew/functional-enums-in-java-34o1)
 4. A [6502 assembler](https://github.com/rossdrew/EmuRoxLab/tree/main/src/main/java/com/rox/cpu/mos6502/assembler)
+5. The plumbings of an NES implementation
 
-In addition, the build system
+## Next up
+1. Reviewing the whole design for optimisations
+2. Adding NES APU
+3. Adding NES PPU
+Y. Integrating this back into EmuRox
+Z. Looking at where else AI can be integrated.  For example, plans being tickets on a board or local AI review help.  Later, when there's a cohesive it might be good to have AI QA for system testing.
+
+## Uncovered issues with my approach
+- STA_ABS_X and LDA_ABS_X: LDA_ABS_X is a read instruction, so the 6502 can optimistically try to read from the partially indexed address first; if adding X does not cross a page, that read is valid and the instruction finishes in 4 cycles, but if the low byte overflows, the CPU needs one extra cycle to fix the high byte and reread from the correct address. STA_ABS_X is a write instruction, so the CPU cannot safely do that optimistic access because an early write to the wrong address would corrupt memory; it must always spend the indexing/dummy-read cycle before performing the real write, making it 5 cycles whether or not a page is crossed.  My approach needs fully duplicated MicroOps for the case where an instruction is optionally added and the case where it is always added.
+- STA_IND_Y and STA_ABS_Y: same as above
+
+# The Build System
 1. Builds the code using Gradle and Kotlin
 2. Uses JaCoCo to build code coverage data and Codecov to build a report from it
 3. Uses pitest and a custom embedded Kotlin script to build a badge and only runs manually or when '+fullBuild' is in the commit message
 4. Will skip builds on non code changes
 5. Using [CodeRabbit](https://app.coderabbit.ai/) for automated AI code reviews on PRs
-
-# Next up
-1. Reviewing the whole design for optimisations
-2. Integrating this back into EmuRox
-3. Looking at where else AI can be integrated.  For example, plans being tickets on a board or local AI review help.  Later, when there's a cohesive it might be good to have AI QA for system testing.
-
-# Uncovered issues with my approach
-- STA_ABS_X and LDA_ABS_X: LDA_ABS_X is a read instruction, so the 6502 can optimistically try to read from the partially indexed address first; if adding X does not cross a page, that read is valid and the instruction finishes in 4 cycles, but if the low byte overflows, the CPU needs one extra cycle to fix the high byte and reread from the correct address. STA_ABS_X is a write instruction, so the CPU cannot safely do that optimistic access because an early write to the wrong address would corrupt memory; it must always spend the indexing/dummy-read cycle before performing the real write, making it 5 cycles whether or not a page is crossed.  My approach needs fully duplicated MicroOps for the case where an instruction is optionally added and the case where it is always added.
-- STA_IND_Y and STA_ABS_Y: same as above
