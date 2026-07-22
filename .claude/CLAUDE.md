@@ -19,7 +19,7 @@ After implementing any new code, before marking it complete:
 
 After implementing any planned phase, before marking it complete:
 
-1. Run PIT mutation testing `./gradlew pitest` but try limit it's scope to changed files were possible
+1. Run PIT mutation testing `./gradlew pitest` but try limit it's scope to changed files were possible with `./gradlew pitest -PpitestScope=com.rox.apu.*`
 2. Check the generated report at `build/reports/pitest/index.html`
 3. Do not consider the phase complete unless:
    - Line coverage is ≥ 90%

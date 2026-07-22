@@ -24,10 +24,15 @@ jacoco { //Test coverage
     toolVersion = "0.8.14"
 }
 
+// Scope pitest to a subset of classes for fast local verification, e.g.
+// ./gradlew pitest -PpitestScope=com.rox.apu.*
+// Defaults to the full project, which is the real CI/build gate.
+val pitestScope = (project.findProperty("pitestScope") as String?)?.split(",") ?: listOf("com.rox.*")
+
 pitest {
     junit5PluginVersion.set("1.2.2")
-    targetClasses.set(listOf("com.rox.*"))
-    targetTests.set(listOf("com.rox.*"))
+    targetClasses.set(pitestScope)
+    targetTests.set(pitestScope)
     threads.set(Runtime.getRuntime().availableProcessors())
     outputFormats.set(listOf("HTML", "XML"))
     timestampedReports.set(false)
@@ -60,10 +65,8 @@ tasks.jacocoTestReport {
     }
 }
 
-/**
- * Substitute for the lack of a Pitest report service
- */
 tasks.register("pitestBadge") {
+    description = "Substitute for the lack of a Pitest report service"
     dependsOn("pitest")
 
     doLast {
