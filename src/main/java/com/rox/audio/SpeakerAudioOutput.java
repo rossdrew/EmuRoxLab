@@ -13,8 +13,12 @@ import javax.sound.sampled.SourceDataLine;
  * I/O, so it only pushes into a small ring buffer; a dedicated writer thread drains that buffer
  * and does the actual (blocking) {@link SourceDataLine#write}.
  *
- * The {@link Resampler} produces samples in ~0.0-1.0 (an analog voltage, not a bipolar signal);
- * {@link #toPcm16} centers that around 0 to get a conventional signed PCM16 sample.
+ * The {@link Resampler} produces samples in ~0.0-1.0 (an analog voltage, unipolar - 0.0 is true
+ * silence, e.g. {@code Mixer.mix(0, 0, 0, 0, 0) == 0.0}, not a signal centered on some midpoint).
+ * {@link #toPcm16} scales that range directly onto signed PCM16 without any DC-removal/centering
+ * step; real NES hardware AC-couples this signal (a capacitor removes the DC bias) before it
+ * reaches a speaker, which would need a proper stateful high-pass filter to replicate correctly -
+ * out of scope here, not something a stateless per-sample conversion can do right.
  */
 public class SpeakerAudioOutput implements AudioOutput {
     private static final float SAMPLE_RATE = 44_100f;
@@ -102,8 +106,7 @@ public class SpeakerAudioOutput implements AudioOutput {
     }
 
     static short toPcm16(final double sample){
-        final double bipolar = (sample - 0.5) * 2.0;
-        final double scaled = bipolar * Short.MAX_VALUE;
+        final double scaled = sample * Short.MAX_VALUE;
         final double clamped = Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, scaled));
         return (short) Math.round(clamped);
     }

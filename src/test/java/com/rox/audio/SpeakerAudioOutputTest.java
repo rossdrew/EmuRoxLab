@@ -34,14 +34,20 @@ public class SpeakerAudioOutputTest {
 
     @ParameterizedTest
     @CsvSource({
-            "0.5, 0",       //centre of the 0.0-1.0 range -> silence
+            "0.0, 0",       //true silence (e.g. Mixer.mix(0,0,0,0,0)) -> PCM 0, not some centered baseline
             "1.0, 32767",   //top of the range -> max positive PCM16
-            "0.0, -32767",  //bottom of the range -> max negative PCM16 (one short of Short.MIN_VALUE, since the range is symmetric around 0)
-            "0.75, 16384",  //quarter-way above centre
-            "0.25, -16383", //quarter-way below centre
+            "0.5, 16384",   //halfway up the range
+            "0.25, 8192",   //quarter-way up the range
+            "0.75, 24575",  //three-quarters up the range
     })
-    public void toPcm16CentersAndScalesTheAnalogRangeToSignedPcm16(final double sample, final short expectedPcm){
+    public void toPcm16ScalesTheUnipolarAnalogRangeDirectlyOntoSignedPcm16(final double sample, final short expectedPcm){
         assertEquals(expectedPcm, SpeakerAudioOutput.toPcm16(sample));
+    }
+
+    @Test
+    public void toPcm16MapsZeroInputToDigitalSilence(){
+        //the specific regression this guards: silence must be PCM 0, not a large non-zero DC value
+        assertEquals((short) 0, SpeakerAudioOutput.toPcm16(0.0));
     }
 
     @Test
@@ -51,7 +57,7 @@ public class SpeakerAudioOutputTest {
 
     @Test
     public void toPcm16ClampsInputsBelowTheExpectedRange(){
-        assertEquals(Short.MIN_VALUE, SpeakerAudioOutput.toPcm16(-0.5));
+        assertEquals(Short.MIN_VALUE, SpeakerAudioOutput.toPcm16(-1.5));
     }
 
     @Test
@@ -85,7 +91,7 @@ public class SpeakerAudioOutputTest {
     public void writingBeyondBufferCapacityDropsTheOldestSampleNotTheNewest(){
         output.write(1.0); //PCM 32767 - the oldest sample, should be the one dropped
         for (int i = 0; i < SpeakerAudioOutput.RING_BUFFER_CAPACITY; i++){
-            output.write(0.0); //PCM -32767, fills the buffer exactly full and overflows it by one
+            output.write(0.0); //PCM 0, fills the buffer exactly full and overflows it by one
         }
 
         output.start();
@@ -94,7 +100,7 @@ public class SpeakerAudioOutputTest {
         verify(line, timeout(1000).atLeastOnce()).write(frame.capture(), anyInt(), anyInt());
         final byte[] firstFrame = frame.getAllValues().get(0);
         final short firstDeliveredSample = (short) ((firstFrame[1] << 8) | (firstFrame[0] & 0xFF));
-        assertEquals((short) -32767, firstDeliveredSample, "the oldest sample (1.0) should have been dropped, not the newest");
+        assertEquals((short) 0, firstDeliveredSample, "the oldest sample (1.0) should have been dropped, not the newest");
     }
 
     @Test
