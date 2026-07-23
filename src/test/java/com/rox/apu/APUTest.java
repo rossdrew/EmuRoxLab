@@ -145,6 +145,14 @@ public class APUTest {
     }
 
     @Test
+    public void outputSampleMixesBothPulseOutputsWithZeroForNotYetImplementedChannels(){
+        when(pulse1.outputSample()).thenReturn(15);
+        when(pulse2.outputSample()).thenReturn(7);
+
+        assertEquals(Mixer.mix(15, 7, 0, 0, 0), apu.outputSample(), 1e-9);
+    }
+
+    @Test
     public void defaultConstructorWiresRealComponents(){
         final APU realApu = new APU();
 
