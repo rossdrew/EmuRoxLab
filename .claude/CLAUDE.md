@@ -14,6 +14,7 @@ After implementing any new code, before marking it complete:
 ## Phase Execution Checklist
 
 1. Create a branch with the pattern `claude/<description of plan>/<phase number>/<phase description>` before making any changes
+2. At the end of each step commit the step with a concise git header followed by an empty line then the complete task description from the plan file
 
 ## Phase Completion Checklist
 
@@ -25,4 +26,9 @@ After implementing any planned phase, before marking it complete:
    - Line coverage is ≥ 90%
    - Mutation score is ≥ 80%
 4. If thresholds are not met, write additional tests before proceeding
-
+5. Push all commits to the phase branch
+6. Create a pull request & seek manual approval to continue
+7. Review each comment with user and seek approval before making changes
+   1. Address code coverage changes flagged by Codecov
+   2. Address coderabbitai comments by evaluating their "Prompt for AI Agents" section, commits should include a desciptive header, a blank line then the descriptive paragraph included in the "Prompt for AI Agents"
+   3. Address any other comments made
