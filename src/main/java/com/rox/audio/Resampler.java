@@ -26,6 +26,14 @@ public class Resampler {
     private long accumulatedSampleCount;
 
     public Resampler(final long inputRate, final long outputRate){
+        if (inputRate <= 0 || outputRate <= 0){
+            throw new IllegalArgumentException(
+                    "inputRate and outputRate must both be positive, got inputRate=" + inputRate + ", outputRate=" + outputRate);
+        }
+        if (inputRate < outputRate){
+            throw new IllegalArgumentException(
+                    "inputRate must be >= outputRate (this is a downsampler only), got inputRate=" + inputRate + ", outputRate=" + outputRate);
+        }
         this.outputRate = outputRate;
         this.baseWindowSize = inputRate / outputRate;
         this.windowSizeRemainderPerOutputSample = inputRate % outputRate;

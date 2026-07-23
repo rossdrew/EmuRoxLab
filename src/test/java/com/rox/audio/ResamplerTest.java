@@ -6,10 +6,43 @@ import java.util.OptionalDouble;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ResamplerTest {
     private static final double DELTA = 1e-9;
+
+    @Test
+    public void rejectsZeroOutputRate(){
+        assertThrows(IllegalArgumentException.class, () -> new Resampler(1_789_773, 0));
+    }
+
+    @Test
+    public void rejectsNegativeOutputRate(){
+        assertThrows(IllegalArgumentException.class, () -> new Resampler(1_789_773, -44_100));
+    }
+
+    @Test
+    public void rejectsZeroInputRate(){
+        assertThrows(IllegalArgumentException.class, () -> new Resampler(0, 44_100));
+    }
+
+    @Test
+    public void rejectsNegativeInputRate(){
+        assertThrows(IllegalArgumentException.class, () -> new Resampler(-1_789_773, 44_100));
+    }
+
+    @Test
+    public void rejectsInputRateBelowOutputRate(){
+        assertThrows(IllegalArgumentException.class, () -> new Resampler(100, 1_000));
+    }
+
+    @Test
+    public void allowsInputRateEqualToOutputRate(){
+        final Resampler resampler = new Resampler(44_100, 44_100);
+
+        assertEquals(1, windowSizeOf(resampler, 1.0));
+    }
 
     /** Feeds one input sample and returns the produced window size (calls to reach the next output), or -1 if never produced within the given budget. */
     private int windowSizeOf(final Resampler resampler, final double sampleValue){
