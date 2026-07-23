@@ -38,22 +38,28 @@ I want to get to a quicker, more automated agent reviewer loop but I'm finding i
 2. Some memory structures in place so that instructions work on something sensible
 3. A [6502 implemented](https://github.com/rossdrew/EmuRoxLab/blob/main/resource/opcodes.svg) using a new approach to the old [functional enum](https://dev.to/rossdrew/functional-enums-in-java-34o1)
 4. A [6502 assembler](https://github.com/rossdrew/EmuRoxLab/tree/main/src/main/java/com/rox/cpu/mos6502/assembler)
-5. The plumbings of an NES implementation
+5. The plumbings of an NES implementation with ability to play pulse wave sounds coding in 6502 through an APU
 
 ## Next up
 1. Reviewing the whole design for optimisations
-2. Adding NES APU
+2. Completing the NES APU
 3. Adding NES PPU
 Y. Integrating this back into EmuRox
 Z. Looking at where else AI can be integrated.  For example, plans being tickets on a board or local AI review help.  Later, when there's a cohesive it might be good to have AI QA for system testing.
 
-## Uncovered issues with my approach
+## Known Issues
+
+#### 6502
 - STA_ABS_X and LDA_ABS_X: LDA_ABS_X is a read instruction, so the 6502 can optimistically try to read from the partially indexed address first; if adding X does not cross a page, that read is valid and the instruction finishes in 4 cycles, but if the low byte overflows, the CPU needs one extra cycle to fix the high byte and reread from the correct address. STA_ABS_X is a write instruction, so the CPU cannot safely do that optimistic access because an early write to the wrong address would corrupt memory; it must always spend the indexing/dummy-read cycle before performing the real write, making it 5 cycles whether or not a page is crossed.  My approach needs fully duplicated MicroOps for the case where an instruction is optionally added and the case where it is always added.
 - STA_IND_Y and STA_ABS_Y: same as above
+#### APU
+- Testing actual hardware calls is difficult so we take a small hit on mutation coverage there
 
 # The Build System
 1. Builds the code using Gradle and Kotlin
 2. Uses JaCoCo to build code coverage data and Codecov to build a report from it
-3. Uses pitest and a custom embedded Kotlin script to build a badge and only runs manually or when '+fullBuild' is in the commit message
+3. Uses pitest and a custom embedded Kotlin script to build a badge 
+   1. only runs manually or when '+fullBuild' is in the commit message
+   2. expensive so can be run on a subset using `-PpitestScope=com.rox.apu.*` 
 4. Will skip builds on non code changes
 5. Using [CodeRabbit](https://app.coderabbit.ai/) for automated AI code reviews on PRs
