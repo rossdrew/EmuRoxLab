@@ -25,6 +25,7 @@ public class SpeakerAudioOutput implements AudioOutput {
 
     static final int RING_BUFFER_CAPACITY = 8192;
     private static final int BYTES_PER_SAMPLE = 2;
+    private static final long WRITER_THREAD_JOIN_TIMEOUT_MS = 1000;
 
     private final SourceDataLine line;
     private final short[] ringBuffer = new short[RING_BUFFER_CAPACITY];
@@ -73,12 +74,14 @@ public class SpeakerAudioOutput implements AudioOutput {
         synchronized (bufferLock){
             bufferLock.notifyAll(); //wake the writer thread so it notices `running` is now false
         }
+        //stopping the line first also unblocks the writer thread if it's currently inside a
+        //blocking line.write() call, which happens outside bufferLock so notifyAll() can't reach it
+        line.stop();
         try {
-            writerThread.join();
+            writerThread.join(WRITER_THREAD_JOIN_TIMEOUT_MS);
         } catch (InterruptedException e){
             Thread.currentThread().interrupt();
         }
-        line.stop();
         line.close();
     }
 
