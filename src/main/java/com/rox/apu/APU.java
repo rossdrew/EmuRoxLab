@@ -24,6 +24,13 @@ public class APU implements ClockWatcher, MemoryBus {
 
     private static final int FRAME_IRQ_FLAG = 0x40;
 
+    //TODO phase 4: replace with triangle.outputSample() once the triangle channel exists
+    private static final int TRIANGLE_OUTPUT_NOT_YET_IMPLEMENTED = 0;
+    //TODO phase 5: replace with noise.outputSample() once the noise channel exists
+    private static final int NOISE_OUTPUT_NOT_YET_IMPLEMENTED = 0;
+    //TODO phase 6: replace with dmc.outputSample() once the DMC channel exists
+    private static final int DMC_OUTPUT_NOT_YET_IMPLEMENTED = 0;
+
     private final FrameSequencer frameSequencer;
     private final PulseChannel pulse1;
     private final PulseChannel pulse2;
@@ -74,6 +81,17 @@ public class APU implements ClockWatcher, MemoryBus {
 
             default -> { } //TODO $4015 enable byte and the triangle/noise/DMC registers
         }
+    }
+
+    /** The {@link Mixer} combined analog output of all five channels */
+    public double outputSample(){
+        return Mixer.mix(
+                pulse1.outputSample(),
+                pulse2.outputSample(),
+                TRIANGLE_OUTPUT_NOT_YET_IMPLEMENTED,
+                NOISE_OUTPUT_NOT_YET_IMPLEMENTED,
+                DMC_OUTPUT_NOT_YET_IMPLEMENTED
+        );
     }
 
     private int readStatusRegister(){
