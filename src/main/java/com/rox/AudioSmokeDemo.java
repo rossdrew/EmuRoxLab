@@ -66,10 +66,19 @@ public final class AudioSmokeDemo {
         audioOutput.start();
         final Thread clockThread = new Thread(clock::run);
         clockThread.start();
-        Thread.sleep(RUN_SECONDS * 1000L);
-        clock.stop();
-        clockThread.join();
-        audioOutput.stop();
+        try {
+            Thread.sleep(RUN_SECONDS * 1000L);
+        } finally {
+            //always stop the clock (a non-daemon thread - left running, it would keep the JVM alive
+            //forever) and the audio output, even if sleep above is interrupted
+            clock.stop();
+            try {
+                clockThread.join();
+            } catch (InterruptedException e){
+                Thread.currentThread().interrupt();
+            }
+            audioOutput.stop();
+        }
         System.out.println("Done.");
     }
 }
