@@ -19,6 +19,10 @@ public class ParityConstrainedCountdownRunner implements Runnable {
     public ParityConstrainedCountdownRunner(final Runnable action,
                                             final boolean initialParityGate,
                                             final int counterPeriod) {
+        if (counterPeriod < 0){
+            throw new IllegalArgumentException("Period must be positive since it's a decreasing count that ends at 0.");
+        }
+
         this.action = action;
         this.parityGate = initialParityGate;
         this.counterPeriod = counterPeriod;

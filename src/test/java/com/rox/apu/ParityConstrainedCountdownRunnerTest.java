@@ -1,14 +1,25 @@
 package com.rox.apu;
 
+import net.jqwik.api.ForAll;
+import net.jqwik.api.Property;
+import net.jqwik.api.constraints.Negative;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 public class ParityConstrainedCountdownRunnerTest {
+
+    @Property
+    public void rejectNegativePeriods(@ForAll @Negative int negativePeriods){
+        assertThrows(IllegalArgumentException.class, () -> {
+                    new ParityConstrainedCountdownRunner(mock(Runnable.class), false, negativePeriods);
+                }
+        );
+    }
 
     @Test
     public void withInitialParityGateFalseTheFirstCallRunsTheActionImmediately(){
