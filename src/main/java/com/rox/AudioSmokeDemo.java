@@ -84,7 +84,7 @@ public final class AudioSmokeDemo {
                         JSR DELAY
 
                         ; C5 (~523Hz, t=$D5)
-                        LDA #$D5
+                        LDA #$D5  
                         STA $4002
                         LDA #$00
                         STA $4003
