@@ -43,11 +43,9 @@ public class PulseChannel implements ClockWatcher {
     private final Sweep sweep;
 
     private int dutyCycle;
-    private int timerPeriod;
-    private int timerCounter;
     private int sequencePosition;
-    /** Toggled in order to do nothing half the time on {@link #tick()}*/
-    private boolean apuCycleParity;
+
+    private final ParityConstrainedCountdownRunner runner;
 
     public PulseChannel(final boolean onesComplementNegate){
         this(new Envelope(), new LengthCounter(), new Sweep(onesComplementNegate));
@@ -57,6 +55,8 @@ public class PulseChannel implements ClockWatcher {
         this.envelope = envelope;
         this.lengthCounter = lengthCounter;
         this.sweep = sweep;
+
+        this.runner = new ParityConstrainedCountdownRunner(this::advanceSequencePosition, false, 0);
     }
 
     /**
@@ -81,7 +81,7 @@ public class PulseChannel implements ClockWatcher {
 
     /** Handle a $4002/$4006 write: low 8 bits of the 11-bit timer period. */
     public void writeTimerLow(final int value){
-        timerPeriod = (timerPeriod & (TIMER_HIGH_MASK << TIMER_HIGH_SHIFT)) | (value & TIMER_LOW_MASK);
+        runner.setCounterPeriod((runner.getCounterPeriod() & (TIMER_HIGH_MASK << TIMER_HIGH_SHIFT)) | (value & TIMER_LOW_MASK));
     }
 
     /**
@@ -92,7 +92,7 @@ public class PulseChannel implements ClockWatcher {
      * H (bits 0-2): high 3 bits of the 11-bit timer period
      */
     public void writeTimerHighAndLengthLoad(final int value){
-        timerPeriod = (timerPeriod & TIMER_LOW_MASK) | ((value & TIMER_HIGH_MASK) << TIMER_HIGH_SHIFT);
+        runner.setCounterPeriod((runner.getCounterPeriod() & TIMER_LOW_MASK) | ((value & TIMER_HIGH_MASK) << TIMER_HIGH_SHIFT));
         lengthCounter.load((value >> LENGTH_LOAD_SHIFT) & LENGTH_LOAD_MASK);
         sequencePosition = 0;
         envelope.restart();
@@ -101,16 +101,11 @@ public class PulseChannel implements ClockWatcher {
     /** CPU-cycle clock: the timer/sequencer run at half this rate (once per APU cycle). */
     @Override
     public void tick(){
-        apuCycleParity = !apuCycleParity;
-        if (!apuCycleParity){
-            return;
-        }
-        if (timerCounter == 0){
-            timerCounter = timerPeriod;
-            sequencePosition = (sequencePosition + 1) % SEQUENCE_LENGTH;
-        } else {
-            timerCounter--;
-        }
+        runner.run();
+    }
+
+    private void advanceSequencePosition(){
+        sequencePosition = (sequencePosition + 1) % SEQUENCE_LENGTH;
     }
 
     /** Quarter-frame clock: advances the envelope. */
@@ -121,12 +116,12 @@ public class PulseChannel implements ClockWatcher {
     /** Half-frame clock: advances the length counter and lets the sweep unit retune the timer period. */
     public void halfFrameTick(){
         lengthCounter.tick();
-        timerPeriod = sweep.clockHalfFrame(timerPeriod);
+        runner.setCounterPeriod(sweep.clockHalfFrame(runner.getCounterPeriod()));
     }
 
     /** Current output: 0 if silenced by the length counter, the sweep unit, or the duty waveform, else the envelope volume. */
     public int outputSample(){
-        if (lengthCounter.isZero() || sweep.isMuted(timerPeriod) || DUTY_TABLES[dutyCycle][sequencePosition] == 0){
+        if (lengthCounter.isZero() || sweep.isMuted(runner.getCounterPeriod()) || DUTY_TABLES[dutyCycle][sequencePosition] == 0){
             return 0;
         }
         return envelope.volume();
