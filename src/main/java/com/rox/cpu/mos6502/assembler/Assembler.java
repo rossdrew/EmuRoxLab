@@ -13,6 +13,10 @@ import java.util.List;
  * label operands resolve to RELATIVE or ABSOLUTE purely from what the mnemonic supports, so
  * instruction length - and therefore every address - is fully known by the end of pass 1. Pass 2
  * emits bytes, resolving label references against the now-complete {@link SymbolTable}.
+ *
+ * TODO
+ * - A data directive, e.g. `MELODY_LO:      .byte $AB,$AB,$1C,$1C,$FD,$FD,$1C, $3F,$3F,$52,$52,$7C,$7C,$AB, $FF`
+ * - Label-indexed addressing
  */
 public final class Assembler {
 

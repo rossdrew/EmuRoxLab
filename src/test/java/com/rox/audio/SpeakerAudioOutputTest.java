@@ -10,7 +10,9 @@ import org.mockito.ArgumentCaptor;
 import javax.sound.sampled.SourceDataLine;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
@@ -101,6 +103,34 @@ public class SpeakerAudioOutputTest {
         final byte[] firstFrame = frame.getAllValues().get(0);
         final short firstDeliveredSample = (short) ((firstFrame[1] << 8) | (firstFrame[0] & 0xFF));
         assertEquals((short) 0, firstDeliveredSample, "the oldest sample (1.0) should have been dropped, not the newest");
+    }
+
+    @Test
+    public void queuedSamplesBelowChunkSizeAreDeliveredInOneWriteCall(){
+        //regression guard for the click/pop bug: writing one sample per line.write() call risks
+        //underrunning the hardware buffer, so queued samples must be batched, not written one at a time
+        final int sampleCount = 100;
+        for (int i = 0; i < sampleCount; i++){
+            output.write(1.0);
+        }
+
+        output.start();
+
+        verify(line, timeout(1000).times(1)).write(any(byte[].class), eq(0), eq(sampleCount * 2));
+    }
+
+    @Test
+    public void queuedSamplesAboveChunkSizeAreSplitAcrossMultipleCappedWriteCalls(){
+        final int overflow = 100;
+        final int sampleCount = SpeakerAudioOutput.WRITE_CHUNK_SAMPLES + overflow;
+        for (int i = 0; i < sampleCount; i++){
+            output.write(1.0);
+        }
+
+        output.start();
+
+        verify(line, timeout(1000)).write(any(byte[].class), eq(0), eq(SpeakerAudioOutput.WRITE_CHUNK_SAMPLES * 2));
+        verify(line, timeout(1000)).write(any(byte[].class), eq(0), eq(overflow * 2));
     }
 
     @Test
