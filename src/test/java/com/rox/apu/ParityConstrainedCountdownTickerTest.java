@@ -11,12 +11,12 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-public class ParityConstrainedCountdownRunnerTest {
+public class ParityConstrainedCountdownTickerTest {
 
     @Property
     public void rejectNegativePeriodsInCreation(@ForAll @Negative int negativePeriods){
         assertThrows(IllegalArgumentException.class, () -> {
-                    new ParityConstrainedCountdownRunner(mock(Runnable.class), false, negativePeriods);
+                    new ParityConstrainedCountdownTicker(mock(Runnable.class), false, negativePeriods);
                 }
         );
     }
@@ -24,9 +24,9 @@ public class ParityConstrainedCountdownRunnerTest {
     @Test
     public void withInitialParityGateFalseTheFirstCallRunsTheActionImmediately(){
         final Runnable action = mock(Runnable.class);
-        final ParityConstrainedCountdownRunner runner = new ParityConstrainedCountdownRunner(action, false, 0);
+        final ParityConstrainedCountdownTicker runner = new ParityConstrainedCountdownTicker(action, false, 0);
 
-        runner.run();
+        runner.tick();
 
         verify(action, times(1)).run();
     }
@@ -34,9 +34,9 @@ public class ParityConstrainedCountdownRunnerTest {
     @Test
     public void withInitialParityGateTrueTheFirstCallSkipsTheAction(){
         final Runnable action = mock(Runnable.class);
-        final ParityConstrainedCountdownRunner runner = new ParityConstrainedCountdownRunner(action, true, 0);
+        final ParityConstrainedCountdownTicker runner = new ParityConstrainedCountdownTicker(action, true, 0);
 
-        runner.run();
+        runner.tick();
 
         verify(action, never()).run();
     }
@@ -44,12 +44,12 @@ public class ParityConstrainedCountdownRunnerTest {
     @Test
     public void actionRunsOnEveryOtherCallThereafter(){
         final Runnable action = mock(Runnable.class);
-        final ParityConstrainedCountdownRunner runner = new ParityConstrainedCountdownRunner(action, false, 0);
+        final ParityConstrainedCountdownTicker runner = new ParityConstrainedCountdownTicker(action, false, 0);
 
-        runner.run(); //1st: runs (countdown starts at 0)
-        runner.run(); //2nd: skipped
-        runner.run(); //3rd: runs
-        runner.run(); //4th: skipped
+        runner.tick(); //1st: runs (countdown starts at 0)
+        runner.tick(); //2nd: skipped
+        runner.tick(); //3rd: runs
+        runner.tick(); //4th: skipped
 
         verify(action, times(2)).run();
     }
@@ -57,20 +57,20 @@ public class ParityConstrainedCountdownRunnerTest {
     @Test
     public void actionRunsOncePerFullCounterPeriodOfActiveCalls(){
         final Runnable action = mock(Runnable.class);
-        final ParityConstrainedCountdownRunner runner = new ParityConstrainedCountdownRunner(action, false, 2);
+        final ParityConstrainedCountdownTicker runner = new ParityConstrainedCountdownTicker(action, false, 2);
 
         for (int i = 0; i < 6; i++){
-            runner.run();
+            runner.tick();
         }
         verify(action, times(1)).run();
 
-        runner.run(); //7th call: the 4th active call, countdown reaches 0 again -> 2nd run
+        runner.tick(); //7th call: the 4th active call, countdown reaches 0 again -> 2nd run
         verify(action, times(2)).run();
     }
 
     @Property
     public void rejectChangingToNegativePeriods(@ForAll @Negative int negativePeriods){
-        final ParityConstrainedCountdownRunner runner = new ParityConstrainedCountdownRunner(() -> { }, false, 5);
+        final ParityConstrainedCountdownTicker runner = new ParityConstrainedCountdownTicker(() -> { }, false, 5);
 
         assertEquals(5, runner.getCounterPeriod());
 
@@ -79,7 +79,7 @@ public class ParityConstrainedCountdownRunnerTest {
 
     @Test
     public void counterPeriodCanBeReadAndUpdated(){
-        final ParityConstrainedCountdownRunner runner = new ParityConstrainedCountdownRunner(() -> { }, false, 5);
+        final ParityConstrainedCountdownTicker runner = new ParityConstrainedCountdownTicker(() -> { }, false, 5);
 
         assertEquals(5, runner.getCounterPeriod());
 
@@ -91,16 +91,16 @@ public class ParityConstrainedCountdownRunnerTest {
     @Test
     public void changingCounterPeriodMidCountdownOnlyTakesEffectOnTheNextReload(){
         final Runnable action = mock(Runnable.class);
-        final ParityConstrainedCountdownRunner runner = new ParityConstrainedCountdownRunner(action, false, 5);
+        final ParityConstrainedCountdownTicker runner = new ParityConstrainedCountdownTicker(action, false, 5);
 
-        runner.run(); //active: countdown 0->5 (reload), action runs (1st)
-        runner.run(); //skipped
-        runner.run(); //active: countdown 5->4
+        runner.tick(); //active: countdown 0->5 (reload), action runs (1st)
+        runner.tick(); //skipped
+        runner.tick(); //active: countdown 5->4
 
         runner.setCounterPeriod(0); //changing the period mid-countdown must not touch the in-flight countdown
 
-        runner.run(); //skipped
-        runner.run(); //active: countdown 4->3, unaffected by the new period until the next reload
+        runner.tick(); //skipped
+        runner.tick(); //active: countdown 4->3, unaffected by the new period until the next reload
 
         verify(action, times(1)).run();
     }

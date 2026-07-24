@@ -47,7 +47,7 @@ public class NoiseChannel implements ClockWatcher {
     private boolean mode;
     private int shiftRegister = SHIFT_REGISTER_RESET;
 
-    private final ParityConstrainedCountdownRunner runner;
+    private final ParityConstrainedCountdownTicker runner;
 
     public NoiseChannel(){
         this(new Envelope(), new LengthCounter());
@@ -57,7 +57,7 @@ public class NoiseChannel implements ClockWatcher {
         this.envelope = envelope;
         this.lengthCounter = lengthCounter;
 
-        this.runner = new ParityConstrainedCountdownRunner(this::clockShiftRegister, false, 0);
+        this.runner = new ParityConstrainedCountdownTicker(this::clockShiftRegister, false, 0);
     }
 
     /**
@@ -99,7 +99,7 @@ public class NoiseChannel implements ClockWatcher {
     /** CPU-cycle clock: the timer runs at half this rate (once per APU cycle), same as pulse. */
     @Override
     public void tick(){
-        runner.run();
+        runner.tick();
     }
 
     private void clockShiftRegister(){

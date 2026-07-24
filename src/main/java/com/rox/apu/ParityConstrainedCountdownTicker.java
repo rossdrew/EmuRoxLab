@@ -1,7 +1,9 @@
 package com.rox.apu;
 
+import com.rox.clock.ClockWatcher;
+
 /**
- * Every other call to {@link #run()}, counts down from {@link #getCounterPeriod()} to 0 then
+ * Every other call to {@link #tick()}, counts down from {@link #getCounterPeriod()} to 0 then
  * executes the given action - the "do real work on every other CPU cycle" gating that pulse and
  * noise channel timers both need (one APU cycle = two CPU cycles).
  *
@@ -9,14 +11,14 @@ package com.rox.apu;
  * immediately, if the countdown is already at 0) is set via the constructor's
  * {@code initialParityGate} argument, which seeds {@link #parityGate}.
  */
-public class ParityConstrainedCountdownRunner implements Runnable {
+public class ParityConstrainedCountdownTicker implements ClockWatcher {
     private final Runnable action;
 
     private boolean parityGate;
     private int countdown;
     private int counterPeriod;
 
-    public ParityConstrainedCountdownRunner(final Runnable action,
+    public ParityConstrainedCountdownTicker(final Runnable action,
                                             final boolean initialParityGate,
                                             final int counterPeriod) {
         if (counterPeriod < 0){
@@ -41,7 +43,7 @@ public class ParityConstrainedCountdownRunner implements Runnable {
     }
 
     @Override
-    public void run(){
+    public void tick() {
         parityGate = !parityGate;
         if (!parityGate){
             return;
