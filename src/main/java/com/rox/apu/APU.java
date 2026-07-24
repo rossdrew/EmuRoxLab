@@ -4,9 +4,9 @@ import com.rox.clock.ClockWatcher;
 import com.rox.mem.MemoryBus;
 
 /**
- * NES Audio Processing Unit, mapped into $4000-$4017. Owns the frame counter, both pulse channels
- * and the triangle channel; the noise/DMC channels and the full $4015 enable/status behaviour are
- * wired in later phases.
+ * NES Audio Processing Unit, mapped into $4000-$4017. Owns the frame counter, both pulse channels,
+ * the triangle channel and the noise channel; the DMC channel and the full $4015 enable/status
+ * behaviour are wired in later phases.
  */
 public class APU implements ClockWatcher, MemoryBus {
     public static final int STATUS_REGISTER_ADDRESS = 0x4015;
@@ -26,10 +26,12 @@ public class APU implements ClockWatcher, MemoryBus {
     private static final int TRIANGLE_TIMER_LOW_ADDRESS = 0x400A;
     private static final int TRIANGLE_TIMER_HIGH_ADDRESS = 0x400B;
 
+    private static final int NOISE_CONTROL_ADDRESS = 0x400C;
+    private static final int NOISE_MODE_AND_PERIOD_ADDRESS = 0x400E;
+    private static final int NOISE_LENGTH_LOAD_ADDRESS = 0x400F;
+
     private static final int FRAME_IRQ_FLAG = 0x40;
 
-    //TODO phase 5: replace with noise.outputSample() once the noise channel exists
-    private static final int NOISE_OUTPUT_NOT_YET_IMPLEMENTED = 0;
     //TODO phase 6: replace with dmc.outputSample() once the DMC channel exists
     private static final int DMC_OUTPUT_NOT_YET_IMPLEMENTED = 0;
 
@@ -37,23 +39,28 @@ public class APU implements ClockWatcher, MemoryBus {
     private final PulseChannel pulse1;
     private final PulseChannel pulse2;
     private final TriangleChannel triangle;
+    private final NoiseChannel noise;
 
     public APU(){
-        this(new FrameSequencer(), new PulseChannel(true), new PulseChannel(false), new TriangleChannel());
+        this(new FrameSequencer(), new PulseChannel(true), new PulseChannel(false), new TriangleChannel(),
+                new NoiseChannel());
     }
 
     APU(final FrameSequencer frameSequencer, final PulseChannel pulse1, final PulseChannel pulse2,
-        final TriangleChannel triangle){
+        final TriangleChannel triangle, final NoiseChannel noise){
         this.frameSequencer = frameSequencer;
         this.pulse1 = pulse1;
         this.pulse2 = pulse2;
         this.triangle = triangle;
+        this.noise = noise;
         frameSequencer.addQuarterFrameWatcher(pulse1::quarterFrameTick);
         frameSequencer.addQuarterFrameWatcher(pulse2::quarterFrameTick);
         frameSequencer.addQuarterFrameWatcher(triangle::quarterFrameTick);
+        frameSequencer.addQuarterFrameWatcher(noise::quarterFrameTick);
         frameSequencer.addHalfFrameWatcher(pulse1::halfFrameTick);
         frameSequencer.addHalfFrameWatcher(pulse2::halfFrameTick);
         frameSequencer.addHalfFrameWatcher(triangle::halfFrameTick);
+        frameSequencer.addHalfFrameWatcher(noise::halfFrameTick);
     }
 
     @Override
@@ -62,6 +69,7 @@ public class APU implements ClockWatcher, MemoryBus {
         pulse1.tick();
         pulse2.tick();
         triangle.tick();
+        noise.tick();
     }
 
     @Override
@@ -91,7 +99,11 @@ public class APU implements ClockWatcher, MemoryBus {
             case TRIANGLE_TIMER_LOW_ADDRESS -> triangle.writeTimerLow(value);
             case TRIANGLE_TIMER_HIGH_ADDRESS -> triangle.writeTimerHighAndLengthLoad(value);
 
-            default -> { } //TODO $4015 enable byte and the noise/DMC registers
+            case NOISE_CONTROL_ADDRESS -> noise.writeControlRegister(value);
+            case NOISE_MODE_AND_PERIOD_ADDRESS -> noise.writeModeAndPeriod(value);
+            case NOISE_LENGTH_LOAD_ADDRESS -> noise.writeLengthLoad(value);
+
+            default -> { } //TODO $4015 enable byte and the DMC registers
         }
     }
 
@@ -101,7 +113,7 @@ public class APU implements ClockWatcher, MemoryBus {
                 pulse1.outputSample(),
                 pulse2.outputSample(),
                 triangle.outputSample(),
-                NOISE_OUTPUT_NOT_YET_IMPLEMENTED,
+                noise.outputSample(),
                 DMC_OUTPUT_NOT_YET_IMPLEMENTED
         );
     }

@@ -20,6 +20,7 @@ public class APUTest {
     private PulseChannel pulse1;
     private PulseChannel pulse2;
     private TriangleChannel triangle;
+    private NoiseChannel noise;
     private APU apu;
 
     @BeforeEach
@@ -28,7 +29,8 @@ public class APUTest {
         pulse1 = mock(PulseChannel.class);
         pulse2 = mock(PulseChannel.class);
         triangle = mock(TriangleChannel.class);
-        apu = new APU(frameSequencer, pulse1, pulse2, triangle);
+        noise = mock(NoiseChannel.class);
+        apu = new APU(frameSequencer, pulse1, pulse2, triangle, noise);
     }
 
     @Test
@@ -39,23 +41,24 @@ public class APUTest {
     }
 
     @Test
-    public void tickClocksBothPulseChannelsAndTriangle(){
+    public void tickClocksBothPulseChannelsTriangleAndNoise(){
         apu.tick();
 
         verify(pulse1, times(1)).tick();
         verify(pulse2, times(1)).tick();
         verify(triangle, times(1)).tick();
+        verify(noise, times(1)).tick();
     }
 
     @Test
-    public void constructorRegistersAllThreeChannelsAsQuarterAndHalfFrameWatchers(){
-        verify(frameSequencer, times(3)).addQuarterFrameWatcher(any());
-        verify(frameSequencer, times(3)).addHalfFrameWatcher(any());
+    public void constructorRegistersAllFourChannelsAsQuarterAndHalfFrameWatchers(){
+        verify(frameSequencer, times(4)).addQuarterFrameWatcher(any());
+        verify(frameSequencer, times(4)).addHalfFrameWatcher(any());
     }
 
     @Test
-    public void frameSequencerBoundariesReachAllThreeChannels(){
-        final APU realFrameSequencerApu = new APU(new FrameSequencer(), pulse1, pulse2, triangle);
+    public void frameSequencerBoundariesReachAllFourChannels(){
+        final APU realFrameSequencerApu = new APU(new FrameSequencer(), pulse1, pulse2, triangle, noise);
 
         for (int i = 0; i < QUARTER_FRAME_1; i++){
             realFrameSequencerApu.tick();
@@ -64,9 +67,11 @@ public class APUTest {
         verify(pulse1, times(1)).quarterFrameTick();
         verify(pulse2, times(1)).quarterFrameTick();
         verify(triangle, times(1)).quarterFrameTick();
+        verify(noise, times(1)).quarterFrameTick();
         verify(pulse1, never()).halfFrameTick();
         verify(pulse2, never()).halfFrameTick();
         verify(triangle, never()).halfFrameTick();
+        verify(noise, never()).halfFrameTick();
     }
 
     @Test
@@ -124,14 +129,29 @@ public class APUTest {
     }
 
     @Test
+    public void writingNoiseRegistersDelegatesToNoiseOnly(){
+        apu.write(0x400C, 0x11);
+        apu.write(0x400E, 0x22);
+        apu.write(0x400F, 0x33);
+
+        verify(noise, times(1)).writeControlRegister(0x11);
+        verify(noise, times(1)).writeModeAndPeriod(0x22);
+        verify(noise, times(1)).writeLengthLoad(0x33);
+        verify(pulse1, never()).writeControlRegister(anyInt());
+        verify(triangle, never()).writeLinearCounterRegister(anyInt());
+    }
+
+    @Test
     public void writingUnwiredAddressesTouchesNothing(){
         apu.write(0x4009, 0x11); //unused triangle register slot - not a real register
+        apu.write(0x400D, 0x11); //unused noise register slot - not a real register
         apu.write(STATUS_REGISTER_ADDRESS, 0x1F); //$4015 write (enable byte) - not wired until a later phase
 
         verify(frameSequencer, never()).writeControlRegister(anyInt());
         verify(pulse1, never()).writeControlRegister(anyInt());
         verify(pulse2, never()).writeControlRegister(anyInt());
         verify(triangle, never()).writeLinearCounterRegister(anyInt());
+        verify(noise, never()).writeControlRegister(anyInt());
     }
 
     @Test
@@ -164,12 +184,13 @@ public class APUTest {
     }
 
     @Test
-    public void outputSampleMixesPulseAndTriangleOutputsWithZeroForNotYetImplementedChannels(){
+    public void outputSampleMixesPulseTriangleAndNoiseOutputsWithZeroForNotYetImplementedChannels(){
         when(pulse1.outputSample()).thenReturn(15);
         when(pulse2.outputSample()).thenReturn(7);
         when(triangle.outputSample()).thenReturn(11);
+        when(noise.outputSample()).thenReturn(4);
 
-        assertEquals(Mixer.mix(15, 7, 11, 0, 0), apu.outputSample(), 1e-9);
+        assertEquals(Mixer.mix(15, 7, 11, 4, 0), apu.outputSample(), 1e-9);
     }
 
     @Test
