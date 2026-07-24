@@ -14,7 +14,7 @@ import static org.mockito.Mockito.verify;
 public class ParityConstrainedCountdownRunnerTest {
 
     @Property
-    public void rejectNegativePeriods(@ForAll @Negative int negativePeriods){
+    public void rejectNegativePeriodsInCreation(@ForAll @Negative int negativePeriods){
         assertThrows(IllegalArgumentException.class, () -> {
                     new ParityConstrainedCountdownRunner(mock(Runnable.class), false, negativePeriods);
                 }
@@ -66,6 +66,15 @@ public class ParityConstrainedCountdownRunnerTest {
 
         runner.run(); //7th call: the 4th active call, countdown reaches 0 again -> 2nd run
         verify(action, times(2)).run();
+    }
+
+    @Property
+    public void rejectChangingToNegativePeriods(@ForAll @Negative int negativePeriods){
+        final ParityConstrainedCountdownRunner runner = new ParityConstrainedCountdownRunner(() -> { }, false, 5);
+
+        assertEquals(5, runner.getCounterPeriod());
+
+        assertThrows(IllegalArgumentException.class, () -> runner.setCounterPeriod(negativePeriods));
     }
 
     @Test
