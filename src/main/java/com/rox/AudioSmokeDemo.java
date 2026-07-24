@@ -108,7 +108,7 @@ public final class AudioSmokeDemo {
     }
 
     //XXX Need to tidy all of this up
-    static void main(final String[] args) throws Exception {
+    public static void main(final String[] args) throws Exception {
         final AssembledProgram assembled = Assembler.assemble(arpeggio, PROGRAM_START_ADDRESS);
         for (int i = 0; i < assembled.length(); i++){
             ram.write(assembled.startAddress() + i, assembled.bytes()[i]);
