@@ -112,4 +112,8 @@ public class TriangleChannel implements ClockWatcher {
     int currentSequencePosition(){
         return sequencePosition;
     }
+
+    int currentTimerPeriod(){
+        return timerPeriod;
+    }
 }

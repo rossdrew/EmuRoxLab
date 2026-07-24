@@ -53,6 +53,22 @@ public class TriangleChannelTest {
     }
 
     @Test
+    public void timerPeriodAssemblesLowThenHighByteWithoutCrossContamination(){
+        channel.writeTimerLow(0xAB);
+        channel.writeTimerHighAndLengthLoad(0x02); //length index 0, timer high=2
+
+        assertEquals(0x2AB, channel.currentTimerPeriod());
+    }
+
+    @Test
+    public void timerHighWritePreservesPreviouslyWrittenLowByte(){
+        channel.writeTimerHighAndLengthLoad(0x05); //timer high=5, length index 0
+        channel.writeTimerLow(0x11);
+
+        assertEquals(0x511, channel.currentTimerPeriod());
+    }
+
+    @Test
     public void writingLinearCounterRegisterSetsHaltAndDelegatesToLinearCounter(){
         channel.writeLinearCounterRegister(0x85); //control flag set, reload=5
 
