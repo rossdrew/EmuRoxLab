@@ -38,6 +38,7 @@ public class NES {
         final Resampler resampler = new Resampler(CPU_HZ, AUDIO_SAMPLE_RATE_HZ);
         clock.addListener(cpu);
         clock.addListener(apu);
+        clock.addListener(() -> cpu.setIRQLine(apu.isIrqAsserted()));
         clock.addListener(() -> resampler.accept(apu.outputSample()).ifPresent(audioOutput::write));
     }
 

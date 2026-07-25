@@ -23,6 +23,11 @@ public class LengthCounter implements ClockWatcher {
         counter = LENGTH_TABLE[index];
     }
 
+    /** Forces the counter to 0 - used when the owning channel is disabled via $4015. */
+    public void forceZero(){
+        counter = 0;
+    }
+
     public void setHalt(final boolean halt){
         haltEnabled = halt;
     }

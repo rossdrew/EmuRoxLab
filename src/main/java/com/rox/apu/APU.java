@@ -5,8 +5,8 @@ import com.rox.mem.MemoryBus;
 
 /**
  * NES Audio Processing Unit, mapped into $4000-$4017. Owns the frame counter and all five channels
- * (both pulse, triangle, noise, DMC); only the full $4015 enable/status behaviour remains for a
- * later phase.
+ * (both pulse, triangle, noise, DMC), including $4015 enable/status and the combined IRQ line
+ * ({@link #isIrqAsserted()}) that a caller wires into the CPU.
  */
 public class APU implements ClockWatcher, MemoryBus {
     public static final int STATUS_REGISTER_ADDRESS = 0x4015;
@@ -35,7 +35,19 @@ public class APU implements ClockWatcher, MemoryBus {
     private static final int DMC_SAMPLE_ADDRESS_ADDRESS = 0x4012;
     private static final int DMC_SAMPLE_LENGTH_ADDRESS = 0x4013;
 
+    private static final int PULSE1_ENABLE_BIT = 0x01;
+    private static final int PULSE2_ENABLE_BIT = 0x02;
+    private static final int TRIANGLE_ENABLE_BIT = 0x04;
+    private static final int NOISE_ENABLE_BIT = 0x08;
+    private static final int DMC_ENABLE_BIT = 0x10;
+
+    private static final int PULSE1_STATUS_BIT = 0x01;
+    private static final int PULSE2_STATUS_BIT = 0x02;
+    private static final int TRIANGLE_STATUS_BIT = 0x04;
+    private static final int NOISE_STATUS_BIT = 0x08;
+    private static final int DMC_ACTIVE_BIT = 0x10;
     private static final int FRAME_IRQ_FLAG = 0x40;
+    private static final int DMC_IRQ_FLAG = 0x80;
 
     private final FrameSequencer frameSequencer;
     private final PulseChannel pulse1;
@@ -88,6 +100,7 @@ public class APU implements ClockWatcher, MemoryBus {
     @Override
     public void write(final int address, final int value) {
         switch (address){
+            case STATUS_REGISTER_ADDRESS -> writeStatusRegister(value);
             case FRAME_COUNTER_ADDRESS -> frameSequencer.writeControlRegister(value);
 
             case PULSE1_CONTROL_ADDRESS -> pulse1.writeControlRegister(value);
@@ -113,8 +126,21 @@ public class APU implements ClockWatcher, MemoryBus {
             case DMC_SAMPLE_ADDRESS_ADDRESS -> dmc.writeSampleAddress(value);
             case DMC_SAMPLE_LENGTH_ADDRESS -> dmc.writeSampleLength(value);
 
-            default -> { } //TODO $4015 enable byte
+            default -> { }
         }
+    }
+
+    /**
+     * Handle a $4015 write: sets each channel's enable state from bits 0-4, then unconditionally
+     * clears the DMC-IRQ flag (real hardware does this regardless of the value written).
+     */
+    private void writeStatusRegister(final int value){
+        pulse1.setEnabled((value & PULSE1_ENABLE_BIT) != 0);
+        pulse2.setEnabled((value & PULSE2_ENABLE_BIT) != 0);
+        triangle.setEnabled((value & TRIANGLE_ENABLE_BIT) != 0);
+        noise.setEnabled((value & NOISE_ENABLE_BIT) != 0);
+        dmc.setEnabled((value & DMC_ENABLE_BIT) != 0);
+        dmc.clearIrq();
     }
 
     /** The {@link Mixer} combined analog output of all five channels */
@@ -128,11 +154,48 @@ public class APU implements ClockWatcher, MemoryBus {
         );
     }
 
+    /**
+     * True whenever either IRQ source within the APU is asserted (frame sequencer or DMC). A pure
+     * query with no side effects (unlike {@link #readStatusRegister()}, which clears the frame-IRQ
+     * flag) - callers re-evaluate this every tick to drive a level-sensitive CPU IRQ line.
+     */
+    public boolean isIrqAsserted(){
+        return frameSequencer.isFrameIrqPending() || dmc.isIrqPending();
+    }
+
+    /**
+     * Handle a $4015 read.
+     *
+     * Register: IF-D NT21
+     * I (bit 7): DMC-IRQ pending (NOT cleared by this read - only by a $4015 write)
+     * F (bit 6): frame-IRQ pending (cleared by this read)
+     * D (bit 4): DMC still has sample bytes to fetch
+     * N/T/2/1 (bits 0-3): that channel's length counter is nonzero
+     */
     private int readStatusRegister(){
-        if (frameSequencer.isFrameIrqPending()){
-            frameSequencer.clearFrameIrq();
-            return FRAME_IRQ_FLAG;
+        int status = 0;
+        if (pulse1.isLengthCounterActive()){
+            status |= PULSE1_STATUS_BIT;
         }
-        return 0; //bit7 (DMC-IRQ) stays 0 until $4015 is wired
+        if (pulse2.isLengthCounterActive()){
+            status |= PULSE2_STATUS_BIT;
+        }
+        if (triangle.isLengthCounterActive()){
+            status |= TRIANGLE_STATUS_BIT;
+        }
+        if (noise.isLengthCounterActive()){
+            status |= NOISE_STATUS_BIT;
+        }
+        if (dmc.isActive()){
+            status |= DMC_ACTIVE_BIT;
+        }
+        if (dmc.isIrqPending()){
+            status |= DMC_IRQ_FLAG;
+        }
+        if (frameSequencer.isFrameIrqPending()){
+            status |= FRAME_IRQ_FLAG;
+            frameSequencer.clearFrameIrq();
+        }
+        return status;
     }
 }

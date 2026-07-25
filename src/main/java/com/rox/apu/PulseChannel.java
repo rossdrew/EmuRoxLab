@@ -10,10 +10,6 @@ import com.rox.clock.ClockWatcher;
  * every other CPU cycle). {@link #quarterFrameTick()} and {@link #halfFrameTick()} are plain methods
  * rather than a shared listener interface - nothing needs to tell quarter and half frame clocks
  * apart, so a channel is registered with the frame sequencer as two separate method references.
- *
- * Simplification (Phase 3, revisit at Phase 7 when $4015 exists): channel enable isn't wired up yet,
- * so a high-byte timer write always reloads the length counter - real hardware only does so when
- * the channel is enabled.
  */
 public class PulseChannel implements ClockWatcher {
     /**
@@ -44,6 +40,7 @@ public class PulseChannel implements ClockWatcher {
 
     private int dutyCycle;
     private int sequencePosition;
+    private boolean enabled;
 
     private final ParityCountdownFrequencyDivider frequencyDivider;
 
@@ -93,9 +90,24 @@ public class PulseChannel implements ClockWatcher {
      */
     public void writeTimerHighAndLengthLoad(final int value){
         frequencyDivider.setCounterPeriod((frequencyDivider.getCounterPeriod() & TIMER_LOW_MASK) | ((value & TIMER_HIGH_MASK) << TIMER_HIGH_SHIFT));
-        lengthCounter.load((value >> LENGTH_LOAD_SHIFT) & LENGTH_LOAD_MASK);
+        if (enabled){
+            lengthCounter.load((value >> LENGTH_LOAD_SHIFT) & LENGTH_LOAD_MASK);
+        }
         sequencePosition = 0;
         envelope.restart();
+    }
+
+    /** Handle a $4015 enable-bit change: disabling immediately forces the length counter to 0. */
+    public void setEnabled(final boolean enabled){
+        this.enabled = enabled;
+        if (!enabled){
+            lengthCounter.forceZero();
+        }
+    }
+
+    /** Whether the length counter is currently nonzero - for the $4015 status read. */
+    public boolean isLengthCounterActive(){
+        return !lengthCounter.isZero();
     }
 
     /** CPU-cycle clock: the timer/sequencer run at half this rate (once per APU cycle). */
@@ -129,5 +141,9 @@ public class PulseChannel implements ClockWatcher {
 
     int currentSequencePosition(){
         return sequencePosition;
+    }
+
+    boolean isEnabled(){
+        return enabled;
     }
 }

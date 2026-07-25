@@ -22,21 +22,21 @@ import com.rox.mem.MemoryBus;
  * ($4010 bit 6) restarts playback from the original address/length, or - if the loop flag is clear
  * and the IRQ-enable flag ($4010 bit 7) is set - an IRQ becomes pending.
  *
+ * <p>Enable/disable ($4015 bit 4, via {@link #setEnabled(boolean)}) works differently from the
+ * length-counter-based channels: disabling sets {@code bytesRemaining} to 0 directly (stops future
+ * fetches - whatever's already latched in the shift register keeps playing out until the next
+ * reload finds nothing left and silences); enabling only calls {@link #start()} if the channel was
+ * idle ({@code bytesRemaining == 0}) - restarting a still-playing sample would be wrong.
+ *
  * <p>Simplifications (Phase 6):
  * <ul>
  *     <li>CPU cycle-stealing/stall on each DMA sample fetch is not modeled - real hardware stalls
  *     the CPU 1-4 cycles per fetch; no stall mechanism exists in this codebase's Clock/ClockWatcher
  *     model yet. Tracked as a separate, deferred follow-up.</li>
- *     <li>$4015 enable/status semantics (channel-enable bit, DMC-IRQ status bit surfaced on a
- *     $4015 read) aren't wired yet - that's a later phase. {@link #start()} is a direct stand-in
- *     for the real $4015-bit-4 enable path so this channel can be driven/tested without it.</li>
  *     <li>Real hardware's memory-reader and output unit are two independent state machines linked
  *     only by the one-byte sample buffer (the reader can prefetch ahead of the output unit
  *     finishing its current byte); here they're combined into one synchronous fetch-on-refill path
  *     - functionally equivalent for audio output, but not a basis for cycle-accurate CPU stalling.</li>
- *     <li>{@link #isIrqPending()} is exposed but not wired to the CPU's IRQ line yet - deferred
- *     alongside the frame sequencer's own (also still-unwired) IRQ, since both need combining once
- *     $4015 exists.</li>
  *     <li>{@link #start()} eagerly calls {@link #reloadShiftRegister()}, so starting playback of a
  *     1-byte sample synchronously consumes that byte - and can set {@link #isIrqPending()} or
  *     perform the loop reload - before a single output clock has happened. The address/length are
@@ -129,13 +129,34 @@ public class DMCChannel implements ClockWatcher {
     /**
      * Starts (or restarts) sample playback: reloads the current address and bytes-remaining
      * counter from the last-written $4012/$4013 values, then immediately primes the shift register
-     * (fetching the first sample byte if one is available). Stand-in for the real $4015 bit 4
-     * enable path - see the class Javadoc's simplifications.
+     * (fetching the first sample byte if one is available). Called by {@link #setEnabled(boolean)}
+     * when a $4015 write enables this channel while it was idle.
      */
     public void start(){
         currentAddress = sampleStartAddress;
         bytesRemaining = sampleLength;
         reloadShiftRegister();
+    }
+
+    /**
+     * Handle a $4015 bit 4 enable-bit change. Enabling only restarts playback if the channel was
+     * idle ({@code bytesRemaining == 0}) - a still-playing sample is left alone. Disabling stops
+     * future fetches by zeroing {@code bytesRemaining}; whatever's already latched in the shift
+     * register keeps playing out until the next reload finds nothing left and silences.
+     */
+    public void setEnabled(final boolean enabled){
+        if (enabled){
+            if (bytesRemaining == 0){
+                start();
+            }
+        } else {
+            bytesRemaining = 0;
+        }
+    }
+
+    /** Whether the DMA reader still has sample bytes left to fetch - for the $4015 status read. */
+    public boolean isActive(){
+        return bytesRemaining > 0;
     }
 
     /** CPU-cycle clock: the timer runs at half this rate (once per APU cycle), same as pulse/noise. */

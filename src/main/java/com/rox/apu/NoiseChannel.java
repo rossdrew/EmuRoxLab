@@ -17,10 +17,6 @@ import com.rox.clock.ClockWatcher;
  * sounding ~93-step sequence that repeats sooner), the register shifts right by one, and the vacated
  * bit 14 is set to that feedback. The channel is silenced whenever bit 0 of the register is set -
  * this is what makes the output "pseudo-random" rather than a fixed tone.
- *
- * Simplification (Phase 5, revisit at Phase 7 when $4015 exists): channel enable isn't wired up yet,
- * so a $400F write always reloads the length counter - real hardware only does so when the channel
- * is enabled.
  */
 public class NoiseChannel implements ClockWatcher {
     /** NTSC noise periods (in APU cycles), selected by the low nibble of $400E. */
@@ -45,6 +41,7 @@ public class NoiseChannel implements ClockWatcher {
     private final LengthCounter lengthCounter;
 
     private boolean mode;
+    private boolean enabled;
     private int shiftRegister = SHIFT_REGISTER_RESET;
 
     private final ParityCountdownFrequencyDivider frequencyDivider;
@@ -92,8 +89,23 @@ public class NoiseChannel implements ClockWatcher {
      * L (bits 3-7): length-counter table index
      */
     public void writeLengthLoad(final int value){
-        lengthCounter.load((value >> LENGTH_LOAD_SHIFT) & LENGTH_LOAD_MASK);
+        if (enabled){
+            lengthCounter.load((value >> LENGTH_LOAD_SHIFT) & LENGTH_LOAD_MASK);
+        }
         envelope.restart();
+    }
+
+    /** Handle a $4015 enable-bit change: disabling immediately forces the length counter to 0. */
+    public void setEnabled(final boolean enabled){
+        this.enabled = enabled;
+        if (!enabled){
+            lengthCounter.forceZero();
+        }
+    }
+
+    /** Whether the length counter is currently nonzero - for the $4015 status read. */
+    public boolean isLengthCounterActive(){
+        return !lengthCounter.isZero();
     }
 
     /** CPU-cycle clock: the timer runs at half this rate (once per APU cycle), same as pulse. */
@@ -137,5 +149,9 @@ public class NoiseChannel implements ClockWatcher {
 
     boolean currentMode(){
         return mode;
+    }
+
+    boolean isEnabled(){
+        return enabled;
     }
 }
