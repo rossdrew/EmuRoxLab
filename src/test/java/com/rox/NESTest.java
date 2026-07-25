@@ -15,7 +15,8 @@ import static org.mockito.Mockito.verify;
  * Wiring-level checks only, using a mocked {@link AudioOutput} rather than the real
  * {@code SpeakerAudioOutput} - a unit test shouldn't depend on audio hardware being present (e.g.
  * in CI). Whether the audio actually sounds correct is a manual smoke test, not something a unit
- * test can assert.
+ * test can a
+ * ssert.
  */
 public class NESTest {
 

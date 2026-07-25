@@ -174,28 +174,23 @@ public class APU implements ClockWatcher, MemoryBus {
      */
     private int readStatusRegister(){
         int status = 0;
-        if (pulse1.isLengthCounterActive()){
-            status |= PULSE1_STATUS_BIT;
-        }
-        if (pulse2.isLengthCounterActive()){
-            status |= PULSE2_STATUS_BIT;
-        }
-        if (triangle.isLengthCounterActive()){
-            status |= TRIANGLE_STATUS_BIT;
-        }
-        if (noise.isLengthCounterActive()){
-            status |= NOISE_STATUS_BIT;
-        }
-        if (dmc.isActive()){
-            status |= DMC_ACTIVE_BIT;
-        }
-        if (dmc.isIrqPending()){
-            status |= DMC_IRQ_FLAG;
-        }
-        if (frameSequencer.isFrameIrqPending()){
+        status |= bitIf(pulse1.isLengthCounterActive(), PULSE1_STATUS_BIT);
+        status |= bitIf(pulse2.isLengthCounterActive(), PULSE2_STATUS_BIT);
+        status |= bitIf(triangle.isLengthCounterActive(), TRIANGLE_STATUS_BIT);
+        status |= bitIf(noise.isLengthCounterActive(), NOISE_STATUS_BIT);
+        status |= bitIf(dmc.isActive(), DMC_ACTIVE_BIT);
+        status |= bitIf(dmc.isIrqPending(), DMC_IRQ_FLAG);
+
+        if (frameSequencer.isFrameIrqPending()) {
             status |= FRAME_IRQ_FLAG;
-            frameSequencer.clearFrameIrq();
+            frameSequencer.clearFrameIrq(); // side effect: reading $4015 clears this on real hardware
         }
+
         return status;
+    }
+
+    /** Return bit that should be modified if condition is met, otherwise 0 */
+    private static int bitIf(boolean condition, int bitMask){
+        return condition ? bitMask : 0;
     }
 }
