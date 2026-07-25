@@ -4,9 +4,9 @@ import com.rox.clock.ClockWatcher;
 import com.rox.mem.MemoryBus;
 
 /**
- * NES Audio Processing Unit, mapped into $4000-$4017. Owns the frame counter, both pulse channels,
- * the triangle channel and the noise channel; the DMC channel and the full $4015 enable/status
- * behaviour are wired in later phases.
+ * NES Audio Processing Unit, mapped into $4000-$4017. Owns the frame counter and all five channels
+ * (both pulse, triangle, noise, DMC); only the full $4015 enable/status behaviour remains for a
+ * later phase.
  */
 public class APU implements ClockWatcher, MemoryBus {
     public static final int STATUS_REGISTER_ADDRESS = 0x4015;
@@ -30,29 +30,33 @@ public class APU implements ClockWatcher, MemoryBus {
     private static final int NOISE_MODE_AND_PERIOD_ADDRESS = 0x400E;
     private static final int NOISE_LENGTH_LOAD_ADDRESS = 0x400F;
 
-    private static final int FRAME_IRQ_FLAG = 0x40;
+    private static final int DMC_CONTROL_ADDRESS = 0x4010;
+    private static final int DMC_DIRECT_LOAD_ADDRESS = 0x4011;
+    private static final int DMC_SAMPLE_ADDRESS_ADDRESS = 0x4012;
+    private static final int DMC_SAMPLE_LENGTH_ADDRESS = 0x4013;
 
-    //TODO phase 6: replace with dmc.outputSample() once the DMC channel exists
-    private static final int DMC_OUTPUT_NOT_YET_IMPLEMENTED = 0;
+    private static final int FRAME_IRQ_FLAG = 0x40;
 
     private final FrameSequencer frameSequencer;
     private final PulseChannel pulse1;
     private final PulseChannel pulse2;
     private final TriangleChannel triangle;
     private final NoiseChannel noise;
+    private final DMCChannel dmc;
 
-    public APU(){
+    public APU(final MemoryBus memoryBus){
         this(new FrameSequencer(), new PulseChannel(true), new PulseChannel(false), new TriangleChannel(),
-                new NoiseChannel());
+                new NoiseChannel(), new DMCChannel(memoryBus));
     }
 
     APU(final FrameSequencer frameSequencer, final PulseChannel pulse1, final PulseChannel pulse2,
-        final TriangleChannel triangle, final NoiseChannel noise){
+        final TriangleChannel triangle, final NoiseChannel noise, final DMCChannel dmc){
         this.frameSequencer = frameSequencer;
         this.pulse1 = pulse1;
         this.pulse2 = pulse2;
         this.triangle = triangle;
         this.noise = noise;
+        this.dmc = dmc;
         frameSequencer.addQuarterFrameWatcher(pulse1::quarterFrameTick);
         frameSequencer.addQuarterFrameWatcher(pulse2::quarterFrameTick);
         frameSequencer.addQuarterFrameWatcher(triangle::quarterFrameTick);
@@ -70,6 +74,7 @@ public class APU implements ClockWatcher, MemoryBus {
         pulse2.tick();
         triangle.tick();
         noise.tick();
+        dmc.tick();
     }
 
     @Override
@@ -103,7 +108,12 @@ public class APU implements ClockWatcher, MemoryBus {
             case NOISE_MODE_AND_PERIOD_ADDRESS -> noise.writeModeAndPeriod(value);
             case NOISE_LENGTH_LOAD_ADDRESS -> noise.writeLengthLoad(value);
 
-            default -> { } //TODO $4015 enable byte and the DMC registers
+            case DMC_CONTROL_ADDRESS -> dmc.writeControlRegister(value);
+            case DMC_DIRECT_LOAD_ADDRESS -> dmc.writeDirectLoad(value);
+            case DMC_SAMPLE_ADDRESS_ADDRESS -> dmc.writeSampleAddress(value);
+            case DMC_SAMPLE_LENGTH_ADDRESS -> dmc.writeSampleLength(value);
+
+            default -> { } //TODO $4015 enable byte
         }
     }
 
@@ -114,7 +124,7 @@ public class APU implements ClockWatcher, MemoryBus {
                 pulse2.outputSample(),
                 triangle.outputSample(),
                 noise.outputSample(),
-                DMC_OUTPUT_NOT_YET_IMPLEMENTED
+                dmc.outputSample()
         );
     }
 
@@ -123,6 +133,6 @@ public class APU implements ClockWatcher, MemoryBus {
             frameSequencer.clearFrameIrq();
             return FRAME_IRQ_FLAG;
         }
-        return 0; //bit7 (DMC-IRQ) stays 0 until the DMC channel exists
+        return 0; //bit7 (DMC-IRQ) stays 0 until $4015 is wired
     }
 }

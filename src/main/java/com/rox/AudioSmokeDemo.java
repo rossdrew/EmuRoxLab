@@ -9,6 +9,7 @@ import com.rox.cpu.mos6502.assembler.AssembledProgram;
 import com.rox.cpu.mos6502.assembler.Assembler;
 import com.rox.mem.Latched8BitMemoryBus;
 import com.rox.mem.Memory;
+import com.rox.mem.MemoryBus;
 import com.rox.mem.MemoryBus8Bit;
 import com.rox.mem.NESMemoryBus;
 import com.rox.mem.RAM;
@@ -30,8 +31,9 @@ public final class AudioSmokeDemo {
     private static final long WARM_UP_MILLIS = 300;
 
     final static Memory ram = new RAM(0x10000);
-    final static APU apu = new APU();
-    final static NESMemoryBus nesMemoryBus = new NESMemoryBus(new MemoryBus8Bit(ram), apu);
+    final static MemoryBus ramBus = new MemoryBus8Bit(ram);
+    final static APU apu = new APU(ramBus);
+    final static NESMemoryBus nesMemoryBus = new NESMemoryBus(ramBus, apu);
     final static MOS6502 cpu = new MOS6502(new Latched8BitMemoryBus(nesMemoryBus));
 
     final static Resampler resampler = new Resampler(1_789_773, 44_100);
