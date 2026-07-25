@@ -54,6 +54,7 @@ Z. Looking at where else AI can be integrated.  For example, plans being tickets
 - STA_IND_Y and STA_ABS_Y: same as above
 #### APU
 - Testing actual hardware calls is difficult so we take a small hit on mutation coverage there
+- DMC sample fetches don't stall the CPU for 1-4 cycles as real hardware does, which may affect games that depend on exact DMC DMA timing
 
 # The Build System
 1. Builds the code using Gradle and Kotlin

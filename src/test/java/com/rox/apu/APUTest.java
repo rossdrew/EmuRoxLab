@@ -1,5 +1,6 @@
 package com.rox.apu;
 
+import com.rox.mem.MemoryBus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -21,6 +22,7 @@ public class APUTest {
     private PulseChannel pulse2;
     private TriangleChannel triangle;
     private NoiseChannel noise;
+    private DMCChannel dmc;
     private APU apu;
 
     @BeforeEach
@@ -30,7 +32,8 @@ public class APUTest {
         pulse2 = mock(PulseChannel.class);
         triangle = mock(TriangleChannel.class);
         noise = mock(NoiseChannel.class);
-        apu = new APU(frameSequencer, pulse1, pulse2, triangle, noise);
+        dmc = mock(DMCChannel.class);
+        apu = new APU(frameSequencer, pulse1, pulse2, triangle, noise, dmc);
     }
 
     @Test
@@ -41,13 +44,14 @@ public class APUTest {
     }
 
     @Test
-    public void tickClocksBothPulseChannelsTriangleAndNoise(){
+    public void tickClocksBothPulseChannelsTriangleNoiseAndDmc(){
         apu.tick();
 
         verify(pulse1, times(1)).tick();
         verify(pulse2, times(1)).tick();
         verify(triangle, times(1)).tick();
         verify(noise, times(1)).tick();
+        verify(dmc, times(1)).tick();
     }
 
     @Test
@@ -58,7 +62,7 @@ public class APUTest {
 
     @Test
     public void frameSequencerBoundariesReachAllFourChannels(){
-        final APU realFrameSequencerApu = new APU(new FrameSequencer(), pulse1, pulse2, triangle, noise);
+        final APU realFrameSequencerApu = new APU(new FrameSequencer(), pulse1, pulse2, triangle, noise, dmc);
 
         for (int i = 0; i < QUARTER_FRAME_1; i++){
             realFrameSequencerApu.tick();
@@ -142,6 +146,21 @@ public class APUTest {
     }
 
     @Test
+    public void writingDmcRegistersDelegatesToDmcOnly(){
+        apu.write(0x4010, 0x11);
+        apu.write(0x4011, 0x22);
+        apu.write(0x4012, 0x33);
+        apu.write(0x4013, 0x44);
+
+        verify(dmc, times(1)).writeControlRegister(0x11);
+        verify(dmc, times(1)).writeDirectLoad(0x22);
+        verify(dmc, times(1)).writeSampleAddress(0x33);
+        verify(dmc, times(1)).writeSampleLength(0x44);
+        verify(pulse1, never()).writeControlRegister(anyInt());
+        verify(noise, never()).writeControlRegister(anyInt());
+    }
+
+    @Test
     public void writingUnwiredAddressesTouchesNothing(){
         apu.write(0x4009, 0x11); //unused triangle register slot - not a real register
         apu.write(0x400D, 0x11); //unused noise register slot - not a real register
@@ -152,6 +171,7 @@ public class APUTest {
         verify(pulse2, never()).writeControlRegister(anyInt());
         verify(triangle, never()).writeLinearCounterRegister(anyInt());
         verify(noise, never()).writeControlRegister(anyInt());
+        verify(dmc, never()).writeControlRegister(anyInt());
     }
 
     @Test
@@ -184,18 +204,20 @@ public class APUTest {
     }
 
     @Test
-    public void outputSampleMixesPulseTriangleAndNoiseOutputsWithZeroForNotYetImplementedChannels(){
+    public void outputSampleMixesAllFiveChannelOutputs(){
         when(pulse1.outputSample()).thenReturn(15);
         when(pulse2.outputSample()).thenReturn(7);
         when(triangle.outputSample()).thenReturn(11);
         when(noise.outputSample()).thenReturn(4);
+        when(dmc.outputSample()).thenReturn(64);
 
-        assertEquals(Mixer.mix(15, 7, 11, 4, 0), apu.outputSample(), 1e-9);
+        assertEquals(Mixer.mix(15, 7, 11, 4, 64), apu.outputSample(), 1e-9);
     }
 
     @Test
     public void defaultConstructorWiresRealComponents(){
-        final APU realApu = new APU();
+        final MemoryBus memoryBus = mock(MemoryBus.class);
+        final APU realApu = new APU(memoryBus);
 
         realApu.tick();
         realApu.write(FRAME_COUNTER_ADDRESS, 0x80); //select 5-step mode, fires an immediate frame-IRQ-free clock

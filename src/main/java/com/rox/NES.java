@@ -28,8 +28,9 @@ public class NES {
     }
 
     NES(final AudioOutput audioOutput){
-        this.apu = new APU();
-        this.memoryBus = new Latched8BitMemoryBus(new NESMemoryBus(new MemoryBus8Bit(new RAM(0x10000)), apu));
+        final MemoryBus ramBus = new MemoryBus8Bit(new RAM(0x10000));
+        this.apu = new APU(ramBus);
+        this.memoryBus = new Latched8BitMemoryBus(new NESMemoryBus(ramBus, apu));
         this.cpu = new MOS6502(memoryBus);
         this.clock = new FPSClock(CPU_HZ, 60, new SystemTimeSource(), new ThreadSleeper());
         this.audioOutput = audioOutput;
