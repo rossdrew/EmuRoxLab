@@ -240,6 +240,19 @@ public class APUTest {
     }
 
     @Test
+    public void readingStatusRegisterReportsTheComplementaryChannelsToo(){
+        when(pulse1.isLengthCounterActive()).thenReturn(false);
+        when(pulse2.isLengthCounterActive()).thenReturn(true);
+        when(triangle.isLengthCounterActive()).thenReturn(false);
+        when(noise.isLengthCounterActive()).thenReturn(true);
+        when(dmc.isActive()).thenReturn(false);
+
+        final int result = apu.read(STATUS_REGISTER_ADDRESS);
+
+        assertEquals(0x02 | 0x08, result); //pulse2 + noise
+    }
+
+    @Test
     public void readingStatusRegisterReportsDmcIrqPendingWithoutClearingIt(){
         when(dmc.isIrqPending()).thenReturn(true);
 
