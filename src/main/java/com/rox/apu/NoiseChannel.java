@@ -47,7 +47,7 @@ public class NoiseChannel implements ClockWatcher {
     private boolean mode;
     private int shiftRegister = SHIFT_REGISTER_RESET;
 
-    private final ParityConstrainedCountdownTicker runner;
+    private final ParityCountdownFrequencyDivider frequencyDivider;
 
     public NoiseChannel(){
         this(new Envelope(), new LengthCounter());
@@ -57,7 +57,7 @@ public class NoiseChannel implements ClockWatcher {
         this.envelope = envelope;
         this.lengthCounter = lengthCounter;
 
-        this.runner = new ParityConstrainedCountdownTicker(this::clockShiftRegister, false, 0);
+        this.frequencyDivider = new ParityCountdownFrequencyDivider(this::clockShiftRegister, false, 0);
     }
 
     /**
@@ -82,7 +82,7 @@ public class NoiseChannel implements ClockWatcher {
      */
     public void writeModeAndPeriod(final int value){
         mode = (value & MODE_BIT) != 0;
-        runner.setCounterPeriod(NTSC_NOISE_PERIODS[value & PERIOD_INDEX_MASK]);
+        frequencyDivider.setCounterPeriod(NTSC_NOISE_PERIODS[value & PERIOD_INDEX_MASK]);
     }
 
     /**
@@ -99,7 +99,7 @@ public class NoiseChannel implements ClockWatcher {
     /** CPU-cycle clock: the timer runs at half this rate (once per APU cycle), same as pulse. */
     @Override
     public void tick(){
-        runner.tick();
+        frequencyDivider.tick();
     }
 
     private void clockShiftRegister(){
@@ -128,7 +128,7 @@ public class NoiseChannel implements ClockWatcher {
     }
 
     int currentTimerPeriod(){
-        return runner.getCounterPeriod();
+        return frequencyDivider.getCounterPeriod();
     }
 
     int currentShiftRegister(){

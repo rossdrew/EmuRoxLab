@@ -10,7 +10,7 @@ import com.rox.mem.MemoryBus;
  * DMC has no envelope, sweep, or length counter, and isn't clocked by the {@link FrameSequencer}
  * at all; its only rhythm is its own timer.
  *
- * <p>The timer ({@link ParityConstrainedCountdownTicker}, same "once per APU cycle" gating as
+ * <p>The timer ({@link ParityCountdownFrequencyDivider}, same "once per APU cycle" gating as
  * pulse/noise) drives an 8-bit shift register that empties one bit at a time, LSB first: a 1 bit
  * nudges the delta counter up by 2 (clamped at 127), a 0 bit nudges it down by 2 (clamped at 0).
  * Every 8 shifts, the shift register is refilled by a memory fetch, provided sample bytes remain -
@@ -71,7 +71,7 @@ public class DMCChannel implements ClockWatcher {
     private static final int SHIFT_REGISTER_BITS = 8;
 
     private final MemoryBus memoryBus;
-    private final ParityConstrainedCountdownTicker runner;
+    private final ParityCountdownFrequencyDivider frequencyDivider;
 
     private boolean irqEnabled;
     private boolean loop;
@@ -91,7 +91,7 @@ public class DMCChannel implements ClockWatcher {
 
     public DMCChannel(final MemoryBus memoryBus){
         this.memoryBus = memoryBus;
-        this.runner = new ParityConstrainedCountdownTicker(this::clockOutputUnit, false, NTSC_DMC_RATES[0]);
+        this.frequencyDivider = new ParityCountdownFrequencyDivider(this::clockOutputUnit, false, NTSC_DMC_RATES[0]);
     }
 
     /**
@@ -108,7 +108,7 @@ public class DMCChannel implements ClockWatcher {
         if (!irqEnabled){
             irqPending = false;
         }
-        runner.setCounterPeriod(NTSC_DMC_RATES[value & RATE_INDEX_MASK]);
+        frequencyDivider.setCounterPeriod(NTSC_DMC_RATES[value & RATE_INDEX_MASK]);
     }
 
     /** Register: -DDD DDDD - direct 7-bit load of the delta counter ($4011), bypassing the shift/delta logic. */
@@ -141,7 +141,7 @@ public class DMCChannel implements ClockWatcher {
     /** CPU-cycle clock: the timer runs at half this rate (once per APU cycle), same as pulse/noise. */
     @Override
     public void tick(){
-        runner.tick();
+        frequencyDivider.tick();
     }
 
     private void clockOutputUnit(){
@@ -237,7 +237,7 @@ public class DMCChannel implements ClockWatcher {
     }
 
     int currentTimerPeriod(){
-        return runner.getCounterPeriod();
+        return frequencyDivider.getCounterPeriod();
     }
 
     boolean isLoopFlagSet(){

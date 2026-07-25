@@ -11,16 +11,16 @@ import com.rox.clock.ClockWatcher;
  * immediately, if the countdown is already at 0) is set via the constructor's
  * {@code initialParityGate} argument, which seeds {@link #parityGate}.
  */
-public class ParityConstrainedCountdownTicker implements ClockWatcher {
+public class ParityCountdownFrequencyDivider implements ClockWatcher {
     private final Runnable action;
 
     private boolean parityGate;
     private int countdown;
     private int counterPeriod;
 
-    public ParityConstrainedCountdownTicker(final Runnable action,
-                                            final boolean initialParityGate,
-                                            final int counterPeriod) {
+    public ParityCountdownFrequencyDivider(final Runnable action,
+                                           final boolean initialParityGate,
+                                           final int counterPeriod) {
         if (counterPeriod < 0){
             throw new IllegalArgumentException("Period must be non-negative since it's a decreasing count that ends at 0.");
         }
@@ -42,18 +42,23 @@ public class ParityConstrainedCountdownTicker implements ClockWatcher {
         this.counterPeriod = newCounterPeriod;
     }
 
+    /** Toggle the parity boolean and return the result */
+    private boolean toggleParityAndGet(){
+        parityGate = !parityGate;
+        return parityGate;
+    }
+
     @Override
     public void tick() {
-        parityGate = !parityGate;
-        if (!parityGate){
-            return;
-        }
-
-        if (countdown == 0){
-            countdown = counterPeriod;
-            action.run();
-        } else {
-            countdown--;
+        //Only actions half the time, effectively dividing by 2
+        if (toggleParityAndGet()){
+            //Counts down from `counterPeriod` using `countdown`, firing `action` when we reach zero
+            if (countdown == 0){
+                countdown = counterPeriod;
+                action.run();
+            } else {
+                countdown--;
+            }
         }
     }
 }
