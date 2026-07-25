@@ -51,4 +51,16 @@ public class NES {
         clock.stop();
         audioOutput.stop();
     }
+
+    MOS6502 cpu(){
+        return cpu;
+    }
+
+    APU apu(){
+        return apu;
+    }
+
+    Clock clock(){
+        return clock;
+    }
 }

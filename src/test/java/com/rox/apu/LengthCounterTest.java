@@ -96,4 +96,24 @@ public class LengthCounterTest {
 
         assertEquals(2, lengthCounter.value());
     }
+
+    @Test
+    public void forceZeroImmediatelyZeroesALoadedCounter(){
+        lengthCounter.load(0); //value 10
+
+        lengthCounter.forceZero();
+
+        assertEquals(0, lengthCounter.value());
+        assertTrue(lengthCounter.isZero());
+    }
+
+    @Test
+    public void forceZeroOverridesHalt(){
+        lengthCounter.load(0); //value 10
+        lengthCounter.setHalt(true);
+
+        lengthCounter.forceZero();
+
+        assertTrue(lengthCounter.isZero());
+    }
 }

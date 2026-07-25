@@ -295,6 +295,62 @@ public class DMCChannelTest {
         assertEquals(0x33, channel.outputSample());
     }
 
+    @Test
+    public void isActiveReflectsWhetherBytesRemain(){
+        when(memoryBus.read(anyInt())).thenReturn(0xFF);
+        channel.writeSampleAddress(0x00);
+        channel.writeSampleLength(0x00); //1 byte
+
+        assertFalse(channel.isActive(), "idle before start()");
+
+        channel.start();
+
+        assertFalse(channel.isActive(), "the single byte was already consumed synchronously by start()");
+    }
+
+    @Test
+    public void enablingWhileIdleRestartsPlayback(){
+        when(memoryBus.read(anyInt())).thenReturn(0xFF);
+        channel.writeSampleAddress(0x00);
+        channel.writeSampleLength(0x01); //17 bytes - stays active after the first fetch
+
+        assertFalse(channel.isActive());
+
+        channel.setEnabled(true);
+
+        assertTrue(channel.isActive());
+        verify(memoryBus, times(1)).read(0xC000);
+    }
+
+    @Test
+    public void enablingWhileAlreadyActiveDoesNotRestart(){
+        when(memoryBus.read(anyInt())).thenReturn(0xFF);
+        channel.writeSampleAddress(0x00);
+        channel.writeSampleLength(0x01); //17 bytes
+        channel.start(); //fetch #1, now active with 16 bytes remaining
+        final int bytesRemainingBefore = channel.bytesRemaining();
+        final int addressBefore = channel.currentAddress();
+
+        channel.setEnabled(true); //should be a no-op - already playing
+
+        assertEquals(bytesRemainingBefore, channel.bytesRemaining());
+        assertEquals(addressBefore, channel.currentAddress());
+        verify(memoryBus, times(1)).read(0xC000); //no extra fetch from the redundant enable
+    }
+
+    @Test
+    public void disablingStopsFutureFetchesWithoutSilencingImmediately(){
+        when(memoryBus.read(anyInt())).thenReturn(0xFF);
+        channel.writeSampleAddress(0x00);
+        channel.writeSampleLength(0x01); //17 bytes, so bytesRemaining is 16 (nonzero) after start()
+        channel.start();
+
+        channel.setEnabled(false);
+
+        assertFalse(channel.isActive());
+        assertEquals(0, channel.bytesRemaining());
+        assertFalse(channel.isOutputSilenced(), "the byte already latched into the shift register keeps playing");
+    }
 
     //generous upper bound on ticks needed for one real shift-register clock (2*(period+1), parity
     //gated) at the slowest configured rate - guards the driver loops below against ever spinning
