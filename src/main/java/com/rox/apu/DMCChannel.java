@@ -150,7 +150,7 @@ public class DMCChannel implements ClockWatcher {
         }
         shiftRegister >>= 1;
         bitsRemainingInShiftRegister--;
-        if (bitsRemainingInShiftRegister == 0){
+        if (bitsRemainingInShiftRegister <= 0){
             reloadShiftRegister();
         }
     }
