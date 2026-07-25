@@ -8,6 +8,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
@@ -283,7 +284,7 @@ public class DMCChannelTest {
 
         channel.tick();
 
-        assertFalse(bitsRemainingAfterFirstClock == channel.bitsRemainingInShiftRegister(), "should have clocked by now");
+        assertNotEquals(bitsRemainingAfterFirstClock, channel.bitsRemainingInShiftRegister(), "should have clocked by now");
     }
 
     @Test
