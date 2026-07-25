@@ -37,6 +37,10 @@ import com.rox.mem.MemoryBus;
  *     <li>{@link #isIrqPending()} is exposed but not wired to the CPU's IRQ line yet - deferred
  *     alongside the frame sequencer's own (also still-unwired) IRQ, since both need combining once
  *     $4015 exists.</li>
+ *     <li>{@link #start()} eagerly calls {@link #reloadShiftRegister()}, so starting playback of a
+ *     1-byte sample synchronously consumes that byte - and can set {@link #isIrqPending()} or
+ *     perform the loop reload - before a single output clock has happened. The address/length are
+ *     only reloaded once {@code bytesRemaining} reaches 0, matching real hardware.</li>
  * </ul>
  */
 public class DMCChannel implements ClockWatcher {
