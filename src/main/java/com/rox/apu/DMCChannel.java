@@ -167,8 +167,13 @@ public class DMCChannel implements ClockWatcher {
             outputSilenced = true;
             return;
         }
-        shiftRegister = memoryBus.read(currentAddress);
+        shiftRegister = fetchNextSampleByte();
         outputSilenced = false;
+    }
+
+    /** Fetches the next sample byte, advancing (and wrapping) the address and handling exhaustion. */
+    private int fetchNextSampleByte(){
+        final int value = memoryBus.read(currentAddress);
         currentAddress = currentAddress == MAX_ADDRESS ? ADDRESS_WRAP_TARGET : currentAddress + 1;
         bytesRemaining--;
         if (bytesRemaining == 0){
@@ -179,6 +184,7 @@ public class DMCChannel implements ClockWatcher {
                 irqPending = true;
             }
         }
+        return value;
     }
 
     /** Current output: the 7-bit delta counter (0-127), fed directly into {@link Mixer#mix}. */
