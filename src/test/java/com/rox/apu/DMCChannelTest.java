@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -295,6 +296,12 @@ public class DMCChannelTest {
     }
 
 
+    //generous upper bound on ticks needed for one real shift-register clock (2*(period+1), parity
+    //gated) at the slowest configured rate - guards the driver loops below against ever spinning
+    //forever if a regression stops the state from changing
+    private static final int MAX_TICKS_PER_SHIFT = 2 * (DMCChannel.NTSC_DMC_RATES[0] + 1) + 2;
+    private static final int BITS_PER_BYTE = 8; //mirrors DMCChannel's own private SHIFT_REGISTER_BITS
+
     /**
      * Drives exactly {@code fetches} real memory fetches (each one every 8 shift-register clocks),
      * regardless of the configured timer period - keeps tests independent of the exact rate chosen.
@@ -302,7 +309,11 @@ public class DMCChannelTest {
     private static void driveFetches(final DMCChannel channel, final int fetches){
         for (int i = 0; i < fetches; i++){
             final int before = channel.bytesRemaining();
+            int ticks = 0;
             while (channel.bytesRemaining() == before){
+                if (++ticks > BITS_PER_BYTE * MAX_TICKS_PER_SHIFT){
+                    fail("no fetch occurred within one byte's worth of timer periods");
+                }
                 channel.tick();
             }
         }
@@ -318,7 +329,11 @@ public class DMCChannelTest {
     private static void clockRealShifts(final DMCChannel channel, final int shifts){
         for (int i = 0; i < shifts; i++){
             final int before = channel.bitsRemainingInShiftRegister();
+            int ticks = 0;
             while (channel.bitsRemainingInShiftRegister() == before){
+                if (++ticks > MAX_TICKS_PER_SHIFT){
+                    fail("no shift occurred within one timer period");
+                }
                 channel.tick();
             }
         }
