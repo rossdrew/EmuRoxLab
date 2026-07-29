@@ -94,6 +94,10 @@ public class DMCChannel implements ClockWatcher {
         this.frequencyDivider = new ParityCountdownFrequencyDivider(this::clockOutputUnit, false, NTSC_DMC_RATES[0]);
     }
 
+    private boolean channelIsIdle(){
+        return bytesRemaining == 0;
+    }
+
     /**
      * Handle a $4010 write.
      *
@@ -145,10 +149,8 @@ public class DMCChannel implements ClockWatcher {
      * register keeps playing out until the next reload finds nothing left and silences.
      */
     public void setEnabled(final boolean enabled){
-        if (enabled){
-            if (bytesRemaining == 0){
-                start();
-            }
+        if (enabled && channelIsIdle()){
+            start();
         } else {
             bytesRemaining = 0;
         }
@@ -188,7 +190,7 @@ public class DMCChannel implements ClockWatcher {
      */
     private void reloadShiftRegister(){
         bitsRemainingInShiftRegister = SHIFT_REGISTER_BITS;
-        if (bytesRemaining == 0){
+        if (channelIsIdle()){
             outputSilenced = true;
             return;
         }
@@ -201,7 +203,7 @@ public class DMCChannel implements ClockWatcher {
         final int value = memoryBus.read(currentAddress);
         currentAddress = currentAddress == MAX_ADDRESS ? ADDRESS_WRAP_TARGET : currentAddress + 1;
         bytesRemaining--;
-        if (bytesRemaining == 0){
+        if (channelIsIdle()){
             if (loop){
                 currentAddress = sampleStartAddress;
                 bytesRemaining = sampleLength;
