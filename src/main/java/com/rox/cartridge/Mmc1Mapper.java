@@ -108,7 +108,9 @@ public final class Mmc1Mapper implements Mapper {
 
         if (prgBankMode <= PRG_BANK_MODE_SWITCH_32KB_HIGH){
             final int bank32 = (bankNumber >> 1) % Math.max(1, totalBanks / 2);
-            return bank32 * (PRG_BANK_SIZE * 2) + windowOffset;
+            //mirrors a single-bank (16KB) ROM across the 32KB window, same as NromMapper's own
+            //16KB-bank mirroring - a lone-bank MMC1 image is nonstandard but shouldn't crash
+            return (bank32 * (PRG_BANK_SIZE * 2) + windowOffset) % prgRom.length;
         }
         if (windowOffset < PRG_BANK_SIZE){
             final int bank = prgBankMode == PRG_BANK_MODE_FIX_FIRST ? 0 : bankNumber % totalBanks;

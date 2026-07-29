@@ -202,6 +202,19 @@ public class Mmc1MapperTest {
     }
 
     @Test
+    public void prgBankMode0DoesNotCrashOnASingleBankRomAndMirrorsIt(){
+        //a lone 16KB bank in mode 0/1 (32KB switch) used to compute a $C000 offset (0x4000-0x7FFF)
+        //past the end of a 16384-byte prgRom array, throwing ArrayIndexOutOfBoundsException - note
+        //the reset-default mode (3) already handles a single bank fine, so mode 0 must be latched
+        //explicitly for this test to actually reach the vulnerable branch
+        final Mmc1Mapper mapper = new Mmc1Mapper(romWithPositionEncodedBanks(1));
+        writeFiveBits(mapper, 0x8000, 0x00); //control: mode 0
+
+        assertEquals(1, mapper.read(0x8001));
+        assertEquals(1, mapper.read(0xC001), "the single bank's byte 1 should mirror into the second half of the window");
+    }
+
+    @Test
     public void prgBankMode3PreservesNonZeroOffsetWithinTheSwitchableWindow(){
         final Mmc1Mapper mapper = new Mmc1Mapper(romWithPositionEncodedBanks(8));
         writeFiveBits(mapper, 0x8000, 0x0C); //mode 3
