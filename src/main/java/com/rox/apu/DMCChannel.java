@@ -149,10 +149,10 @@ public class DMCChannel implements ClockWatcher {
      * register keeps playing out until the next reload finds nothing left and silences.
      */
     public void setEnabled(final boolean enabled){
-        if (enabled && channelIsIdle()){
-            start();
-        } else {
+        if (!enabled){
             bytesRemaining = 0;
+        } else if (channelIsIdle()){
+            start();
         }
     }
 
