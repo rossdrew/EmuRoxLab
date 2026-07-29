@@ -18,17 +18,26 @@ import com.rox.time.ThreadSleeper;
 
 /**
  * Manual audible smoke test for the Mixer + real-time audio output phase - not a unit test. Run it
- * directly and listen: it should play a short ascending arpeggio (C4-E4-G4-C5) on pulse channel 1,
- * then hold the last note through the system speaker for the remainder of the run.
+ * directly and listen: it should play each of the five channels in turn - pulse1, pulse2, triangle,
+ * noise, then DMC - roughly a third of a second each, then hold the DMC sample (looping) through the
+ * system speaker for the remainder of the run.
  *
  * <pre>./gradlew compileJava &amp;&amp; java -cp build/classes/java/main com.rox.AudioSmokeDemo</pre>
  */
 public final class AudioSmokeDemo {
-    private static final int RUN_SECONDS = 4;
+    private static final int RUN_SECONDS = 6;
     private static final int PROGRAM_START_ADDRESS = 0x8000;
     //gives the JVM's JIT time to compile the emulation's hot per-cycle tick loop, and lets the
     //ring buffer build up a cushion, before audio playback (and thus underrun risk) begins
     private static final long WARM_UP_MILLIS = 300;
+
+    //DMC sample: alternating full-up/full-down bytes ($4012=$00 -> $C000, $4013=$0F -> 241 bytes),
+    //loaded into RAM below before the clock starts. Each byte ramps the delta counter fully in one
+    //direction (8 bits, LSB first), so consecutive $FF/$00 bytes step up then down - at rate index 0
+    //(428 cycles/bit) that's a ~261Hz buzz. allChannels' DMC control write sets the loop flag, so it
+    //keeps cycling through this buffer indefinitely once enabled.
+    private static final int DMC_SAMPLE_ADDRESS = 0xC000;
+    private static final int DMC_SAMPLE_LENGTH = 241;
 
     final static Memory ram = new RAM(0x10000);
     final static MemoryBus ramBus = new MemoryBus8Bit(ram);
@@ -110,14 +119,97 @@ public final class AudioSmokeDemo {
                         RTS
                 """;
 
+    final static String allChannels = """
+                        ; DMC setup (must happen before enabling bit 4 below) - loops the 241-byte
+                        ; $FF/$00 sample poked into RAM at $C000 by main(), producing a steady
+                        ; ~261Hz buzz once enabled.
+                        LDA #$40      ; loop=1, IRQ off, rate index 0 (period 428)
+                        STA $4010
+                        LDA #$00      ; sample address = $C000 + 0*64
+                        STA $4012
+                        LDA #$0F      ; sample length = 15*16+1 = 241 bytes
+                        STA $4013
+
+                        ; ---- Pulse 1 (~440Hz A4) ----
+                        LDA #$01      ; enable only pulse1
+                        STA $4015
+                        LDA #$BF      ; duty=2, halt (sustain), constant volume, volume=15
+                        STA $4000
+                        LDA #$00      ; sweep off
+                        STA $4001
+                        LDA #$FD      ; timer low (t=$FD -> ~440Hz)
+                        STA $4002
+                        LDA #$00      ; timer high=0, length index=0 (also restarts envelope/sequencer)
+                        STA $4003
+                        JSR DELAY
+                        JSR DELAY
+
+                        ; ---- Pulse 2 (~330Hz E4, different duty so it's distinguishable from pulse1) ----
+                        LDA #$02      ; enable only pulse2 - disabling pulse1 forces its length counter to 0
+                        STA $4015
+                        LDA #$3F      ; duty=0, halt, constant volume, volume=15
+                        STA $4004
+                        LDA #$00      ; sweep off
+                        STA $4005
+                        LDA #$52      ; timer low (t=$152 -> ~330Hz)
+                        STA $4006
+                        LDA #$01      ; timer high=1, length index=0
+                        STA $4007
+                        JSR DELAY
+                        JSR DELAY
+
+                        ; ---- Triangle (~261Hz C4) ----
+                        LDA #$04      ; enable only triangle - disables pulse2
+                        STA $4015
+                        LDA #$FF      ; linear-counter control=1 (halt), reload=$7F
+                        STA $4008
+                        LDA #$AB      ; timer low (t=$1AB -> ~261Hz)
+                        STA $400A
+                        LDA #$01      ; timer high=1, length index=0 (also requests linear-counter reload)
+                        STA $400B
+                        JSR DELAY
+                        JSR DELAY
+
+                        ; ---- Noise ----
+                        LDA #$08      ; enable only noise - disables triangle
+                        STA $4015
+                        LDA #$3F      ; halt, constant volume, volume=15
+                        STA $400C
+                        LDA #$06      ; mode=0 (long/hiss sequence), period index=6
+                        STA $400E
+                        LDA #$00      ; length index=0 (also restarts envelope)
+                        STA $400F
+                        JSR DELAY
+                        JSR DELAY
+
+                        ; ---- DMC ----
+                        LDA #$10      ; enable only DMC - disables noise; starts playback of the
+                        STA $4015     ; sample set up above (loops, so keeps sounding thereafter)
+
+                LOOP:   JMP LOOP     ; hold DMC playback (looping) for the rest of the run
+
+                        ; ~184ms of CPU cycles per call (256x256 nested countdown); two calls give
+                        ; each channel ~368ms before the next one takes over.
+                DELAY:  LDY #$00
+                OUTER:  LDX #$00
+                INNER:  DEX
+                        BNE INNER
+                        DEY
+                        BNE OUTER
+                        RTS
+                """;
+
     private AudioSmokeDemo(){
     }
 
     //XXX Need to tidy all of this up
     public static void main(final String[] args) throws Exception {
-        final AssembledProgram assembled = Assembler.assemble(arpeggio, PROGRAM_START_ADDRESS);
+        final AssembledProgram assembled = Assembler.assemble(allChannels, PROGRAM_START_ADDRESS);
         for (int i = 0; i < assembled.length(); i++){
             ram.write(assembled.startAddress() + i, assembled.bytes()[i]);
+        }
+        for (int i = 0; i < DMC_SAMPLE_LENGTH; i++){
+            ram.write(DMC_SAMPLE_ADDRESS + i, (i % 2 == 0) ? 0xFF : 0x00);
         }
 
         cpu.setPC(assembled.startAddress());
@@ -138,8 +230,8 @@ public final class AudioSmokeDemo {
             }
         }));
 
-        System.out.println("Playing a short ascending arpeggio (C4-E4-G4-C5), then holding the last note, for "
-                + RUN_SECONDS + " seconds...");
+        System.out.println("Playing pulse1, pulse2, triangle, noise, then DMC in turn, then holding DMC "
+                + "(looping) for " + RUN_SECONDS + " seconds total...");
         final Thread clockThread = new Thread(clock::run);
         clockThread.start();
         Thread.sleep(WARM_UP_MILLIS); //let the clock run (and the ring buffer fill) before we start draining it
