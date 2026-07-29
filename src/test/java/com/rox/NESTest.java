@@ -2,9 +2,12 @@ package com.rox;
 
 import com.rox.apu.APU;
 import com.rox.audio.AudioOutput;
+import com.rox.cartridge.Cartridge;
+import com.rox.cartridge.RomLoader;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.Mockito.mock;
@@ -19,16 +22,40 @@ import static org.mockito.Mockito.verify;
  * ssert.
  */
 public class NESTest {
+    private static final int PRG_ROM_SIZE = 0x4000;
+
+    /** A minimal single-bank NROM (mapper 0) cartridge, PRG-ROM all zero - enough to plug into an NES. */
+    private static Cartridge blankCartridge(){
+        final byte[] header = {'N', 'E', 'S', 0x1A, 0x01, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0};
+        final byte[] fileBytes = new byte[header.length + PRG_ROM_SIZE];
+        System.arraycopy(header, 0, fileBytes, 0, header.length);
+        return RomLoader.fromBytes(fileBytes);
+    }
+
+    /** A cartridge whose reset vector points at a single "JMP $9000" instruction, looping on itself. */
+    private static Cartridge selfLoopingCartridge(){
+        final byte[] header = {'N', 'E', 'S', 0x1A, 0x01, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0};
+        final byte[] fileBytes = new byte[header.length + PRG_ROM_SIZE];
+        System.arraycopy(header, 0, fileBytes, 0, header.length);
+        final int jmpOffset = header.length + ((0x9000 - 0x8000) % PRG_ROM_SIZE);
+        fileBytes[jmpOffset] = 0x4C; //JMP absolute
+        fileBytes[jmpOffset + 1] = 0x00; //target low byte
+        fileBytes[jmpOffset + 2] = (byte) 0x90; //target high byte -> $9000 (itself)
+        final int resetVectorOffset = header.length + ((0xFFFC - 0x8000) % PRG_ROM_SIZE); //mirrors into the 16KB bank
+        fileBytes[resetVectorOffset] = 0x00; //reset vector low byte
+        fileBytes[resetVectorOffset + 1] = (byte) 0x90; //reset vector high byte -> $9000
+        return RomLoader.fromBytes(fileBytes);
+    }
 
     @Test
     public void constructsWithCpuAndApuWiredOntoTheSharedClock(){
-        new NES(mock(AudioOutput.class));
+        new NES(mock(AudioOutput.class), blankCartridge());
     }
 
     @Test
     public void powerOnStartsAudioOutputRunsAndFeedsItSamplesUntilPoweredOff() throws InterruptedException {
         final AudioOutput audioOutput = mock(AudioOutput.class);
-        final NES nes = new NES(audioOutput);
+        final NES nes = new NES(audioOutput, blankCartridge());
 
         final Thread thread = new Thread(nes::powerOn);
         thread.start();
@@ -43,6 +70,30 @@ public class NESTest {
         verify(audioOutput).stop();
     }
 
+    @Test
+    public void powerOnResetsTheCpuToTheCartridgesResetVector() throws InterruptedException {
+        final NES nes = new NES(mock(AudioOutput.class), selfLoopingCartridge());
+
+        final Thread thread = new Thread(nes::powerOn);
+        thread.start();
+
+        //bounded busy-poll rather than a fixed sleep - the CPU should reach and then keep re-hitting
+        //$9000 almost immediately if (and only if) powerOn() actually called cpu.reset()
+        final long deadline = System.currentTimeMillis() + 2000;
+        boolean reachedResetTarget = false;
+        while (System.currentTimeMillis() < deadline){
+            if (nes.cpu().getEnvironmentSnapshot().getPC() == 0x9000){
+                reachedResetTarget = true;
+                break;
+            }
+        }
+
+        nes.powerOff();
+        thread.join(2000);
+
+        assertTrue(reachedResetTarget, "PC never reached $9000 - powerOn() should reset the CPU to the cartridge's reset vector");
+    }
+
     /**
      * End-to-end proof that the phase-7 IRQ wiring in the constructor actually reaches the real
      * {@code MOS6502} - APUTest only proves the wiring logic in isolation against a mocked APU.
@@ -51,7 +102,7 @@ public class NESTest {
      */
     @Test
     public void dmcExhaustionIrqReachesTheCpusRealIrqLine(){
-        final NES nes = new NES(mock(AudioOutput.class));
+        final NES nes = new NES(mock(AudioOutput.class), blankCartridge());
         final APU apu = nes.apu();
 
         apu.write(0x4010, 0x80); //DMC: IRQ enable, rate index 0 (period 428)

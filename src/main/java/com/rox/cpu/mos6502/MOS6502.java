@@ -29,6 +29,9 @@ public class MOS6502 implements ClockWatcher {
             { ADDRESS_NMI_HIGH, PCH_FROM_MEM }
     };
 
+    private static final int RESET_VECTOR_LOW_ADDRESS = 0xFFFC;
+    private static final int RESET_VECTOR_HIGH_ADDRESS = 0xFFFD;
+
     private final LatchedMemoryBus latchedMemory;
 
     private Deque<MOS6502Operation[]> opsInTicksStack = new ArrayDeque<>();
@@ -62,6 +65,19 @@ public class MOS6502 implements ClockWatcher {
     /** Set the program counter, e.g. to point at the start of an assembled program */
     public void setPC(final int newPC){
         environment.setPC(newPC);
+    }
+
+    /**
+     * Reset: read the reset vector ($FFFC/$FFFD) and jump the program counter there, as real
+     * hardware does on power-on/reset - mirrors the IRQ ($FFFE/$FFFF) / NMI ($FFFA/$FFFB)
+     * vector-read pattern already used by the interrupt sequences above.
+     */
+    public void reset(){
+        latchedMemory.loadMemoryAddress(RESET_VECTOR_LOW_ADDRESS);
+        final int low = latchedMemory.fetch();
+        latchedMemory.loadMemoryAddress(RESET_VECTOR_HIGH_ADDRESS);
+        final int high = latchedMemory.fetch();
+        setPC((high << 8) | low);
     }
 
     @Override
