@@ -103,6 +103,15 @@ public class INesRomTest {
     }
 
     @Test
+    public void rejectsNes2FormatHeaders(){
+        //flags7 bits 2-3 = 0b10 identifies NES 2.0 - here also carrying a mapper high nibble (0x10)
+        //that iNES 1.0 parsing would otherwise fold straight into a truncated, wrong mapper number
+        final byte[] rom = buildRom(1, 1, 0x00, 0x18, false);
+
+        assertThrows(IllegalArgumentException.class, () -> INesRom.parse(rom));
+    }
+
+    @Test
     public void acceptsFileExactlyTheHeaderSizeWithNoPrgOrChrBanks(){
         final byte[] rom = buildRom(0, 0, 0x00, 0x00, false);
 

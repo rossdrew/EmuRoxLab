@@ -22,6 +22,8 @@ public final class INesRom {
     private static final int VERTICAL_MIRRORING_BIT = 0x01;
     private static final int MAPPER_LOW_NIBBLE_SHIFT = 4;
     private static final int MAPPER_HIGH_NIBBLE_MASK = 0xF0;
+    private static final int NES2_IDENTIFICATION_MASK = 0x0C;
+    private static final int NES2_IDENTIFICATION_VALUE = 0x08;
 
     private final int mapperNumber;
     private final boolean verticalMirroring;
@@ -41,10 +43,14 @@ public final class INesRom {
             throw new IllegalArgumentException("Not an iNES ROM (missing 'NES' + $1A header magic)");
         }
 
+        final int flags7 = fileBytes[FLAGS_7_OFFSET] & 0xFF;
+        if ((flags7 & NES2_IDENTIFICATION_MASK) == NES2_IDENTIFICATION_VALUE){
+            throw new IllegalArgumentException("NES 2.0 ROMs are not supported yet - flags7 identifies this as NES 2.0");
+        }
+
         final int prgBanks = fileBytes[PRG_BANKS_OFFSET] & 0xFF;
         final int chrBanks = fileBytes[CHR_BANKS_OFFSET] & 0xFF;
         final int flags6 = fileBytes[FLAGS_6_OFFSET] & 0xFF;
-        final int flags7 = fileBytes[FLAGS_7_OFFSET] & 0xFF;
 
         final int mapperNumber = (flags7 & MAPPER_HIGH_NIBBLE_MASK) | (flags6 >> MAPPER_LOW_NIBBLE_SHIFT);
         final boolean verticalMirroring = (flags6 & VERTICAL_MIRRORING_BIT) != 0;
