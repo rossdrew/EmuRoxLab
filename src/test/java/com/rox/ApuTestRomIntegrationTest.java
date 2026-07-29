@@ -49,7 +49,7 @@ public class ApuTestRomIntegrationTest {
             "8-dmc_rates.nes, 3",
     })
     public void reportsExpectedStatus(final String romName, final int expectedStatus) throws IOException {
-        assertRomReportsStatus("rom_singles/" + romName, expectedStatus, TICK_BUDGET);
+        assertRomReportsStatus("rom_singles/" + romName, expectedStatus, TICK_BUDGET, null);
     }
 
     /**
@@ -57,21 +57,23 @@ public class ApuTestRomIntegrationTest {
      * with its own menu/sequencing code, stopping at the first failure - test 4 (jitter), the same
      * one rom_singles/4-jitter.nes fails on ("Frame irq is set too soon"). Its own $6000 status byte
      * convention is coarser than a single sub-test's (1 = some test failed, not the specific failure
-     * code that sub-test would report standalone).
+     * code that sub-test would report standalone) - so the text is asserted too, to actually pin down
+     * *which* sub-test failed rather than just "something did."
      */
     @Test
     public void combinedRomReportsExpectedStatus() throws IOException {
-        assertRomReportsStatus("apu_test.nes", 1, COMBINED_ROM_TICK_BUDGET);
+        assertRomReportsStatus("apu_test.nes", 1, COMBINED_ROM_TICK_BUDGET, "Frame irq is set too soon");
     }
 
-    private void assertRomReportsStatus(final String romResourcePath, final int expectedStatus, final long tickBudget)
-            throws IOException {
+    private void assertRomReportsStatus(final String romResourcePath, final int expectedStatus, final long tickBudget,
+                                         final String expectedTextSubstring) throws IOException {
         final Cartridge cartridge = RomLoader.load(romPath(romResourcePath));
         final NES nes = new NES(mock(AudioOutput.class), cartridge);
         nes.cpu().reset();
 
         long ticks = 0;
         boolean sawSignature = false;
+        boolean finished = false;
         while (ticks < tickBudget){
             nes.clock().tick();
             ticks++;
@@ -83,14 +85,20 @@ public class ApuTestRomIntegrationTest {
                 continue;
             }
             if (sawSignature && !BlarggTestStatus.isRunning(cartridge)){
+                finished = true;
                 break;
             }
         }
 
         assertTrue(sawSignature, romResourcePath + " never wrote the blargg status signature within " + tickBudget + " ticks");
-        assertTrue(ticks < tickBudget, romResourcePath + " did not finish within " + tickBudget + " ticks (status stuck at $80/$81)");
+        assertTrue(finished, romResourcePath + " did not finish within " + tickBudget + " ticks (status stuck at $80/$81)");
         assertEquals(expectedStatus, BlarggTestStatus.statusByte(cartridge),
                 romResourcePath + " reported: " + BlarggTestStatus.text(cartridge));
+        if (expectedTextSubstring != null){
+            assertTrue(BlarggTestStatus.text(cartridge).contains(expectedTextSubstring),
+                    romResourcePath + " expected text to contain \"" + expectedTextSubstring + "\" but was: "
+                            + BlarggTestStatus.text(cartridge));
+        }
     }
 
     private static Path romPath(final String romResourcePath){
