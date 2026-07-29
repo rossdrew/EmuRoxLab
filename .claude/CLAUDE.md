@@ -32,3 +32,5 @@ After implementing any planned phase, before marking it complete:
    1. Address code coverage changes flagged by Codecov
    2. Address coderabbitai comments by evaluating their "Prompt for AI Agents" section, commits should include a desciptive header, a blank line then the descriptive paragraph included in the "Prompt for AI Agents"
    3. Address any other comments made
+8. Provide a list of changed files and brief summary of each
+
