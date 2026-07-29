@@ -4,6 +4,7 @@ import com.rox.audio.AudioOutput;
 import com.rox.cartridge.BlarggTestStatus;
 import com.rox.cartridge.Cartridge;
 import com.rox.cartridge.RomLoader;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
@@ -30,8 +31,11 @@ import static org.mockito.Mockito.mock;
  * rather than asserting an aspirational "all green."
  */
 public class ApuTestRomIntegrationTest {
-    private static final String ROM_RESOURCE_DIR = "roms/apu_test/rom_singles/";
+    private static final String ROM_RESOURCE_DIR = "roms/apu_test/";
     private static final long TICK_BUDGET = 5_000_000;
+    //the combined ROM runs all 8 rom_singles sub-tests (plus its own menu/sequencing overhead) in one
+    //pass, so it needs a proportionally larger budget than any single sub-test
+    private static final long COMBINED_ROM_TICK_BUDGET = TICK_BUDGET * 10;
 
     @ParameterizedTest(name = "{0} -> status ${1}")
     @CsvSource({
@@ -45,13 +49,30 @@ public class ApuTestRomIntegrationTest {
             "8-dmc_rates.nes, 3",
     })
     public void reportsExpectedStatus(final String romName, final int expectedStatus) throws IOException {
-        final Cartridge cartridge = RomLoader.load(romPath(romName));
+        assertRomReportsStatus("rom_singles/" + romName, expectedStatus, TICK_BUDGET);
+    }
+
+    /**
+     * apu_test.nes (mapper 1/MMC1, unlike the mapper-0 rom_singles) runs all 8 sub-tests in sequence
+     * with its own menu/sequencing code, stopping at the first failure - test 4 (jitter), the same
+     * one rom_singles/4-jitter.nes fails on ("Frame irq is set too soon"). Its own $6000 status byte
+     * convention is coarser than a single sub-test's (1 = some test failed, not the specific failure
+     * code that sub-test would report standalone).
+     */
+    @Test
+    public void combinedRomReportsExpectedStatus() throws IOException {
+        assertRomReportsStatus("apu_test.nes", 1, COMBINED_ROM_TICK_BUDGET);
+    }
+
+    private void assertRomReportsStatus(final String romResourcePath, final int expectedStatus, final long tickBudget)
+            throws IOException {
+        final Cartridge cartridge = RomLoader.load(romPath(romResourcePath));
         final NES nes = new NES(mock(AudioOutput.class), cartridge);
         nes.cpu().reset();
 
         long ticks = 0;
         boolean sawSignature = false;
-        while (ticks < TICK_BUDGET){
+        while (ticks < tickBudget){
             nes.clock().tick();
             ticks++;
             if (!sawSignature && BlarggTestStatus.isSignaturePresent(cartridge)){
@@ -66,16 +87,16 @@ public class ApuTestRomIntegrationTest {
             }
         }
 
-        assertTrue(sawSignature, romName + " never wrote the blargg status signature within " + TICK_BUDGET + " ticks");
-        assertTrue(ticks < TICK_BUDGET, romName + " did not finish within " + TICK_BUDGET + " ticks (status stuck at $80/$81)");
+        assertTrue(sawSignature, romResourcePath + " never wrote the blargg status signature within " + tickBudget + " ticks");
+        assertTrue(ticks < tickBudget, romResourcePath + " did not finish within " + tickBudget + " ticks (status stuck at $80/$81)");
         assertEquals(expectedStatus, BlarggTestStatus.statusByte(cartridge),
-                romName + " reported: " + BlarggTestStatus.text(cartridge));
+                romResourcePath + " reported: " + BlarggTestStatus.text(cartridge));
     }
 
-    private static Path romPath(final String romName){
-        final URL url = ApuTestRomIntegrationTest.class.getClassLoader().getResource(ROM_RESOURCE_DIR + romName);
+    private static Path romPath(final String romResourcePath){
+        final URL url = ApuTestRomIntegrationTest.class.getClassLoader().getResource(ROM_RESOURCE_DIR + romResourcePath);
         if (url == null){
-            throw new IllegalStateException("Test fixture not found on classpath: " + ROM_RESOURCE_DIR + romName);
+            throw new IllegalStateException("Test fixture not found on classpath: " + ROM_RESOURCE_DIR + romResourcePath);
         }
         try {
             return Path.of(url.toURI());

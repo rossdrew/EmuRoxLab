@@ -19,6 +19,7 @@ public final class RomLoader {
         final INesRom rom = INesRom.parse(fileBytes);
         final Mapper mapper = switch (rom.mapperNumber()){
             case 0 -> new NromMapper(rom);
+            case 1 -> new Mmc1Mapper(rom);
             default -> throw new IllegalArgumentException("Unsupported mapper: " + rom.mapperNumber());
         };
         return new Cartridge(rom, mapper);
