@@ -147,4 +147,16 @@ public class INesRomTest {
 
         assertThrows(IllegalArgumentException.class, () -> INesRom.parse(truncated));
     }
+
+    @Test
+    public void rejectsPrgTruncationEvenWhenChrIsAlsoDeclared(){
+        //1 PRG bank (16384) + 1 CHR bank (8192) declared, but the file is only 16000 bytes - short
+        //enough that PRG alone doesn't fit, but not so short that the subsequent CHR-ROM offset
+        //(16400) would *also* land past the end of the file in a way that masks a truncation check
+        //bug specifically in the PRG-ROM copy - see git history for why this one needed care
+        final byte[] header = {'N', 'E', 'S', 0x1A, 0x01, 0x01, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0};
+        final byte[] truncated = Arrays.copyOf(header, 16_000);
+
+        assertThrows(IllegalArgumentException.class, () -> INesRom.parse(truncated));
+    }
 }
