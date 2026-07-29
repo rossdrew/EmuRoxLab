@@ -57,6 +57,10 @@ public class ApuTestRomIntegrationTest {
             if (!sawSignature && BlarggTestStatus.isSignaturePresent(cartridge)){
                 sawSignature = true;
             }
+            if (sawSignature && BlarggTestStatus.needsReset(cartridge)){
+                nes.cpu().reset();
+                continue;
+            }
             if (sawSignature && !BlarggTestStatus.isRunning(cartridge)){
                 break;
             }

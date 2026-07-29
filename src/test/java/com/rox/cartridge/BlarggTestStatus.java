@@ -41,6 +41,11 @@ public final class BlarggTestStatus {
         return status == RUNNING_STATUS || status == NEEDS_RESET_STATUS;
     }
 
+    /** True when the ROM is asking the harness to press reset (delayed by &gt;=100ms) before it can continue. */
+    public static boolean needsReset(final MemoryBus bus){
+        return statusByte(bus) == NEEDS_RESET_STATUS;
+    }
+
     /** The null-terminated text message at $6004+. */
     public static String text(final MemoryBus bus){
         final StringBuilder text = new StringBuilder();

@@ -67,6 +67,21 @@ public class BlarggTestStatusTest {
     }
 
     @Test
+    public void needsResetTrueOnlyFor0x81(){
+        when(bus.read(0x6000)).thenReturn(0x81);
+
+        assertTrue(BlarggTestStatus.needsReset(bus));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0x80, 0x00, 0x02})
+    public void needsResetFalseForOtherStatuses(final int status){
+        when(bus.read(0x6000)).thenReturn(status);
+
+        assertFalse(BlarggTestStatus.needsReset(bus));
+    }
+
+    @Test
     public void textStopsAtTheNullTerminator(){
         when(bus.read(0x6004)).thenReturn((int) 'O');
         when(bus.read(0x6005)).thenReturn((int) 'K');
