@@ -1,6 +1,8 @@
 package com.rox.cartridge;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.Arrays;
 
@@ -114,6 +116,17 @@ public class INesRomTest {
     public void rejectsFileMissingMagic(){
         final byte[] rom = buildRom(1, 1, 0x00, 0x00, false);
         rom[0] = 'X';
+
+        assertThrows(IllegalArgumentException.class, () -> INesRom.parse(rom));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 2, 3})
+    public void rejectsFileWithAnySingleMagicByteWrong(final int wrongByteIndex){
+        //hasMagic() short-circuits through 4 &&-chained comparisons - rejectsFileMissingMagic only
+        //ever corrupts byte 0, so bytes 1-3 never get evaluated as false in any other test
+        final byte[] rom = buildRom(1, 1, 0x00, 0x00, false);
+        rom[wrongByteIndex] = (byte) 0x00;
 
         assertThrows(IllegalArgumentException.class, () -> INesRom.parse(rom));
     }
