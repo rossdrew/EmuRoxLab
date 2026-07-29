@@ -2,9 +2,12 @@ package com.rox;
 
 import com.rox.apu.APU;
 import com.rox.audio.AudioOutput;
+import com.rox.cartridge.Cartridge;
+import com.rox.cartridge.RomLoader;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.Mockito.mock;
@@ -19,16 +22,49 @@ import static org.mockito.Mockito.verify;
  * ssert.
  */
 public class NESTest {
+    private static final int PRG_ROM_SIZE = 0x4000;
+
+    /** A minimal single-bank NROM (mapper 0) cartridge, PRG-ROM all zero - enough to plug into an NES. */
+    private static Cartridge blankCartridge(){
+        final byte[] header = {'N', 'E', 'S', 0x1A, 0x01, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0};
+        final byte[] fileBytes = new byte[header.length + PRG_ROM_SIZE];
+        System.arraycopy(header, 0, fileBytes, 0, header.length);
+        return RomLoader.fromBytes(fileBytes);
+    }
+
+    /** A cartridge whose PRG-ROM (and so $C000, the default DMC sample address) reads back {@code $FF}. */
+    private static Cartridge cartridgeWithNonZeroByteAtDmcSampleAddress(){
+        final byte[] header = {'N', 'E', 'S', 0x1A, 0x01, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0};
+        final byte[] fileBytes = new byte[header.length + PRG_ROM_SIZE];
+        System.arraycopy(header, 0, fileBytes, 0, header.length);
+        fileBytes[header.length + ((0xC000 - 0x8000) % PRG_ROM_SIZE)] = (byte) 0xFF;
+        return RomLoader.fromBytes(fileBytes);
+    }
+
+    /** A cartridge whose reset vector points at a single "JMP $9000" instruction, looping on itself. */
+    private static Cartridge selfLoopingCartridge(){
+        final byte[] header = {'N', 'E', 'S', 0x1A, 0x01, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0};
+        final byte[] fileBytes = new byte[header.length + PRG_ROM_SIZE];
+        System.arraycopy(header, 0, fileBytes, 0, header.length);
+        final int jmpOffset = header.length + ((0x9000 - 0x8000) % PRG_ROM_SIZE);
+        fileBytes[jmpOffset] = 0x4C; //JMP absolute
+        fileBytes[jmpOffset + 1] = 0x00; //target low byte
+        fileBytes[jmpOffset + 2] = (byte) 0x90; //target high byte -> $9000 (itself)
+        final int resetVectorOffset = header.length + ((0xFFFC - 0x8000) % PRG_ROM_SIZE); //mirrors into the 16KB bank
+        fileBytes[resetVectorOffset] = 0x00; //reset vector low byte
+        fileBytes[resetVectorOffset + 1] = (byte) 0x90; //reset vector high byte -> $9000
+        return RomLoader.fromBytes(fileBytes);
+    }
 
     @Test
     public void constructsWithCpuAndApuWiredOntoTheSharedClock(){
-        new NES(mock(AudioOutput.class));
+        new NES(mock(AudioOutput.class), blankCartridge());
     }
 
     @Test
     public void powerOnStartsAudioOutputRunsAndFeedsItSamplesUntilPoweredOff() throws InterruptedException {
         final AudioOutput audioOutput = mock(AudioOutput.class);
-        final NES nes = new NES(audioOutput);
+        final NES nes = new NES(audioOutput, blankCartridge());
 
         final Thread thread = new Thread(nes::powerOn);
         thread.start();
@@ -43,6 +79,64 @@ public class NESTest {
         verify(audioOutput).stop();
     }
 
+    @Test
+    public void powerOnResetsTheCpuToTheCartridgesResetVector() throws InterruptedException {
+        final NES nes = new NES(mock(AudioOutput.class), selfLoopingCartridge());
+
+        final Thread thread = new Thread(nes::powerOn);
+        thread.start();
+
+        //bounded busy-poll rather than a fixed sleep - the CPU should reach and then keep re-hitting
+        //$9000 almost immediately if (and only if) powerOn() actually called cpu.reset()
+        final long deadline = System.currentTimeMillis() + 2000;
+        boolean reachedResetTarget = false;
+        while (System.currentTimeMillis() < deadline){
+            if (nes.cpu().getEnvironmentSnapshot().getPC() == 0x9000){
+                reachedResetTarget = true;
+                break;
+            }
+        }
+
+        nes.powerOff();
+        thread.join(2000);
+
+        assertTrue(reachedResetTarget, "PC never reached $9000 - powerOn() should reset the CPU to the cartridge's reset vector");
+    }
+
+    /**
+     * DMC's own sample-address generator only ever produces addresses in $8000-$FFFF (see
+     * DMCChannel), so a real DMC sample always lives in cartridge PRG-ROM - proves the APU's DMA
+     * reads actually reach the cartridge rather than the NES's internal RAM (which starts, and for
+     * this cartridge's PRG-ROM content would coincidentally also be, all zero).
+     *
+     * Compares against a captured baseline rather than an absolute 0 - TriangleChannel's
+     * outputSample() intentionally never returns exactly 0 (it freezes at its last sequence value,
+     * defaulting to a nonzero 15, matching a documented real-hardware quirk), so the mixed
+     * apu.outputSample() is never 0.0 even with every channel otherwise silent/disabled.
+     */
+    @Test
+    public void dmcSampleFetchesReadFromCartridgePrgRomNotInternalRam(){
+        final NES nes = new NES(mock(AudioOutput.class), cartridgeWithNonZeroByteAtDmcSampleAddress());
+        final APU apu = nes.apu();
+        final double baseline = apu.outputSample();
+
+        apu.write(0x4010, 0x00); //IRQ off, loop off, rate index 0 (period 428)
+        apu.write(0x4012, 0x00); //sample address $C000
+        apu.write(0x4013, 0x00); //sample length: 1 byte
+        apu.write(0x4015, 0x10); //enable DMC - starts playback, fetching the single ($FF) byte immediately
+
+        //generously bounded poll (real requirement is ~2*(428+1) ticks for one shift-register clock,
+        //which is enough for the sample byte's first ('1') bit to move the delta counter off zero)
+        final int maxTicks = 5_000;
+        int ticks = 0;
+        while (apu.outputSample() == baseline){
+            if (++ticks > maxTicks){
+                fail("DMC output never moved off baseline - sample byte wasn't read as $FF, so it isn't coming from the cartridge");
+            }
+            nes.clock().tick();
+        }
+    }
+
     /**
      * End-to-end proof that the phase-7 IRQ wiring in the constructor actually reaches the real
      * {@code MOS6502} - APUTest only proves the wiring logic in isolation against a mocked APU.
@@ -51,7 +145,7 @@ public class NESTest {
      */
     @Test
     public void dmcExhaustionIrqReachesTheCpusRealIrqLine(){
-        final NES nes = new NES(mock(AudioOutput.class));
+        final NES nes = new NES(mock(AudioOutput.class), blankCartridge());
         final APU apu = nes.apu();
 
         apu.write(0x4010, 0x80); //DMC: IRQ enable, rate index 0 (period 428)

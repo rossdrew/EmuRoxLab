@@ -127,5 +127,30 @@ public class MOS6502Test {
         verify(bus, never()).loadMemoryAddress(0xFFFE);
         verify(bus, never()).loadMemoryAddress(0xFFFF);
     }
+
+    @Test
+    public void resetReadsVectorAndSetsPC(){
+        when(bus.fetch()).thenReturn(0x34, 0x12); //low then high byte -> PC = $1234
+
+        cpu.reset();
+
+        verify(bus).loadMemoryAddress(0xFFFC);
+        verify(bus).loadMemoryAddress(0xFFFD);
+        assertEquals(0x1234, cpu.getEnvironmentSnapshot().getPC());
+    }
+
+    @Test
+    public void resetReadsVectorFromRealMemory(){
+        final Memory testRAM = new RAM(0x10000);
+        testRAM.write(0xFFFC, 0x00);
+        testRAM.write(0xFFFD, 0x80); //reset vector points at $8000
+
+        final MemoryBus subBus = new MemoryBus8Bit(testRAM);
+        cpu = new MOS6502(new Latched8BitMemoryBus(subBus));
+
+        cpu.reset();
+
+        assertEquals(0x8000, cpu.getEnvironmentSnapshot().getPC());
+    }
 }
 

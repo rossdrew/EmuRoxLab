@@ -4,6 +4,7 @@ import com.rox.apu.APU;
 import com.rox.audio.AudioOutput;
 import com.rox.audio.Resampler;
 import com.rox.audio.SpeakerAudioOutput;
+import com.rox.cartridge.Cartridge;
 import com.rox.clock.Clock;
 import com.rox.clock.FPSClock;
 import com.rox.cpu.mos6502.MOS6502;
@@ -23,14 +24,18 @@ public class NES {
     private final LatchedMemoryBus memoryBus;
     private final AudioOutput audioOutput;
 
-    public NES() throws LineUnavailableException {
-        this(new SpeakerAudioOutput());
+    public NES(final Cartridge cartridge) throws LineUnavailableException {
+        this(new SpeakerAudioOutput(), cartridge);
     }
 
-    NES(final AudioOutput audioOutput){
+    NES(final AudioOutput audioOutput, final Cartridge cartridge){
         final MemoryBus ramBus = new MemoryBus8Bit(new RAM(0x10000));
-        this.apu = new APU(ramBus);
-        this.memoryBus = new Latched8BitMemoryBus(new NESMemoryBus(ramBus, apu));
+        //DMC's own sample-address generator (see DMCChannel) only ever produces addresses in
+        //$8000-$FFFF (base $C000+, wrapping no lower than $8000) - always within cartridge range,
+        //so the cartridge alone is a complete, correct DMA source with no need to route through
+        //NESMemoryBus (which would need apu itself to construct, a circular dependency)
+        this.apu = new APU(cartridge);
+        this.memoryBus = new Latched8BitMemoryBus(new NESMemoryBus(ramBus, apu, cartridge));
         this.cpu = new MOS6502(memoryBus);
         this.clock = new FPSClock(CPU_HZ, 60, new SystemTimeSource(), new ThreadSleeper());
         this.audioOutput = audioOutput;
@@ -43,6 +48,7 @@ public class NES {
     }
 
     public void powerOn(){
+        cpu.reset();
         audioOutput.start();
         clock.run();
     }

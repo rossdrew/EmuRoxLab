@@ -3,6 +3,8 @@ package com.rox;
 import com.rox.apu.APU;
 import com.rox.audio.Resampler;
 import com.rox.audio.SpeakerAudioOutput;
+import com.rox.cartridge.Cartridge;
+import com.rox.cartridge.RomLoader;
 import com.rox.clock.FPSClock;
 import com.rox.cpu.mos6502.MOS6502;
 import com.rox.cpu.mos6502.assembler.AssembledProgram;
@@ -39,15 +41,8 @@ public final class AudioSmokeDemo {
     private static final int DMC_SAMPLE_ADDRESS = 0xC000;
     private static final int DMC_SAMPLE_LENGTH = 241;
 
-    final static Memory ram = new RAM(0x10000);
-    final static MemoryBus ramBus = new MemoryBus8Bit(ram);
-    final static APU apu = new APU(ramBus);
-    final static NESMemoryBus nesMemoryBus = new NESMemoryBus(ramBus, apu);
-    final static MOS6502 cpu = new MOS6502(new Latched8BitMemoryBus(nesMemoryBus));
-
-    final static Resampler resampler = new Resampler(1_789_773, 44_100);
-
-    final static FPSClock clock = new FPSClock(1_789_773, 60, new SystemTimeSource(), new ThreadSleeper());
+    //NROM (mapper 0) has a single 16KB PRG-ROM bank - allChannels is loaded at $8000 within it
+    private static final int PRG_ROM_SIZE = 0x4000;
 
     final static String singleNote = """
                                     LDA #$01      ; enable pulse channel 1 ($4015 bit0) - channels start disabled
@@ -199,20 +194,45 @@ public final class AudioSmokeDemo {
                         RTS
                 """;
 
+    //allChannels wrapped as a minimal NROM cartridge, so it loads through NESMemoryBus's cartridge
+    //routing exactly like a real ROM would, rather than being poked directly into RAM at $8000
+    final static Cartridge cartridge = buildCartridge();
+
+    final static Memory ram = new RAM(0x10000);
+    final static MemoryBus ramBus = new MemoryBus8Bit(ram);
+    final static APU apu = new APU(ramBus);
+    final static NESMemoryBus nesMemoryBus = new NESMemoryBus(ramBus, apu, cartridge);
+    final static MOS6502 cpu = new MOS6502(new Latched8BitMemoryBus(nesMemoryBus));
+
+    final static Resampler resampler = new Resampler(1_789_773, 44_100);
+
+    final static FPSClock clock = new FPSClock(1_789_773, 60, new SystemTimeSource(), new ThreadSleeper());
+
     private AudioSmokeDemo(){
+    }
+
+    private static Cartridge buildCartridge(){
+        final AssembledProgram assembled = Assembler.assemble(allChannels, PROGRAM_START_ADDRESS);
+        final byte[] header = {'N', 'E', 'S', 0x1A, 0x01, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0};
+        final byte[] fileBytes = new byte[header.length + PRG_ROM_SIZE];
+        System.arraycopy(header, 0, fileBytes, 0, header.length);
+        final int[] programBytes = assembled.bytes();
+        for (int i = 0; i < programBytes.length; i++){
+            fileBytes[header.length + i] = (byte) programBytes[i];
+        }
+        final int resetVectorOffset = header.length + 0x3FFC; //PRG offset of $FFFC/$FFFD in this 16KB bank
+        fileBytes[resetVectorOffset] = (byte) PROGRAM_START_ADDRESS;
+        fileBytes[resetVectorOffset + 1] = (byte) (PROGRAM_START_ADDRESS >>> 8);
+        return RomLoader.fromBytes(fileBytes);
     }
 
     //XXX Need to tidy all of this up
     public static void main(final String[] args) throws Exception {
-        final AssembledProgram assembled = Assembler.assemble(allChannels, PROGRAM_START_ADDRESS);
-        for (int i = 0; i < assembled.length(); i++){
-            ram.write(assembled.startAddress() + i, assembled.bytes()[i]);
-        }
         for (int i = 0; i < DMC_SAMPLE_LENGTH; i++){
             ram.write(DMC_SAMPLE_ADDRESS + i, (i % 2 == 0) ? 0xFF : 0x00);
         }
 
-        cpu.setPC(assembled.startAddress());
+        cpu.reset();
 
         final SpeakerAudioOutput audioOutput = new SpeakerAudioOutput();
 
