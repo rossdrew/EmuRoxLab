@@ -32,6 +32,15 @@ public class NESTest {
         return RomLoader.fromBytes(fileBytes);
     }
 
+    /** A cartridge whose PRG-ROM (and so $C000, the default DMC sample address) reads back {@code $FF}. */
+    private static Cartridge cartridgeWithNonZeroByteAtDmcSampleAddress(){
+        final byte[] header = {'N', 'E', 'S', 0x1A, 0x01, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0};
+        final byte[] fileBytes = new byte[header.length + PRG_ROM_SIZE];
+        System.arraycopy(header, 0, fileBytes, 0, header.length);
+        fileBytes[header.length + ((0xC000 - 0x8000) % PRG_ROM_SIZE)] = (byte) 0xFF;
+        return RomLoader.fromBytes(fileBytes);
+    }
+
     /** A cartridge whose reset vector points at a single "JMP $9000" instruction, looping on itself. */
     private static Cartridge selfLoopingCartridge(){
         final byte[] header = {'N', 'E', 'S', 0x1A, 0x01, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -92,6 +101,40 @@ public class NESTest {
         thread.join(2000);
 
         assertTrue(reachedResetTarget, "PC never reached $9000 - powerOn() should reset the CPU to the cartridge's reset vector");
+    }
+
+    /**
+     * DMC's own sample-address generator only ever produces addresses in $8000-$FFFF (see
+     * DMCChannel), so a real DMC sample always lives in cartridge PRG-ROM - proves the APU's DMA
+     * reads actually reach the cartridge rather than the NES's internal RAM (which starts, and for
+     * this cartridge's PRG-ROM content would coincidentally also be, all zero).
+     *
+     * Compares against a captured baseline rather than an absolute 0 - TriangleChannel's
+     * outputSample() intentionally never returns exactly 0 (it freezes at its last sequence value,
+     * defaulting to a nonzero 15, matching a documented real-hardware quirk), so the mixed
+     * apu.outputSample() is never 0.0 even with every channel otherwise silent/disabled.
+     */
+    @Test
+    public void dmcSampleFetchesReadFromCartridgePrgRomNotInternalRam(){
+        final NES nes = new NES(mock(AudioOutput.class), cartridgeWithNonZeroByteAtDmcSampleAddress());
+        final APU apu = nes.apu();
+        final double baseline = apu.outputSample();
+
+        apu.write(0x4010, 0x00); //IRQ off, loop off, rate index 0 (period 428)
+        apu.write(0x4012, 0x00); //sample address $C000
+        apu.write(0x4013, 0x00); //sample length: 1 byte
+        apu.write(0x4015, 0x10); //enable DMC - starts playback, fetching the single ($FF) byte immediately
+
+        //generously bounded poll (real requirement is ~2*(428+1) ticks for one shift-register clock,
+        //which is enough for the sample byte's first ('1') bit to move the delta counter off zero)
+        final int maxTicks = 5_000;
+        int ticks = 0;
+        while (apu.outputSample() == baseline){
+            if (++ticks > maxTicks){
+                fail("DMC output never moved off baseline - sample byte wasn't read as $FF, so it isn't coming from the cartridge");
+            }
+            nes.clock().tick();
+        }
     }
 
     /**
