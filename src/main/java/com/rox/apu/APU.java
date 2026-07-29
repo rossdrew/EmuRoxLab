@@ -3,6 +3,8 @@ package com.rox.apu;
 import com.rox.clock.ClockWatcher;
 import com.rox.mem.MemoryBus;
 
+import java.util.List;
+
 /**
  * NES Audio Processing Unit, mapped into $4000-$4017. Owns the frame counter and all five channels
  * (both pulse, triangle, noise, DMC), including $4015 enable/status and the combined IRQ line
@@ -57,8 +59,13 @@ public class APU implements ClockWatcher, MemoryBus {
     private final DMCChannel dmc;
 
     public APU(final MemoryBus memoryBus){
-        this(new FrameSequencer(), new PulseChannel(true), new PulseChannel(false), new TriangleChannel(),
-                new NoiseChannel(), new DMCChannel(memoryBus));
+        this(new FrameSequencer(),
+                new PulseChannel(true),
+                new PulseChannel(false),
+                new TriangleChannel(),
+                new NoiseChannel(),
+                new DMCChannel(memoryBus)
+        );
     }
 
     APU(final FrameSequencer frameSequencer, final PulseChannel pulse1, final PulseChannel pulse2,
@@ -81,12 +88,7 @@ public class APU implements ClockWatcher, MemoryBus {
 
     @Override
     public void tick() {
-        frameSequencer.clock();
-        pulse1.tick();
-        pulse2.tick();
-        triangle.tick();
-        noise.tick();
-        dmc.tick();
+        List.of(frameSequencer, pulse1, pulse2, triangle, noise, dmc).forEach(ClockWatcher::tick);
     }
 
     @Override

@@ -44,7 +44,7 @@ public class APUTest {
     public void tickClocksTheFrameSequencer(){
         apu.tick();
 
-        verify(frameSequencer, times(1)).clock();
+        verify(frameSequencer, times(1)).tick();
     }
 
     @Test
