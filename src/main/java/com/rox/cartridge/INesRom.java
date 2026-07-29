@@ -88,11 +88,13 @@ public final class INesRom {
         return verticalMirroring;
     }
 
+    /** Defensive copy - callers must not be able to mutate ROM content behind PRG-ROM's back. */
     public byte[] prgRom(){
-        return prgRom;
+        return Arrays.copyOf(prgRom, prgRom.length);
     }
 
+    /** Defensive copy - callers must not be able to mutate ROM content behind CHR-ROM's back. */
     public byte[] chrRom(){
-        return chrRom;
+        return Arrays.copyOf(chrRom, chrRom.length);
     }
 }

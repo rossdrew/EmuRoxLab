@@ -7,6 +7,7 @@ import java.util.Arrays;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -74,6 +75,26 @@ public class INesRomTest {
 
         assertEquals(2 * 8192, chr.length);
         assertArrayEquals(Arrays.copyOfRange(rom, 16 + 16384, 16 + 16384 + chr.length), chr);
+    }
+
+    @Test
+    public void prgRomGetterReturnsADefensiveCopy(){
+        final INesRom rom = INesRom.parse(buildRom(1, 0, 0x00, 0x00, true));
+
+        final byte[] firstCall = rom.prgRom();
+        firstCall[0] = (byte) ~firstCall[0];
+
+        assertNotEquals(firstCall[0], rom.prgRom()[0], "mutating a returned array must not affect the ROM's own content");
+    }
+
+    @Test
+    public void chrRomGetterReturnsADefensiveCopy(){
+        final INesRom rom = INesRom.parse(buildRom(1, 1, 0x00, 0x00, true));
+
+        final byte[] firstCall = rom.chrRom();
+        firstCall[0] = (byte) ~firstCall[0];
+
+        assertNotEquals(firstCall[0], rom.chrRom()[0], "mutating a returned array must not affect the ROM's own content");
     }
 
     @Test
