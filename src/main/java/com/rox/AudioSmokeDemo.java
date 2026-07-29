@@ -220,6 +220,9 @@ public final class AudioSmokeDemo {
         for (int i = 0; i < programBytes.length; i++){
             fileBytes[header.length + i] = (byte) programBytes[i];
         }
+        final int resetVectorOffset = header.length + 0x3FFC; //PRG offset of $FFFC/$FFFD in this 16KB bank
+        fileBytes[resetVectorOffset] = (byte) PROGRAM_START_ADDRESS;
+        fileBytes[resetVectorOffset + 1] = (byte) (PROGRAM_START_ADDRESS >>> 8);
         return RomLoader.fromBytes(fileBytes);
     }
 
@@ -229,7 +232,7 @@ public final class AudioSmokeDemo {
             ram.write(DMC_SAMPLE_ADDRESS + i, (i % 2 == 0) ? 0xFF : 0x00);
         }
 
-        cpu.setPC(PROGRAM_START_ADDRESS);
+        cpu.reset();
 
         final SpeakerAudioOutput audioOutput = new SpeakerAudioOutput();
 
