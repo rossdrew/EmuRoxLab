@@ -38,7 +38,7 @@ I want to get to a quicker, more automated agent reviewer loop but I'm finding i
 2. Some memory structures in place so that instructions work on something sensible
 3. A [6502 implemented](https://github.com/rossdrew/EmuRoxLab/blob/main/resource/opcodes.svg) using a new approach to the old [functional enum](https://dev.to/rossdrew/functional-enums-in-java-34o1)
 4. A [6502 assembler](https://github.com/rossdrew/EmuRoxLab/tree/main/src/main/java/com/rox/cpu/mos6502/assembler)
-5. The plumbings of an NES implementation with ability to play pulse wave sounds coding in 6502 through an APU
+5. An APU (Audio Processing Unit) implementation capable of playing pulse, triangle, noise and dmc channels
 
 ## Next up
 1. Reviewing the whole design for optimisations
