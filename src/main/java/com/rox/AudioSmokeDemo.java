@@ -41,6 +41,8 @@ public final class AudioSmokeDemo {
     final static FPSClock clock = new FPSClock(1_789_773, 60, new SystemTimeSource(), new ThreadSleeper());
 
     final static String singleNote = """
+                                    LDA #$01      ; enable pulse channel 1 ($4015 bit0) - channels start disabled
+                                    STA $4015
                                     LDA #$BF      ; duty=2, halt/loop set (sustain the note), constant volume, volume=15
                                     STA $4000
                                     LDA #$00      ; sweep off
@@ -53,6 +55,8 @@ public final class AudioSmokeDemo {
             """;
 
     final static String arpeggio = """
+                        LDA #$01      ; enable pulse channel 1 ($4015 bit0) - channels start disabled
+                        STA $4015
                         LDA #$BF      ; duty=2, halt/loop set (sustain each note), constant volume, volume=15
                         STA $4000
                         LDA #$00      ; sweep off

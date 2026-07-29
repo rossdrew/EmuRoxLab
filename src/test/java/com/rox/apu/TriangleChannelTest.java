@@ -9,6 +9,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -85,10 +88,47 @@ public class TriangleChannelTest {
 
     @Test
     public void writingTimerHighAndLengthLoadLoadsLengthCounterAndRequestsLinearReload(){
+        channel.setEnabled(true);
+
         channel.writeTimerHighAndLengthLoad((5 << 3) | 3); //length index 5, timer high bits 3
 
         verify(mockLengthCounter).load(5);
         verify(mockLinearCounter).requestReload();
+    }
+
+    @Test
+    public void writingTimerHighAndLengthLoadWhileDisabledDoesNotLoadTheLengthCounter(){
+        channel.writeTimerHighAndLengthLoad((5 << 3) | 3); //channel never enabled
+
+        verify(mockLengthCounter, never()).load(anyInt());
+        verify(mockLinearCounter).requestReload(); //everything else still happens unconditionally
+    }
+
+    @Test
+    public void disablingForcesTheLengthCounterToZero(){
+        channel.setEnabled(true);
+
+        channel.setEnabled(false);
+
+        verify(mockLengthCounter).forceZero();
+        assertFalse(channel.isEnabled());
+    }
+
+    @Test
+    public void enablingDoesNotTouchTheLengthCounter(){
+        channel.setEnabled(true);
+
+        verify(mockLengthCounter, never()).forceZero();
+        assertTrue(channel.isEnabled());
+    }
+
+    @Test
+    public void isLengthCounterActiveDelegatesToLengthCounter(){
+        when(mockLengthCounter.isZero()).thenReturn(false);
+        assertTrue(channel.isLengthCounterActive());
+
+        when(mockLengthCounter.isZero()).thenReturn(true);
+        assertFalse(channel.isLengthCounterActive());
     }
 
     @Test

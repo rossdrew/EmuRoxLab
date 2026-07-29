@@ -12,9 +12,9 @@ import java.util.List;
  * counters, sweep). A half-frame boundary always implies a simultaneous quarter-frame clock.
  *
  * Boundary values are CPU-cycle counts (intentionally 2x the APU-cycle values quoted by NESdev),
- * since {@link #clock()} is driven once per CPU cycle rather than once per APU cycle.
+ * since {@link #tick()} is driven once per CPU cycle rather than once per APU cycle.
  */
-public class FrameSequencer {
+public class FrameSequencer implements ClockWatcher {
     static final int QUARTER_FRAME_1 = 7457;
     static final int HALF_FRAME_1 = 14913;
     static final int QUARTER_FRAME_2 = 22371;
@@ -40,7 +40,8 @@ public class FrameSequencer {
         halfFrameWatchers.add(watcher);
     }
 
-    public void clock(){
+    @Override
+    public void tick(){
         cycle++;
         if (fiveStepMode){
             clockFiveStepMode();

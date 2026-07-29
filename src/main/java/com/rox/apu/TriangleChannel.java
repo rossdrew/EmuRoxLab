@@ -15,10 +15,6 @@ import com.rox.clock.ClockWatcher;
  * output is always whatever the current sequence step holds regardless - real hardware doesn't
  * silence the channel outright when either counter hits 0, it just freezes the waveform at
  * whichever step it was on (a documented quirk, not a bug).
- *
- * Simplification (Phase 4, revisit at Phase 7 when $4015 exists): channel enable isn't wired up
- * yet, so a high-byte timer write always reloads the length counter - real hardware only does so
- * when the channel is enabled.
  */
 public class TriangleChannel implements ClockWatcher {
     static final int[] SEQUENCE = {
@@ -41,6 +37,7 @@ public class TriangleChannel implements ClockWatcher {
     private int timerPeriod;
     private int timerCounter;
     private int sequencePosition;
+    private boolean enabled;
 
     public TriangleChannel(){
         this(new LinearCounter(), new LengthCounter());
@@ -77,8 +74,23 @@ public class TriangleChannel implements ClockWatcher {
      */
     public void writeTimerHighAndLengthLoad(final int value){
         timerPeriod = (timerPeriod & TIMER_LOW_MASK) | ((value & TIMER_HIGH_MASK) << TIMER_HIGH_SHIFT);
-        lengthCounter.load((value >> LENGTH_LOAD_SHIFT) & LENGTH_LOAD_MASK);
+        if (enabled){
+            lengthCounter.load((value >> LENGTH_LOAD_SHIFT) & LENGTH_LOAD_MASK);
+        }
         linearCounter.requestReload();
+    }
+
+    /** Handle a $4015 enable-bit change: disabling immediately forces the length counter to 0. */
+    public void setEnabled(final boolean enabled){
+        this.enabled = enabled;
+        if (!enabled){
+            lengthCounter.forceZero();
+        }
+    }
+
+    /** Whether the length counter is currently nonzero - for the $4015 status read. */
+    public boolean isLengthCounterActive(){
+        return !lengthCounter.isZero();
     }
 
     /** CPU-cycle clock: unlike pulse/noise, runs at full CPU rate (no APU-cycle parity gating). */
@@ -115,5 +127,9 @@ public class TriangleChannel implements ClockWatcher {
 
     int currentTimerPeriod(){
         return timerPeriod;
+    }
+
+    boolean isEnabled(){
+        return enabled;
     }
 }

@@ -3,11 +3,15 @@ package com.rox.apu;
 import com.rox.mem.MemoryBus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import static com.rox.apu.APU.FRAME_COUNTER_ADDRESS;
 import static com.rox.apu.APU.STATUS_REGISTER_ADDRESS;
 import static com.rox.apu.FrameSequencer.QUARTER_FRAME_1;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
@@ -40,7 +44,7 @@ public class APUTest {
     public void tickClocksTheFrameSequencer(){
         apu.tick();
 
-        verify(frameSequencer, times(1)).clock();
+        verify(frameSequencer, times(1)).tick();
     }
 
     @Test
@@ -164,7 +168,6 @@ public class APUTest {
     public void writingUnwiredAddressesTouchesNothing(){
         apu.write(0x4009, 0x11); //unused triangle register slot - not a real register
         apu.write(0x400D, 0x11); //unused noise register slot - not a real register
-        apu.write(STATUS_REGISTER_ADDRESS, 0x1F); //$4015 write (enable byte) - not wired until a later phase
 
         verify(frameSequencer, never()).writeControlRegister(anyInt());
         verify(pulse1, never()).writeControlRegister(anyInt());
@@ -172,6 +175,35 @@ public class APUTest {
         verify(triangle, never()).writeLinearCounterRegister(anyInt());
         verify(noise, never()).writeControlRegister(anyInt());
         verify(dmc, never()).writeControlRegister(anyInt());
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "0,  false, false, false, false, false",
+            "1,  true,  false, false, false, false", //bit0: pulse1
+            "2,  false, true,  false, false, false", //bit1: pulse2
+            "4,  false, false, true,  false, false", //bit2: triangle
+            "8,  false, false, false, true,  false", //bit3: noise
+            "16, false, false, false, false, true",  //bit4: dmc
+            "31, true,  true,  true,  true,  true"    //all five bits set
+    })
+    public void writingStatusRegisterSetsEachChannelsEnabledBitFromTheWrittenValue(
+            final int value, final boolean pulse1Enabled, final boolean pulse2Enabled,
+            final boolean triangleEnabled, final boolean noiseEnabled, final boolean dmcEnabled){
+        apu.write(STATUS_REGISTER_ADDRESS, value);
+
+        verify(pulse1).setEnabled(pulse1Enabled);
+        verify(pulse2).setEnabled(pulse2Enabled);
+        verify(triangle).setEnabled(triangleEnabled);
+        verify(noise).setEnabled(noiseEnabled);
+        verify(dmc).setEnabled(dmcEnabled);
+    }
+
+    @Test
+    public void writingStatusRegisterAlwaysClearsDmcIrqRegardlessOfValue(){
+        apu.write(STATUS_REGISTER_ADDRESS, 0x00);
+
+        verify(dmc, times(1)).clearIrq();
     }
 
     @Test
@@ -191,6 +223,87 @@ public class APUTest {
         final int result = apu.read(STATUS_REGISTER_ADDRESS);
 
         assertEquals(0, result);
+        verify(frameSequencer, never()).clearFrameIrq();
+    }
+
+    @Test
+    public void readingStatusRegisterReportsEachChannelsLengthCounterAndDmcActivity(){
+        when(pulse1.isLengthCounterActive()).thenReturn(true);
+        when(pulse2.isLengthCounterActive()).thenReturn(false);
+        when(triangle.isLengthCounterActive()).thenReturn(true);
+        when(noise.isLengthCounterActive()).thenReturn(false);
+        when(dmc.isActive()).thenReturn(true);
+
+        final int result = apu.read(STATUS_REGISTER_ADDRESS);
+
+        assertEquals(0x01 | 0x04 | 0x10, result); //pulse1 + triangle + dmc-active
+    }
+
+    @Test
+    public void readingStatusRegisterReportsTheComplementaryChannelsToo(){
+        when(pulse1.isLengthCounterActive()).thenReturn(false);
+        when(pulse2.isLengthCounterActive()).thenReturn(true);
+        when(triangle.isLengthCounterActive()).thenReturn(false);
+        when(noise.isLengthCounterActive()).thenReturn(true);
+        when(dmc.isActive()).thenReturn(false);
+
+        final int result = apu.read(STATUS_REGISTER_ADDRESS);
+
+        assertEquals(0x02 | 0x08, result); //pulse2 + noise
+    }
+
+    @Test
+    public void readingStatusRegisterReportsDmcIrqPendingWithoutClearingIt(){
+        when(dmc.isIrqPending()).thenReturn(true);
+
+        final int result = apu.read(STATUS_REGISTER_ADDRESS);
+
+        assertEquals(0x80, result);
+        verify(dmc, never()).clearIrq();
+    }
+
+    @Test
+    public void readingStatusRegisterCombinesFrameIrqAndDmcIrqBits(){
+        when(frameSequencer.isFrameIrqPending()).thenReturn(true);
+        when(dmc.isIrqPending()).thenReturn(true);
+
+        final int result = apu.read(STATUS_REGISTER_ADDRESS);
+
+        assertEquals(0x40 | 0x80, result);
+        verify(frameSequencer, times(1)).clearFrameIrq();
+        verify(dmc, never()).clearIrq();
+    }
+
+    @Test
+    public void isIrqAssertedTrueWhenOnlyFrameIrqPending(){
+        when(frameSequencer.isFrameIrqPending()).thenReturn(true);
+        when(dmc.isIrqPending()).thenReturn(false);
+
+        assertTrue(apu.isIrqAsserted());
+    }
+
+    @Test
+    public void isIrqAssertedTrueWhenOnlyDmcIrqPending(){
+        when(frameSequencer.isFrameIrqPending()).thenReturn(false);
+        when(dmc.isIrqPending()).thenReturn(true);
+
+        assertTrue(apu.isIrqAsserted());
+    }
+
+    @Test
+    public void isIrqAssertedFalseWhenNeitherSourceIsPending(){
+        when(frameSequencer.isFrameIrqPending()).thenReturn(false);
+        when(dmc.isIrqPending()).thenReturn(false);
+
+        assertFalse(apu.isIrqAsserted());
+    }
+
+    @Test
+    public void isIrqAssertedHasNoSideEffectsUnlikeAnActualStatusRead(){
+        when(frameSequencer.isFrameIrqPending()).thenReturn(true);
+
+        apu.isIrqAsserted();
+
         verify(frameSequencer, never()).clearFrameIrq();
     }
 

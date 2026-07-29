@@ -8,6 +8,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -61,10 +62,47 @@ public class NoiseChannelTest {
 
     @Test
     public void writingLengthLoadLoadsLengthCounterAndRestartsEnvelope(){
+        channel.setEnabled(true);
+
         channel.writeLengthLoad(5 << 3); //length index 5
 
         verify(mockLengthCounter).load(5);
         verify(mockEnvelope).restart();
+    }
+
+    @Test
+    public void writingLengthLoadWhileDisabledDoesNotLoadTheLengthCounter(){
+        channel.writeLengthLoad(5 << 3); //channel never enabled
+
+        verify(mockLengthCounter, never()).load(anyInt());
+        verify(mockEnvelope).restart(); //everything else still happens unconditionally
+    }
+
+    @Test
+    public void disablingForcesTheLengthCounterToZero(){
+        channel.setEnabled(true);
+
+        channel.setEnabled(false);
+
+        verify(mockLengthCounter).forceZero();
+        assertFalse(channel.isEnabled());
+    }
+
+    @Test
+    public void enablingDoesNotTouchTheLengthCounter(){
+        channel.setEnabled(true);
+
+        verify(mockLengthCounter, never()).forceZero();
+        assertTrue(channel.isEnabled());
+    }
+
+    @Test
+    public void isLengthCounterActiveDelegatesToLengthCounter(){
+        when(mockLengthCounter.isZero()).thenReturn(false);
+        assertTrue(channel.isLengthCounterActive());
+
+        when(mockLengthCounter.isZero()).thenReturn(true);
+        assertFalse(channel.isLengthCounterActive());
     }
 
     @Test

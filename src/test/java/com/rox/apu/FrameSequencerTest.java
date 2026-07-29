@@ -48,7 +48,7 @@ public class FrameSequencerTest {
 
     private void clock(final int times){
         for (int i = 0; i < times; i++){
-            sequencer.clock();
+            sequencer.tick();
         }
     }
 
@@ -196,7 +196,7 @@ public class FrameSequencerTest {
         sequencer.addHalfFrameWatcher(() -> counts[1]++);
 
         for (int i = 0; i < tickCount; i++){
-            sequencer.clock();
+            sequencer.tick();
         }
 
         assertTrue(Math.abs(counts[0] - 2 * counts[1]) <= 1,
