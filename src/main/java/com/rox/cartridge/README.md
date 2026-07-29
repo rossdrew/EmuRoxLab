@@ -1,6 +1,6 @@
 # Cartridges
 
-Loads real `.nes` ROM files instead of hand-assembled programs poked into RAM. `RomLoader` reads an
+Loads `.nes` ROM files into RAM. `RomLoader` reads an
 iNES file, `INesRom` parses its 16-byte header and slices out the PRG-ROM/CHR-ROM bytes, and
 `RomLoader` picks a `Mapper` by the header's mapper number - the board-specific banking strategy that
 owns the CPU-visible `$6000-$FFFF` window. `Cartridge` bundles the parsed `INesRom` with its `Mapper`
