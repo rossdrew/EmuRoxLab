@@ -181,6 +181,29 @@ public class NESTest {
     }
 
     /**
+     * The test above interrupts immediately after thread.start(), which in practice always lands
+     * during the near-instant clockStarted latch wait (its own catch block), never during the much
+     * longer 300ms warm-up sleep - so the sleep's own catch block never runs. A short real delay
+     * before interrupting reliably lands inside the sleep instead, exercising that code path too.
+     */
+    @Test
+    public void powerOnGracefullyHandlesInterruptionDuringTheWarmUpSleepItself() throws InterruptedException {
+        final AudioOutput audioOutput = mock(AudioOutput.class);
+        final NES nes = new NES(audioOutput, blankCartridge());
+
+        final Thread thread = new Thread(nes::powerOn);
+        thread.start();
+        Thread.sleep(10); //comfortably past the near-instant latch wait, well within the 300ms sleep
+        thread.interrupt();
+
+        thread.join(2000);
+        assertFalse(thread.isAlive(), "powerOn() should return within a bounded time even when interrupted mid-sleep");
+        assertFalse(nes.clock().isRunning(),
+                "an interrupted warm-up sleep must stop the clock before returning, not leave it running silently");
+        verify(audioOutput, never()).start();
+    }
+
+    /**
      * powerOff() called partway through the warm-up sleep must prevent audioOutput.start() from
      * running afterward - without this, playback would come back up right after the caller had
      * already asked to shut it down.
