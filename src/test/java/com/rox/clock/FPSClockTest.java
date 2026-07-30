@@ -192,6 +192,42 @@ public class FPSClockTest {
         }
     }
 
+    /**
+     * The whole point of anchoring run()'s schedule to a fixed runStartTime rather than
+     * re-measuring "now" fresh each frame: if one frame's sleep overshoots its target (real
+     * Thread.sleep() routinely does, by tens-hundreds of microseconds - this is what caused ~10ms/s
+     * of accumulating real-time drift before this fix), the next frame's requested sleep duration
+     * must shrink by roughly that same overshoot to catch back up, rather than requesting the full
+     * nominal frame time again and letting the lost time compound forever.
+     */
+    @Test
+    void runAnchorsEachFramesDeadlineToAFixedStartSoOneFramesOversleepShortensTheNextFramesSleep() throws InterruptedException {
+        final long frameTimeNs = 1_000_000_000L; //FPS=1 below -> one frame is exactly 1 second
+        final long oversleepNs = 50_000_000L; //frame 1 finished 50ms later than its target
+
+        final TimeSource timeSource = mock(TimeSource.class);
+        when(timeSource.nanoTime()).thenReturn(
+                0L,                              //run(): runStartTime
+                0L,                              //frame 1's throttle() check: right on schedule
+                frameTimeNs + oversleepNs         //frame 2's throttle() check: 50ms late
+        );
+        final Sleeper sleeper = mock(Sleeper.class);
+        final FPSClock clock = new FPSClock(1, 1, timeSource, sleeper);
+
+        final ClockWatcher watcher = mock(ClockWatcher.class);
+        //stop the clock from inside the 2nd tick() so run() performs exactly 2 frames then exits
+        doAnswer(invocation -> null).doAnswer(invocation -> {
+            clock.stop();
+            return null;
+        }).when(watcher).tick();
+        clock.addListener(watcher);
+
+        clock.run();
+
+        verify(sleeper).sleepFor(frameTimeNs); //frame 1: right on schedule, full nominal sleep
+        verify(sleeper).sleepFor(frameTimeNs - oversleepNs); //frame 2: shortened to compensate
+    }
+
     @Test
     void runGracefullyHandlesThreadSleepExceptions() throws InterruptedException {
         final TimeSource timeSource = () -> 100L;

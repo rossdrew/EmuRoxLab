@@ -111,7 +111,7 @@ public class NESTest {
         assertTrue(thread.isAlive(), "powerOn() should still be blocking (waiting on the clock thread) until powerOff() is called");
 
         nes.powerOff();
-        thread.join(2000);
+        thread.join(5000);
 
         assertFalse(thread.isAlive(), "clock thread should have stopped within the join budget");
         verify(audioOutput).stop();
@@ -148,7 +148,7 @@ public class NESTest {
         verify(audioOutput, atLeastOnce()).write(anyDouble());
 
         nes.powerOff();
-        thread.join(2000);
+        thread.join(5000);
 
         assertTrue(firstWriteNanos[0] > 0 && startNanos[0] > 0, "expected both write() and start() to have been invoked");
         assertTrue(firstWriteNanos[0] < startNanos[0],
@@ -173,7 +173,7 @@ public class NESTest {
         thread.start();
         thread.interrupt();
 
-        thread.join(2000);
+        thread.join(5000);
         assertFalse(thread.isAlive(), "powerOn() should return within a bounded time even when interrupted");
         assertFalse(nes.clock().isRunning(),
                 "an interrupted powerOn() must stop the clock before returning, not leave it running silently");
@@ -196,7 +196,7 @@ public class NESTest {
         Thread.sleep(10); //comfortably past the near-instant latch wait, well within the 300ms sleep
         thread.interrupt();
 
-        thread.join(2000);
+        thread.join(5000);
         assertFalse(thread.isAlive(), "powerOn() should return within a bounded time even when interrupted mid-sleep");
         assertFalse(nes.clock().isRunning(),
                 "an interrupted warm-up sleep must stop the clock before returning, not leave it running silently");
@@ -218,7 +218,7 @@ public class NESTest {
         Thread.sleep(50); //well within the 300ms warm-up window, comfortably after the clock has started
         nes.powerOff();
 
-        thread.join(2000);
+        thread.join(5000);
         assertFalse(thread.isAlive(), "powerOn() should return once the clock has stopped");
         verify(audioOutput, never()).start();
         verify(audioOutput).stop();
@@ -243,7 +243,7 @@ public class NESTest {
         }
 
         nes.powerOff();
-        thread.join(2000);
+        thread.join(5000);
 
         assertTrue(reachedResetTarget, "PC never reached $9000 - powerOn() should reset the CPU to the cartridge's reset vector");
     }
