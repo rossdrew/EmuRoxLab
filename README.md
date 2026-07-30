@@ -39,11 +39,14 @@ I want to get to a quicker, more automated agent reviewer loop but I'm finding i
 3. A [6502 implemented](https://github.com/rossdrew/EmuRoxLab/blob/main/resource/opcodes.svg) using a new approach to the old [functional enum](https://dev.to/rossdrew/functional-enums-in-java-34o1)
 4. A [6502 assembler](https://github.com/rossdrew/EmuRoxLab/tree/main/src/main/java/com/rox/cpu/mos6502/assembler)
 5. An APU (Audio Processing Unit) implementation capable of playing pulse, triangle, noise and dmc channels
+6. Real `.nes` ROM loading (NROM and MMC1 mappers), so actual game ROMs can be run instead of just hand-assembled test programs
+7. A PPU with correct vblank/NMI timing, full CHR-ROM/CHR-RAM/nametable-mirroring/palette memory wiring and OAM DMA - no pixel rendering yet
+8. A controller stub and a CLI demo ([`RomAudioSmokeDemo`](https://github.com/rossdrew/EmuRoxLab/blob/main/src/main/java/com/rox/RomAudioSmokeDemo.java)) so `.nes` files can actually be run and heard
 
 ## Next up
 1. Reviewing the whole design for optimisations
-2. Completing the NES APU
-3. Adding NES PPU
+2. More mapper support (UxROM, CNROM, MMC3, ...) - NROM and MMC1 only for now
+3. PPU background/sprite rendering to a framebuffer, then a real screen to view it
 Y. Integrating this back into EmuRox
 Z. Looking at where else AI can be integrated.  For example, plans being tickets on a board or local AI review help.  Later, when there's a cohesive it might be good to have AI QA for system testing.
 
@@ -55,6 +58,14 @@ Z. Looking at where else AI can be integrated.  For example, plans being tickets
 #### APU
 - Testing actual hardware calls is difficult so we take a small hit on mutation coverage there
 - DMC sample fetches don't stall the CPU for 1-4 cycles as real hardware does, which may affect games that depend on exact DMC DMA timing
+#### Cartridges / Mappers
+- Only NROM (mapper 0) and MMC1 (mapper 1) are implemented; other common mappers (UxROM, CNROM, MMC3, ...) aren't yet - loading one fails with a clear "unsupported mapper" error rather than silently misbehaving
+#### PPU
+- Headless only: no pixel rendering or framebuffer yet, though the full CHR/nametable/palette memory space and OAM DMA are wired up
+- OAM DMA always stalls the CPU for a fixed 514 cycles rather than the real hardware's cycle-accurate 513/514 (odd/even alignment isn't tracked) - a documented simplification, not expected to matter in practice
+- Four-screen nametable mirroring isn't modeled (only horizontal/vertical/single-screen)
+#### Controller
+- No real input: $4016/$4017 always report "no buttons pressed", so games' input-polling loops behave sanely but nothing is ever actually pressed
 
 # The Build System
 1. Builds the code using Gradle and Kotlin

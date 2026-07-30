@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import static com.rox.mem.NESMemoryBus.CARTRIDGE_START_ADDRESS;
+import static com.rox.mem.NESMemoryBus.CONTROLLER_1_ADDRESS;
+import static com.rox.mem.NESMemoryBus.CONTROLLER_2_ADDRESS;
 import static com.rox.mem.NESMemoryBus.IO_END_ADDRESS;
 import static com.rox.mem.NESMemoryBus.IO_START_ADDRESS;
 import static com.rox.mem.NESMemoryBus.OAM_DMA_ADDRESS;
@@ -58,7 +60,10 @@ public class NESMemoryBusTest extends Arbitraries {
 
     @Provide
     Arbitrary<Integer> inIORange() {
-        return integers().between(IO_START_ADDRESS, IO_END_ADDRESS);
+        //excludes $4016: unlike the rest of the I/O range (including $4017, the APU's frame counter
+        //on write), the joypad strobe never reaches the device bus - see writeController1StrobeIsANoOp
+        return integers().between(IO_START_ADDRESS, IO_END_ADDRESS)
+                .filter(address -> address != CONTROLLER_1_ADDRESS);
     }
 
     @Provide
@@ -69,8 +74,10 @@ public class NESMemoryBusTest extends Arbitraries {
 
     @Provide
     Arbitrary<Integer> inIORangeExcludingOamDma() {
+        //also excludes $4016 for the same reason as inIORange() above - the joypad strobe is a no-op,
+        //not a write that reaches the device bus, so this test's "always routed to io" claim can't cover it
         return integers().between(IO_START_ADDRESS, IO_END_ADDRESS)
-                .filter(address -> address != OAM_DMA_ADDRESS);
+                .filter(address -> address != OAM_DMA_ADDRESS && address != CONTROLLER_1_ADDRESS);
     }
 
     @Property
@@ -188,6 +195,46 @@ public class NESMemoryBusTest extends Arbitraries {
 
         assertEquals(0x80, memoryBus.read(STATUS_REGISTER_ADDRESS));
         verify(io, times(1)).read(STATUS_REGISTER_ADDRESS);
+        verifyNoInteractions(ramBus);
+        verifyNoInteractions(cartridge);
+        verifyNoInteractions(ppu);
+    }
+
+    @Test
+    public void readController1ReportsNoButtonsPressedWithoutTouchingAnyBus(){
+        assertEquals(0, memoryBus.read(CONTROLLER_1_ADDRESS));
+        verifyNoInteractions(ramBus);
+        verifyNoInteractions(io);
+        verifyNoInteractions(cartridge);
+        verifyNoInteractions(ppu);
+    }
+
+    @Test
+    public void readController2ReportsNoButtonsPressedWithoutTouchingAnyBus(){
+        assertEquals(0, memoryBus.read(CONTROLLER_2_ADDRESS));
+        verifyNoInteractions(ramBus);
+        verifyNoInteractions(io);
+        verifyNoInteractions(cartridge);
+        verifyNoInteractions(ppu);
+    }
+
+    /** Unlike every other I/O-range write, the joypad strobe has no meaning to the APU (or anything else) - it's a pure no-op. */
+    @Test
+    public void writeController1StrobeIsANoOp(){
+        memoryBus.write(CONTROLLER_1_ADDRESS, 0x01);
+
+        verifyNoInteractions(ramBus);
+        verifyNoInteractions(io);
+        verifyNoInteractions(cartridge);
+        verifyNoInteractions(ppu);
+    }
+
+    /** $4017 is genuinely the APU's frame counter register on write (unlike $4016) - must keep reaching it. */
+    @Test
+    public void writeController2AddressStillReachesIOAsTheApuFrameCounter(){
+        memoryBus.write(CONTROLLER_2_ADDRESS, 0x40);
+
+        verify(io, times(1)).write(CONTROLLER_2_ADDRESS, 0x40);
         verifyNoInteractions(ramBus);
         verifyNoInteractions(cartridge);
         verifyNoInteractions(ppu);
