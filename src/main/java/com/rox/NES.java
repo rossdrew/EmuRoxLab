@@ -122,7 +122,11 @@ public class NES {
             try {
                 clockThread.join();
             } catch (InterruptedException e){
+                //an interrupt caught only here (audio already legitimately started, so the earlier
+                //stop() above never ran) must still stop the clock - otherwise powerOn() would wait
+                //forever for a thread nobody ever told to stop, since nothing else will
                 interrupted = true;
+                clock.stop();
             }
         }
         //standard practice even though nothing in this method (or its callers) observes the flag

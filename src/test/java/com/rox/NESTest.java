@@ -181,6 +181,29 @@ public class NESTest {
     }
 
     /**
+     * Interrupting powerOn() after audio has already legitimately started exercises a third, later
+     * catch site: the final clockThread.join(). An interrupt caught only there previously never
+     * triggered clock.stop() (that only happened using interrupted's state from before this late
+     * interrupt arrived) - powerOn() would block forever waiting for a clock thread nobody ever told
+     * to stop, since nothing else would.
+     */
+    @Test
+    public void powerOnGracefullyHandlesInterruptionAfterAudioHasAlreadyStarted() throws InterruptedException {
+        final AudioOutput audioOutput = mock(AudioOutput.class);
+        final NES nes = new NES(audioOutput, blankCartridge());
+
+        final Thread thread = new Thread(nes::powerOn);
+        thread.start();
+        verify(audioOutput, timeout(2000)).start(); //wait until well past the warm-up decision point
+        thread.interrupt();
+
+        thread.join(5000);
+        assertFalse(thread.isAlive(), "powerOn() should return within a bounded time even when interrupted late");
+        assertFalse(nes.clock().isRunning(),
+                "an interrupt caught only in the final join() must still stop the clock, not leave it running silently");
+    }
+
+    /**
      * The test above interrupts immediately after thread.start(), which in practice always lands
      * during the near-instant clockStarted latch wait (its own catch block), never during the much
      * longer 300ms warm-up sleep - so the sleep's own catch block never runs. A short real delay
