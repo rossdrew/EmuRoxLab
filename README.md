@@ -41,7 +41,7 @@ I want to get to a quicker, more automated agent reviewer loop but I'm finding i
 5. An APU (Audio Processing Unit) implementation capable of playing pulse, triangle, noise and dmc channels
 6. Real `.nes` ROM loading (NROM and MMC1 mappers), so actual game ROMs can be run instead of just hand-assembled test programs
 7. A headless PPU - just enough vblank/NMI timing to unstick real games' boot-time "wait for vblank" loops and drive their music, no pixel rendering yet
-8. A controller stub and a CLI demo ([`RomAudioSmokeDemo`](https://github.com/rossdrew/EmuRoxLab/blob/main/src/main/java/com/rox/RomAudioSmokeDemo.java)) so any `.nes` ROM you own can actually be played and heard
+8. A controller stub and a CLI demo ([`RomAudioSmokeDemo`](https://github.com/rossdrew/EmuRoxLab/blob/main/src/main/java/com/rox/RomAudioSmokeDemo.java)) so `.nes` files can actually be run and heard
 
 ## Next up
 1. Reviewing the whole design for optimisations
