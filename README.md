@@ -39,11 +39,13 @@ I want to get to a quicker, more automated agent reviewer loop but I'm finding i
 3. A [6502 implemented](https://github.com/rossdrew/EmuRoxLab/blob/main/resource/opcodes.svg) using a new approach to the old [functional enum](https://dev.to/rossdrew/functional-enums-in-java-34o1)
 4. A [6502 assembler](https://github.com/rossdrew/EmuRoxLab/tree/main/src/main/java/com/rox/cpu/mos6502/assembler)
 5. An APU (Audio Processing Unit) implementation capable of playing pulse, triangle, noise and dmc channels
+6. Real `.nes` ROM loading (NROM and MMC1 mappers), so actual game ROMs can be run instead of just hand-assembled test programs
+7. A headless PPU - just enough vblank/NMI timing to unstick real games' boot-time "wait for vblank" loops and drive their music, no pixel rendering yet
+8. A controller stub and a CLI demo ([`RomAudioSmokeDemo`](https://github.com/rossdrew/EmuRoxLab/blob/main/src/main/java/com/rox/RomAudioSmokeDemo.java)) so any `.nes` ROM you own can actually be played and heard
 
 ## Next up
 1. Reviewing the whole design for optimisations
-2. Completing the NES APU
-3. Adding NES PPU
+2. More mapper support (UxROM, CNROM, MMC3, ...) - NROM and MMC1 only for now
 Y. Integrating this back into EmuRox
 Z. Looking at where else AI can be integrated.  For example, plans being tickets on a board or local AI review help.  Later, when there's a cohesive it might be good to have AI QA for system testing.
 
@@ -55,6 +57,13 @@ Z. Looking at where else AI can be integrated.  For example, plans being tickets
 #### APU
 - Testing actual hardware calls is difficult so we take a small hit on mutation coverage there
 - DMC sample fetches don't stall the CPU for 1-4 cycles as real hardware does, which may affect games that depend on exact DMC DMA timing
+#### Cartridges / Mappers
+- Only NROM (mapper 0) and MMC1 (mapper 1) are implemented; other common mappers (UxROM, CNROM, MMC3, ...) aren't yet - loading one fails with a clear "unsupported mapper" error rather than silently misbehaving
+#### PPU
+- Headless only: correct vblank/NMI timing, but no pixel rendering or framebuffer at all
+- $4014 OAM DMA is a no-op (doesn't stall the CPU) - there's no DMA-stall mechanism in the clock yet, the same simplification already noted for DMC above
+#### Controller
+- No real input: $4016/$4017 always report "no buttons pressed", so games' input-polling loops behave sanely but nothing is ever actually pressed
 
 # The Build System
 1. Builds the code using Gradle and Kotlin
