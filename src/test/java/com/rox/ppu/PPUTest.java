@@ -1,5 +1,9 @@
 package com.rox.ppu;
 
+import com.rox.cartridge.Cartridge;
+import com.rox.cartridge.INesRom;
+import com.rox.cartridge.Mapper;
+import com.rox.cartridge.Mirroring;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -27,11 +31,37 @@ public class PPUTest {
     private static final int VRAM_INCREMENT_32 = 0x04;
     private static final int VBLANK_BIT = 0x80;
 
+    /**
+     * A hand-rolled {@link Mapper} test double behaving like an 8KB CHR-RAM board with a
+     * per-test-overridable mirroring mode - {@link Cartridge} is final, so it can't be mocked
+     * directly; wrapping this in a real {@code Cartridge} keeps these tests focused on the PPU's own
+     * address-space wiring without needing a real {@code INesRom}-backed {@code Mapper}.
+     */
+    private static final class FakeMapper implements Mapper {
+        private final int[] chr = new int[0x2000];
+        private Mirroring mirroring = Mirroring.HORIZONTAL;
+
+        @Override public int read(final int address){ return 0; }
+        @Override public void write(final int address, final int value){ }
+        @Override public int readChr(final int address){ return chr[address & 0x1FFF]; }
+        @Override public void writeChr(final int address, final int value){ chr[address & 0x1FFF] = value & 0xFF; }
+        @Override public Mirroring nametableMirroring(){ return mirroring; }
+    }
+
+    private FakeMapper mapper;
     private PPU ppu;
 
     @BeforeEach
     public void setup(){
-        ppu = new PPU();
+        final byte[] fileBytes = new byte[16 + 16384];
+        fileBytes[0] = 'N';
+        fileBytes[1] = 'E';
+        fileBytes[2] = 'S';
+        fileBytes[3] = 0x1A;
+        fileBytes[4] = 1;
+        final INesRom rom = INesRom.parse(fileBytes);
+        mapper = new FakeMapper();
+        ppu = new PPU(new Cartridge(rom, mapper));
     }
 
     private void tick(final int times){
@@ -141,11 +171,9 @@ public class PPUTest {
     @Test
     public void vramIncrementDefaultsToOne(){
         writeAddress(0x0000);
-        ppu.write(PPUDATA, 0x11); //lands at 0, auto-increments to 1
-        ppu.write(PPUDATA, 0x22); //lands at 1, auto-increments to 2
+        ppu.write(PPUDATA, 0x11);
 
-        writeAddress(0x0001);
-        assertEquals(0x22, ppu.read(PPUDATA), "with increment 1, the second write should have landed at address 1");
+        assertEquals(1, ppu.vramAddress(), "default increment is 1");
     }
 
     @Test
@@ -155,11 +183,9 @@ public class PPUTest {
         ppu.write(PPUCTRL, 0xFF & ~VRAM_INCREMENT_32);
         writeAddress(0x0000);
 
-        ppu.write(PPUDATA, 0x11); //lands at 0, auto-increments to 1
-        ppu.write(PPUDATA, 0x22); //lands at 1, only reachable if increment correctly stayed 1
+        ppu.write(PPUDATA, 0x11);
 
-        writeAddress(0x0001);
-        assertEquals(0x22, ppu.read(PPUDATA), "second write should have landed at address 1");
+        assertEquals(1, ppu.vramAddress());
     }
 
     @Test
@@ -167,21 +193,19 @@ public class PPUTest {
         ppu.write(PPUCTRL, VRAM_INCREMENT_32);
         writeAddress(0x0000);
 
-        ppu.write(PPUDATA, 0x11); //address auto-increments by 32 after this write
+        ppu.write(PPUDATA, 0x11);
 
-        writeAddress(0x0020); //0x20 = 32
-        assertEquals(0, ppu.read(PPUDATA), "address 32 was never written directly, sanity check it's addressable");
-        writeAddress(0x0000);
-        assertEquals(0x11, ppu.read(PPUDATA), "the byte should still be at address 0, not smeared across 1-31");
+        assertEquals(32, ppu.vramAddress());
     }
 
     @Test
-    public void dataRegisterReadWriteRoundTrips(){
-        writeAddress(0x1234);
+    public void dataRegisterReadWriteRoundTripsThroughTheReadBufferDelay(){
+        writeAddress(0x1234); //within CHR space ($0000-$1FFF)
         ppu.write(PPUDATA, 0x77);
 
         writeAddress(0x1234);
-        assertEquals(0x77, ppu.read(PPUDATA));
+        ppu.read(PPUDATA); //primes the read buffer - see readBufferQuirkDelaysNonPaletteReadsByOneRead
+        assertEquals(0x77, ppu.read(PPUDATA), "second read at the address should return the buffered byte");
     }
 
     @Test
@@ -192,6 +216,7 @@ public class PPUTest {
         ppu.write(PPUDATA, 0x99);
 
         writeAddress(0x0321);
+        ppu.read(PPUDATA); //prime the read buffer
         assertEquals(0x99, ppu.read(PPUDATA));
     }
 
@@ -224,6 +249,7 @@ public class PPUTest {
 
         ppu.write(PPUDATA, 0xAB);
         writeAddress(0x3456);
+        ppu.read(PPUDATA); //prime the read buffer
         assertEquals(0xAB, ppu.read(PPUDATA), "address should be $3456, proving the mid-sequence reset worked");
     }
 
@@ -297,8 +323,9 @@ public class PPUTest {
         ppu.write(PPUDATA, 0x22);
 
         writeAddress(0x0000);
-        assertEquals(0x11, ppu.read(PPUDATA), "first read at address 0");
-        assertEquals(0x22, ppu.read(PPUDATA), "second read should auto-increment to address 1");
+        ppu.read(PPUDATA); //prime the read buffer with the byte at address 0
+        assertEquals(0x11, ppu.read(PPUDATA), "first real read returns address 0's byte");
+        assertEquals(0x22, ppu.read(PPUDATA), "second real read auto-increments to address 1");
     }
 
     @Test
@@ -315,6 +342,195 @@ public class PPUTest {
         assertEquals(0, ppu.read(OAMADDR));
         assertEquals(0, ppu.read(PPUSCROLL));
         assertEquals(0, ppu.read(PPUADDR));
+    }
+
+    @Test
+    public void chrReadsAndWritesPassThroughToTheCartridge(){
+        writeAddress(0x0ABC);
+        ppu.write(PPUDATA, 0x42);
+
+        verifyChrByte(0x0ABC, 0x42);
+    }
+
+    @Test
+    public void readBufferQuirkDelaysNonPaletteReadsByOneRead(){
+        writeAddress(0x0100);
+        ppu.write(PPUDATA, 0xAA);
+        writeAddress(0x0101);
+        ppu.write(PPUDATA, 0xBB);
+
+        writeAddress(0x0100);
+        final int primed = ppu.read(PPUDATA); //returns stale pre-existing buffer content, not 0xAA
+        assertEquals(0, primed, "a fresh PPU's read buffer starts at 0, not the byte just addressed");
+        assertEquals(0xAA, ppu.read(PPUDATA), "this read now returns the byte buffered by the previous read");
+    }
+
+    @Test
+    public void paletteReadsAreImmediateWithNoBufferDelay(){
+        ppu.write(PPUADDR, 0x3F);
+        ppu.write(PPUADDR, 0x05);
+        ppu.write(PPUDATA, 0x2C);
+
+        writeAddress(0x3F05);
+        assertEquals(0x2C, ppu.read(PPUDATA), "palette reads bypass the read-buffer delay entirely");
+    }
+
+    @Test
+    public void paletteBackdropColourIsMirroredEveryFourEntries(){
+        writeAddress(0x3F00);
+        ppu.write(PPUDATA, 0x0F);
+
+        writeAddress(0x3F10);
+        assertEquals(0x0F, ppu.read(PPUDATA), "$3F10 mirrors $3F00's backdrop colour");
+
+        writeAddress(0x3F14);
+        ppu.write(PPUDATA, 0x21);
+        writeAddress(0x3F04);
+        assertEquals(0x21, ppu.read(PPUDATA), "the mirror also holds writing the other way round");
+    }
+
+    @Test
+    public void paletteEntriesOtherThanTheBackdropAreNotMirrored(){
+        writeAddress(0x3F01);
+        ppu.write(PPUDATA, 0x11);
+        writeAddress(0x3F11);
+        ppu.write(PPUDATA, 0x22);
+
+        writeAddress(0x3F01);
+        assertEquals(0x11, ppu.read(PPUDATA), "$3F01 and $3F11 are independent, non-backdrop entries");
+    }
+
+    @Test
+    public void horizontalMirroringAliasesTheTopTwoLogicalNametablesTogether(){
+        mapper.mirroring = Mirroring.HORIZONTAL;
+
+        writeAddress(0x2000);
+        ppu.write(PPUDATA, 0x55);
+
+        writeAddress(0x2400); //horizontal mirroring: $2000 and $2400 are the same physical nametable
+        ppu.read(PPUDATA); //prime
+        assertEquals(0x55, ppu.read(PPUDATA), "$2400 should alias $2000 under horizontal mirroring");
+    }
+
+    @Test
+    public void horizontalMirroringDoesNotAliasTopAndBottomNametables(){
+        mapper.mirroring = Mirroring.HORIZONTAL;
+
+        writeAddress(0x2000);
+        ppu.write(PPUDATA, 0x55);
+
+        writeAddress(0x2800); //different physical nametable under horizontal mirroring
+        ppu.read(PPUDATA); //prime
+        assertEquals(0, ppu.read(PPUDATA), "$2800 must not alias $2000 under horizontal mirroring");
+    }
+
+    @Test
+    public void verticalMirroringAliasesTheLeftTwoLogicalNametablesTogether(){
+        mapper.mirroring = Mirroring.VERTICAL;
+
+        writeAddress(0x2000);
+        ppu.write(PPUDATA, 0x66);
+
+        writeAddress(0x2800); //vertical mirroring: $2000 and $2800 are the same physical nametable
+        ppu.read(PPUDATA); //prime
+        assertEquals(0x66, ppu.read(PPUDATA), "$2800 should alias $2000 under vertical mirroring");
+    }
+
+    @Test
+    public void verticalMirroringDoesNotAliasLeftAndRightNametables(){
+        mapper.mirroring = Mirroring.VERTICAL;
+
+        writeAddress(0x2000);
+        ppu.write(PPUDATA, 0x66);
+
+        writeAddress(0x2400); //different physical nametable under vertical mirroring
+        ppu.read(PPUDATA); //prime
+        assertEquals(0, ppu.read(PPUDATA), "$2400 must not alias $2000 under vertical mirroring");
+    }
+
+    @Test
+    public void singleScreenLowerMirroringAliasesAllFourLogicalNametablesToTheFirstPhysicalTable(){
+        mapper.mirroring = Mirroring.SINGLE_SCREEN_LOWER;
+
+        writeAddress(0x2C00);
+        ppu.write(PPUDATA, 0x77);
+
+        writeAddress(0x2000);
+        ppu.read(PPUDATA); //prime
+        assertEquals(0x77, ppu.read(PPUDATA), "every logical nametable maps to the same physical table");
+    }
+
+    @Test
+    public void singleScreenUpperMirroringUsesTheSecondPhysicalTableInsteadOfTheFirst(){
+        mapper.mirroring = Mirroring.SINGLE_SCREEN_UPPER;
+
+        writeAddress(0x2000);
+        ppu.write(PPUDATA, 0x88);
+
+        mapper.mirroring = Mirroring.SINGLE_SCREEN_LOWER;
+        writeAddress(0x2000);
+        ppu.read(PPUDATA); //prime
+        assertEquals(0, ppu.read(PPUDATA), "single-screen-upper's physical table must differ from lower's");
+    }
+
+    @Test
+    public void nametableMirrorRegionAboveThreeThousandFoldsDownToTwoThousand(){
+        mapper.mirroring = Mirroring.HORIZONTAL;
+
+        writeAddress(0x2000);
+        ppu.write(PPUDATA, 0x99);
+
+        writeAddress(0x3000); //$3000-$3EFF mirrors $2000-$2EFF
+        ppu.read(PPUDATA); //prime
+        assertEquals(0x99, ppu.read(PPUDATA), "$3000 should mirror $2000");
+    }
+
+    @Test
+    public void ctrlWriteLatchesNametableSelectBitsIntoT(){
+        ppu.write(PPUCTRL, 0x03); //NN = 11
+
+        assertEquals(0x03 << 10, ppu.temporaryVramAddress() & (0x03 << 10));
+    }
+
+    @Test
+    public void addressFirstWriteClearsTheUnusedFifteenthBitOfT(){
+        ppu.write(PPUADDR, 0xFF); //top 2 bits of this byte must be discarded, not just the value written
+
+        assertEquals(0x3F00, ppu.temporaryVramAddress() & 0x7F00, "only bits 8-13 may be set by the first write");
+    }
+
+    @Test
+    public void writeOamDmaCopiesTheWholePageStartingAtTheCurrentOamAddressWrappingModTwoFiftySix(){
+        ppu.write(OAMADDR, 0xFE); //non-zero, near the wrap boundary
+
+        final int[] page = new int[0x100];
+        for (int i = 0; i < page.length; i++){
+            page[i] = i;
+        }
+        ppu.writeOamDma(page);
+
+        ppu.write(OAMADDR, 0xFE);
+        assertEquals(0, ppu.read(OAMDATA), "byte 0 of the page should land at the pre-DMA OAM address");
+        ppu.write(OAMADDR, 0xFF);
+        assertEquals(1, ppu.read(OAMDATA));
+        ppu.write(OAMADDR, 0x00); //wrapped around
+        assertEquals(2, ppu.read(OAMDATA), "OAM address should wrap mod 256 partway through the page");
+    }
+
+    @Test
+    public void consumeOamDmaStallCyclesIsOneShotFiringOnlyAfterADma(){
+        assertEquals(0, ppu.consumeOamDmaStallCycles(), "no DMA has happened yet");
+
+        ppu.writeOamDma(new int[0x100]);
+
+        assertEquals(514, ppu.consumeOamDmaStallCycles());
+        assertEquals(0, ppu.consumeOamDmaStallCycles(), "the same DMA must not be reported twice");
+    }
+
+    private void verifyChrByte(final int address, final int expectedValue){
+        writeAddress(address);
+        ppu.read(PPUDATA); //prime the read buffer
+        assertEquals(expectedValue, ppu.read(PPUDATA));
     }
 
     private void writeAddress(final int address){

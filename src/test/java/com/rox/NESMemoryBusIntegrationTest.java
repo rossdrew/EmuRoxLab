@@ -64,7 +64,7 @@ public class NESMemoryBusIntegrationTest {
             @Override
             public void write(final int address, final int value) { }
         };
-        final MemoryBus nesMemoryBus = new NESMemoryBus(new MemoryBus8Bit(ram), noOpDeviceBus, cartridge, new PPU());
+        final MemoryBus nesMemoryBus = new NESMemoryBus(new MemoryBus8Bit(ram), noOpDeviceBus, cartridge, new PPU(cartridge));
         final MOS6502 cpu = new MOS6502(new Latched8BitMemoryBus(nesMemoryBus));
         cpu.setPC(program.startAddress());
 

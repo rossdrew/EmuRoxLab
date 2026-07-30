@@ -37,6 +37,7 @@ public class MOS6502 implements ClockWatcher {
     private Deque<MOS6502Operation[]> opsInTicksStack = new ArrayDeque<>();
     private MOS6502Environment environment;
     private MOS6502ALU alu;
+    private int stallCycles;
 
     public MOS6502Environment getEnvironmentSnapshot(){
         return environment.clone();
@@ -80,8 +81,21 @@ public class MOS6502 implements ClockWatcher {
         setPC((high << 8) | low);
     }
 
+    /**
+     * Stall the CPU for the given number of cycles (e.g. OAM DMA's 513/514-cycle pause) - real
+     * hardware freezes the CPU mid-instruction rather than letting it run ahead, so this must take
+     * effect on the very next {@link #tick()}, not just after the current instruction finishes.
+     */
+    public void stall(final int cycles){
+        stallCycles += cycles;
+    }
+
     @Override
     public void tick() {
+        if (stallCycles > 0){
+            stallCycles--;
+            return;
+        }
         if (opsInTicksStack.isEmpty()){
             if (environment.hasPendingInterrupt()){
                 // Mirrors fetchNextOp(): the cycle that schedules the sequence also performs its first tick's work

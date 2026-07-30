@@ -5,14 +5,17 @@ import net.jqwik.api.*;
 import net.jqwik.api.lifecycle.BeforeTry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import static com.rox.mem.NESMemoryBus.CARTRIDGE_START_ADDRESS;
 import static com.rox.mem.NESMemoryBus.IO_END_ADDRESS;
 import static com.rox.mem.NESMemoryBus.IO_START_ADDRESS;
+import static com.rox.mem.NESMemoryBus.OAM_DMA_ADDRESS;
 import static com.rox.mem.NESMemoryBus.PPU_END_ADDRESS;
 import static com.rox.mem.NESMemoryBus.PPU_START_ADDRESS;
 import static com.rox.mem.NESMemoryBus.STATUS_REGISTER_ADDRESS;
 import static net.jqwik.api.Arbitraries.integers;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
 
@@ -20,7 +23,7 @@ public class NESMemoryBusTest extends Arbitraries {
     private MemoryBus ramBus;
     private MemoryBus io;
     private MemoryBus cartridge;
-    private MemoryBus ppu;
+    private OamDmaBus ppu;
     private NESMemoryBus memoryBus;
 
     @BeforeEach
@@ -29,7 +32,7 @@ public class NESMemoryBusTest extends Arbitraries {
         ramBus = mock(MemoryBus.class);
         io = mock(MemoryBus.class);
         cartridge = mock(MemoryBus.class);
-        ppu = mock(MemoryBus.class);
+        ppu = mock(OamDmaBus.class);
         memoryBus = new NESMemoryBus(ramBus, io, cartridge, ppu);
     }
 
@@ -62,6 +65,12 @@ public class NESMemoryBusTest extends Arbitraries {
     Arbitrary<Integer> inIORangeExcludingStatusRegister() {
         return integers().between(IO_START_ADDRESS, IO_END_ADDRESS)
                 .filter(address -> address != STATUS_REGISTER_ADDRESS);
+    }
+
+    @Provide
+    Arbitrary<Integer> inIORangeExcludingOamDma() {
+        return integers().between(IO_START_ADDRESS, IO_END_ADDRESS)
+                .filter(address -> address != OAM_DMA_ADDRESS);
     }
 
     @Property
@@ -98,7 +107,7 @@ public class NESMemoryBusTest extends Arbitraries {
     }
 
     @Property
-    public void writeInIORangeRoutedToIO(@ForAll("inIORange") int address,
+    public void writeInIORangeRoutedToIO(@ForAll("inIORangeExcludingOamDma") int address,
                                          @ForAll("byteValue") int value){
         memoryBus.write(address, value);
 
@@ -262,5 +271,42 @@ public class NESMemoryBusTest extends Arbitraries {
         verifyNoInteractions(ramBus);
         verifyNoInteractions(io);
         verifyNoInteractions(ppu);
+    }
+
+    @Test
+    public void writingOamDmaRegisterReadsThePageFromRamAndHandsItToThePpuBus(){
+        for (int i = 0; i < 0x100; i++){
+            when(ramBus.read(0x0200 + i)).thenReturn(i);
+        }
+
+        memoryBus.write(OAM_DMA_ADDRESS, 0x02);
+
+        final int[] expectedPage = new int[0x100];
+        for (int i = 0; i < 0x100; i++){
+            expectedPage[i] = i;
+        }
+        final ArgumentCaptor<int[]> captor = ArgumentCaptor.forClass(int[].class);
+        verify(ppu, times(1)).writeOamDma(captor.capture());
+        assertArrayEquals(expectedPage, captor.getValue());
+        verifyNoInteractions(io);
+        verifyNoInteractions(cartridge);
+    }
+
+    @Test
+    public void writingOamDmaRegisterDoesNotAlsoRouteThroughTheNormalPpuRegisterWrite(){
+        memoryBus.write(OAM_DMA_ADDRESS, 0x02);
+
+        verify(ppu, never()).write(anyInt(), anyInt());
+    }
+
+    @Test
+    public void writingOamDmaRegisterSourcesThePageFromTheCartridgeWhenThatIsWhereItMaps(){
+        memoryBus.write(OAM_DMA_ADDRESS, 0x80); //$8000 falls in cartridge range
+
+        final ArgumentCaptor<int[]> captor = ArgumentCaptor.forClass(int[].class);
+        verify(ppu, times(1)).writeOamDma(captor.capture());
+        verify(cartridge, times(0x100)).read(anyInt());
+        verifyNoInteractions(ramBus);
+        verifyNoInteractions(io);
     }
 }

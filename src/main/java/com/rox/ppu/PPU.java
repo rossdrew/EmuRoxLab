@@ -1,13 +1,15 @@
 package com.rox.ppu;
 
+import com.rox.cartridge.Cartridge;
+import com.rox.cartridge.Mirroring;
 import com.rox.clock.ClockWatcher;
-import com.rox.mem.MemoryBus;
+import com.rox.mem.OamDmaBus;
 
 /**
- * Headless NES PPU: correct vblank/NMI timing and just enough of the {@code $2000-$2007} register
- * behaviour that real games' boot-time "wait for vblank" polling loops and VRAM/OAM upload code work
- * without crashing - no pixel rendering, no framebuffer. Registers repeat every 8 bytes through
- * {@code $2000-$3FFF}.
+ * Headless NES PPU: correct vblank/NMI timing, full {@code $0000-$3FFF} PPU address space wiring
+ * (CHR pattern tables via the cartridge, mirrored nametable RAM, palette RAM), the "loopy" internal
+ * scroll/address registers, and OAM DMA - no pixel rendering, no framebuffer yet (that's a later
+ * phase). Registers repeat every 8 bytes through {@code $2000-$3FFF}.
  *
  * Runs at 3 dots per CPU cycle (NTSC), 341 dots/scanline, 262 scanlines/frame. Vblank starts at
  * scanline 241 dot 1 and clears at the start of the pre-render scanline (261, dot 1) - matching real
@@ -19,17 +21,24 @@ import com.rox.mem.MemoryBus;
  * {@code MOS6502}'s own {@code signalNMI()}/{@code consumeNMI()} edge-latch pattern) - see how
  * {@code NES.java} wires this in exactly like the existing APU-IRQ listener.
  *
+ * The internal {@code v}/{@code t}/{@code x}/{@code w} registers follow nesdev's standard "loopy"
+ * model: {@code v} (current VRAM address) and {@code t} (temporary VRAM address, staged by
+ * {@code $2005}/{@code $2006} until latched into {@code v}) are both conceptually 15 bits laid out as
+ * {@code 0yyy NNYY YYYX XXXX} (fine Y, nametable select, coarse Y, coarse X); {@code x} is the 3-bit
+ * fine X scroll; {@code w} is the write toggle shared by {@code $2005}/{@code $2006}, reset by a
+ * {@code $2002} read. This phase only implements the register-level bit manipulation ({@code $2000}
+ * nametable-select bits, {@code $2005} coarse/fine split, {@code $2006} address latching) - the
+ * rendering-time-only updates (coarse-X increment during fetches, Y increment at dot 256, the
+ * dot-257/280-304 horizontal/vertical copies) belong to the not-yet-written rendering pipeline.
+ *
  * Simplifications: no odd-frame dot skip (341*262 isn't evenly divisible by 3, so the exact CPU-cycle
  * offset of vblank drifts by fractions of a cycle frame to frame - harmless here, only the dot
- * position within a frame matters). {@code $2007}'s VRAM access goes straight to a flat 16KB buffer,
- * not real nametable-mirroring-aware VRAM or cartridge CHR-ROM, and skips the well-known "read buffer"
- * quirk (a $2007 read normally returns the *previous* buffered byte, not the one just addressed) -
- * fine since nothing renders yet. {@code $4014} OAM DMA isn't wired to this class's OAM at all yet
- * (still a no-op, same as before this class existed) - sprite content doesn't matter without
- * rendering, and there's still no CPU-stall mechanism in {@code Clock}/{@code ClockWatcher} (same
- * pre-existing gap as the DMC DMA-stall simplification noted in {@code DMCChannel}).
+ * position within a frame matters). Four-screen nametable mirroring isn't modeled (see
+ * {@link Mirroring}). OAM DMA always stalls the CPU a fixed 514 cycles, not real hardware's 513 (even
+ * start cycle) or 514 (odd) - no total-cycle counter exists anywhere in the CPU to detect that parity,
+ * and the 1-cycle difference doesn't affect correctness, only real-hardware-exact timing.
  */
-public class PPU implements ClockWatcher, MemoryBus {
+public class PPU implements ClockWatcher, OamDmaBus {
     static final int DOTS_PER_SCANLINE = 341;
     static final int SCANLINES_PER_FRAME = 262;
     static final int DOTS_PER_CPU_CYCLE = 3;
@@ -69,13 +78,46 @@ public class PPU implements ClockWatcher, MemoryBus {
     private static final int VBLANK_STATUS_BIT = 0x80;
 
     private static final int OAM_SIZE = 0x100;
-    private static final int VRAM_SIZE = 0x4000;
+    private static final int OAM_ADDRESS_MASK = 0xFF;
     private static final int VRAM_ADDRESS_MASK = 0x3FFF;
+    private static final int LOOPY_REGISTER_MASK = 0x7FFF;
     private static final int ADDRESS_HIGH_BYTE_SHIFT = 8;
     private static final int BYTE_MASK = 0xFF;
 
+    private static final int CHR_END_ADDRESS = 0x2000; //exclusive - $0000-$1FFF
+    private static final int PALETTE_START_ADDRESS = 0x3F00; //inclusive - $3F00-$3FFF
+    private static final int NAMETABLE_SIZE = 0x800; //2KB physical nametable RAM
+    private static final int NAMETABLE_OFFSET_MASK = 0x3FF; //1KB per logical nametable
+    private static final int NAMETABLE_TABLE_SHIFT = 10;
+    private static final int NAMETABLE_TABLE_MASK = 0x03;
+    private static final int PALETTE_SIZE = 0x20;
+    private static final int PALETTE_INDEX_MASK = 0x1F;
+    private static final int PALETTE_BACKDROP_MIRROR_BIT = 0x10;
+
+    //t/v bit layout: 0yyy NNYY YYYX XXXX (fine Y | nametable select | coarse Y | coarse X)
+    private static final int COARSE_X_MASK = 0x1F;
+    private static final int COARSE_Y_SHIFT = 5;
+    private static final int COARSE_Y_MASK = 0x1F;
+    private static final int NAMETABLE_SELECT_SHIFT = 10;
+    private static final int NAMETABLE_SELECT_MASK = 0x03;
+    private static final int FINE_Y_SHIFT = 12;
+    private static final int FINE_Y_MASK = 0x07;
+    private static final int FINE_X_MASK = 0x07;
+    private static final int COARSE_X_CLEAR_MASK = ~COARSE_X_MASK & LOOPY_REGISTER_MASK;
+    private static final int COARSE_Y_CLEAR_MASK = ~(COARSE_Y_MASK << COARSE_Y_SHIFT) & LOOPY_REGISTER_MASK;
+    private static final int NAMETABLE_SELECT_CLEAR_MASK = ~(NAMETABLE_SELECT_MASK << NAMETABLE_SELECT_SHIFT) & LOOPY_REGISTER_MASK;
+    private static final int FINE_Y_CLEAR_MASK = ~(FINE_Y_MASK << FINE_Y_SHIFT) & LOOPY_REGISTER_MASK;
+    private static final int ADDRESS_HIGH_BYTE_MASK = 0x3F;
+    private static final int ADDRESS_HIGH_BYTE_CLEAR_MASK = 0x00FF;
+    private static final int ADDRESS_LOW_BYTE_CLEAR_MASK = 0x7F00;
+
+    private static final int OAM_DMA_STALL_CYCLES = 514;
+
+    private final Cartridge cartridge;
+
     private final int[] oam = new int[OAM_SIZE];
-    private final int[] vram = new int[VRAM_SIZE];
+    private final int[] nametableRam = new int[NAMETABLE_SIZE];
+    private final int[] paletteRam = new int[PALETTE_SIZE];
 
     private int dot;
     private int scanline;
@@ -90,11 +132,17 @@ public class PPU implements ClockWatcher, MemoryBus {
     private int vramIncrement = VRAM_INCREMENT_1;
     private int oamAddress;
 
-    private boolean addressLatch;
-    private int addressHighByte;
-    private int vramAddress;
-    private int scrollX;
-    private int scrollY;
+    private boolean w; //shared $2005/$2006 write toggle
+    private int t; //temporary VRAM address (staged by $2005/$2006 until latched into v)
+    private int v; //current VRAM address (used for $2007 access)
+    private int x; //fine X scroll (3 bits)
+    private int readBuffer; //$2007's one-read-of-latency buffer for non-palette addresses
+
+    private boolean oamDmaPending;
+
+    public PPU(final Cartridge cartridge){
+        this.cartridge = cartridge;
+    }
 
     /** CPU-cycle clock: the PPU itself runs at 3x this rate (once per dot, 3 dots per CPU cycle). */
     @Override
@@ -173,13 +221,17 @@ public class PPU implements ClockWatcher, MemoryBus {
      * Register: VPHB SINN
      * V (bit 7): NMI enable
      * I (bit 2): VRAM address increment per $2007 access (0=1, 1=32)
-     * Remaining bits (nametable select, sprite/background pattern table, sprite size, PPU
-     * master/slave) captured in {@link #controlRegister()} but unused - no rendering yet.
+     * NN (bits 0-1): nametable select, latched into t's nametable-select bits (10-11) - takes effect
+     * the next time v is reloaded from t (a $2006 second write, or the rendering pipeline's own
+     * horizontal/vertical copies).
+     * Remaining bits (sprite/background pattern table, sprite size, PPU master/slave) captured in
+     * {@link #controlRegister()} but unused - no rendering yet.
      */
     private void writeControlRegister(final int value){
         controlRegister = value & BYTE_MASK;
         nmiEnabled = (value & NMI_ENABLE_BIT) != 0;
         vramIncrement = (value & VRAM_INCREMENT_BIT) != 0 ? VRAM_INCREMENT_32 : VRAM_INCREMENT_1;
+        t = (t & NAMETABLE_SELECT_CLEAR_MASK) | ((value & NAMETABLE_SELECT_MASK) << NAMETABLE_SELECT_SHIFT);
         updateNmiLine();
     }
 
@@ -196,49 +248,139 @@ public class PPU implements ClockWatcher, MemoryBus {
     private int readStatusRegister(){
         final int result = vblankFlag ? VBLANK_STATUS_BIT : 0;
         vblankFlag = false;
-        addressLatch = false;
+        w = false;
         return result;
     }
 
     private void writeOamData(final int value){
         oam[oamAddress] = value & BYTE_MASK;
-        oamAddress = (oamAddress + 1) & BYTE_MASK;
-    }
-
-    /** Handle a $2005 write: first write is X scroll, second is Y scroll - stored, unused (no rendering). */
-    private void writeScrollRegister(final int value){
-        if (!addressLatch){
-            scrollX = value & BYTE_MASK;
-        } else {
-            scrollY = value & BYTE_MASK;
-        }
-        addressLatch = !addressLatch;
+        oamAddress = (oamAddress + 1) & OAM_ADDRESS_MASK;
     }
 
     /**
-     * Handle a $2006 write: first write is the address high byte, second the low byte - same
-     * write-latch as $2005. The high byte only needs masking to a plain byte here - shifting it left
-     * 8 and masking the combined result to 14 bits (below) already discards its top 2 bits, so a
-     * tighter mask at this point would be redundant, not just simpler.
+     * Handle a $2005 write (loopy model): first write sets fine X ({@link #x}) and t's coarse X bits
+     * (0-4); second write sets t's fine Y bits (12-14) and coarse Y bits (5-9). The legacy
+     * {@link #scrollX()}/{@link #scrollY()} test accessors reconstruct the original byte values from
+     * these fields.
      */
-    private void writeAddressRegister(final int value){
-        if (!addressLatch){
-            addressHighByte = value & BYTE_MASK;
+    private void writeScrollRegister(final int value){
+        if (!w){
+            x = value & FINE_X_MASK;
+            t = (t & COARSE_X_CLEAR_MASK) | (value >> 3);
         } else {
-            vramAddress = ((addressHighByte << ADDRESS_HIGH_BYTE_SHIFT) | (value & BYTE_MASK)) & VRAM_ADDRESS_MASK;
+            t = (t & FINE_Y_CLEAR_MASK) | ((value & FINE_X_MASK) << FINE_Y_SHIFT);
+            t = (t & COARSE_Y_CLEAR_MASK) | ((value >> 3) << COARSE_Y_SHIFT);
         }
-        addressLatch = !addressLatch;
+        w = !w;
     }
 
+    /**
+     * Handle a $2006 write (loopy model): first write sets t's high 6 bits (8-13) and clears the
+     * unused 15th bit; second write sets t's low 8 bits and latches {@code v = t} - real hardware
+     * only updates the *visible* VRAM address on the second write, not the first.
+     */
+    private void writeAddressRegister(final int value){
+        if (!w){
+            t = ((t & ADDRESS_HIGH_BYTE_CLEAR_MASK) | ((value & ADDRESS_HIGH_BYTE_MASK) << ADDRESS_HIGH_BYTE_SHIFT))
+                    & LOOPY_REGISTER_MASK;
+        } else {
+            t = (t & ADDRESS_LOW_BYTE_CLEAR_MASK) | (value & BYTE_MASK);
+            v = t;
+        }
+        w = !w;
+    }
+
+    /**
+     * Handle a $2007 read: addresses $0000-$3EFF return a buffered byte from the *previous* $2007
+     * read (real hardware's well-known one-read-of-latency quirk), while palette addresses
+     * ($3F00-$3FFF) return their value immediately - but still refresh the buffer with the nametable
+     * byte "underneath" that palette mirror (real hardware physically stores nametable data at those
+     * VRAM addresses too; the palette read just bypasses it). Both paths auto-increment {@code v}.
+     */
     private int readDataRegister(){
-        final int value = vram[vramAddress];
-        vramAddress = (vramAddress + vramIncrement) & VRAM_ADDRESS_MASK;
-        return value;
+        final int address = v & VRAM_ADDRESS_MASK;
+        final int result;
+        if (address >= PALETTE_START_ADDRESS){
+            result = readMemory(address);
+            //real hardware still drives the nametable RAM address bus underneath a palette read -
+            //$3F00-$3FFF's "underneath" address is $2F00-$2FFF (i.e. address - $1000), which
+            //readMemory correctly routes to nametableRam since it's below PALETTE_START_ADDRESS
+            readBuffer = readMemory(address - 0x1000);
+        } else {
+            result = readBuffer;
+            readBuffer = readMemory(address);
+        }
+        v = (v + vramIncrement) & LOOPY_REGISTER_MASK;
+        return result;
     }
 
     private void writeDataRegister(final int value){
-        vram[vramAddress] = value & BYTE_MASK;
-        vramAddress = (vramAddress + vramIncrement) & VRAM_ADDRESS_MASK;
+        writeMemory(v & VRAM_ADDRESS_MASK, value);
+        v = (v + vramIncrement) & LOOPY_REGISTER_MASK;
+    }
+
+    /** $0000-$1FFF CHR (cartridge pattern tables), $2000-$3EFF nametables (mirrored), $3F00-$3FFF palette. */
+    private int readMemory(final int address){
+        if (address < CHR_END_ADDRESS){
+            return cartridge.readChr(address);
+        }
+        if (address < PALETTE_START_ADDRESS){
+            return nametableRam[resolveNametableIndex(address)];
+        }
+        return paletteRam[resolvePaletteIndex(address)];
+    }
+
+    private void writeMemory(final int address, final int value){
+        if (address < CHR_END_ADDRESS){
+            cartridge.writeChr(address, value & BYTE_MASK);
+        } else if (address < PALETTE_START_ADDRESS){
+            nametableRam[resolveNametableIndex(address)] = value & BYTE_MASK;
+        } else {
+            paletteRam[resolvePaletteIndex(address)] = value & BYTE_MASK;
+        }
+    }
+
+    /** Resolves a $2000-$3EFF address (already known to be below $3F00) to a physical nametable-RAM index. */
+    private int resolveNametableIndex(final int address){
+        final int nametableAddress = address & 0x0FFF; //fold $3000-$3EFF's mirror of $2000-$2EFF down
+        final int logicalTable = (nametableAddress >> NAMETABLE_TABLE_SHIFT) & NAMETABLE_TABLE_MASK;
+        final int offset = nametableAddress & NAMETABLE_OFFSET_MASK;
+        final int physicalTable = switch (cartridge.nametableMirroring()){
+            case HORIZONTAL -> logicalTable >> 1;
+            case VERTICAL -> logicalTable & 0x01;
+            case SINGLE_SCREEN_LOWER -> 0;
+            case SINGLE_SCREEN_UPPER -> 1;
+        };
+        return physicalTable * 0x400 + offset;
+    }
+
+    /**
+     * Resolves a $3F00-$3FFF address to a palette-RAM index, folding in the backdrop-mirror quirk:
+     * only $3F10/$3F14/$3F18/$3F1C mirror $3F00/$3F04/$3F08/$3F0C (every 4th entry from $3F10), not
+     * the whole $3F10-$3F1F half of the table.
+     */
+    private int resolvePaletteIndex(final int address){
+        final int index = address & PALETTE_INDEX_MASK;
+        final boolean isBackdropMirror = index >= PALETTE_BACKDROP_MIRROR_BIT && (index & 0x03) == 0;
+        return isBackdropMirror ? index - PALETTE_BACKDROP_MIRROR_BIT : index;
+    }
+
+    /** OAM DMA ($4014): 256 bytes in one shot, wrapping from the current OAM address like OAMDATA writes do. */
+    @Override
+    public void writeOamDma(final int[] pageBytes){
+        for (final int pageByte : pageBytes){
+            writeOamData(pageByte);
+        }
+        oamDmaPending = true;
+    }
+
+    /** One-shot: returns the DMA stall length (514 cycles) once per completed DMA, 0 otherwise. */
+    public int consumeOamDmaStallCycles(){
+        if (oamDmaPending){
+            oamDmaPending = false;
+            return OAM_DMA_STALL_CYCLES;
+        }
+        return 0;
     }
 
     int controlRegister(){
@@ -249,16 +391,23 @@ public class PPU implements ClockWatcher, MemoryBus {
         return maskRegister;
     }
 
+    /** Reconstructs the original $2005 first-write byte value from t's coarse X and x's fine X. */
     int scrollX(){
-        return scrollX;
+        return ((t & COARSE_X_MASK) << 3) | x;
     }
 
+    /** Reconstructs the original $2005 second-write byte value from t's coarse Y and fine Y. */
     int scrollY(){
-        return scrollY;
+        return (((t >> COARSE_Y_SHIFT) & COARSE_Y_MASK) << 3) | ((t >> FINE_Y_SHIFT) & FINE_Y_MASK);
     }
 
     int vramAddress(){
-        return vramAddress;
+        return v;
+    }
+
+    /** The staging register ($2005/$2006 write into this, $2006's second write latches it into v). */
+    int temporaryVramAddress(){
+        return t;
     }
 
     int scanline(){
