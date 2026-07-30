@@ -193,7 +193,9 @@ public class NESTest {
 
         final Thread thread = new Thread(nes::powerOn);
         thread.start();
-        Thread.sleep(10); //comfortably past the near-instant latch wait, well within the 300ms sleep
+        //wait for proof the clock has genuinely started ticking (the latch has fired and we're now
+        //inside the warm-up sleep) rather than guessing at timing with an arbitrary sleep
+        verify(audioOutput, timeout(2000).atLeastOnce()).write(anyDouble());
         thread.interrupt();
 
         thread.join(5000);
@@ -215,7 +217,9 @@ public class NESTest {
 
         final Thread thread = new Thread(nes::powerOn);
         thread.start();
-        Thread.sleep(50); //well within the 300ms warm-up window, comfortably after the clock has started
+        //wait for proof the clock has genuinely started ticking rather than guessing at timing with
+        //an arbitrary sleep - reliably lands during the warm-up sleep, not before it or after it ends
+        verify(audioOutput, timeout(2000).atLeastOnce()).write(anyDouble());
         nes.powerOff();
 
         thread.join(5000);
