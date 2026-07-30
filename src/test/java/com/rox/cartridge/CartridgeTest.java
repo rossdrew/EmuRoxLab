@@ -46,4 +46,26 @@ public class CartridgeTest {
     public void romReturnsTheParsedINesRom(){
         assertSame(rom, cartridge.rom());
     }
+
+    @Test
+    public void readChrDelegatesToMapper(){
+        when(mapper.readChr(0x0042)).thenReturn(0x99);
+
+        assertEquals(0x99, cartridge.readChr(0x0042));
+        verify(mapper).readChr(0x0042);
+    }
+
+    @Test
+    public void writeChrDelegatesToMapper(){
+        cartridge.writeChr(0x0100, 0x55);
+
+        verify(mapper).writeChr(0x0100, 0x55);
+    }
+
+    @Test
+    public void nametableMirroringDelegatesToMapper(){
+        when(mapper.nametableMirroring()).thenReturn(Mirroring.VERTICAL);
+
+        assertEquals(Mirroring.VERTICAL, cartridge.nametableMirroring());
+    }
 }

@@ -21,6 +21,22 @@ public class NromMapperTest {
         return INesRom.parse(fileBytes);
     }
 
+    /** Builds a ROM with 1 PRG bank and the given number of 8KB CHR-ROM banks (0 = CHR-RAM), mirroring bit as given. */
+    private static INesRom romWithChr(final int chrBanks, final boolean verticalMirroring){
+        final byte[] fileBytes = new byte[16 + 16384 + chrBanks * 8192];
+        fileBytes[0] = 'N';
+        fileBytes[1] = 'E';
+        fileBytes[2] = 'S';
+        fileBytes[3] = 0x1A;
+        fileBytes[4] = 1;
+        fileBytes[5] = (byte) chrBanks;
+        fileBytes[6] = (byte) (verticalMirroring ? 0x01 : 0x00);
+        for (int i = 0; i < chrBanks * 8192; i++){
+            fileBytes[16 + 16384 + i] = (byte) (i & 0xFF);
+        }
+        return INesRom.parse(fileBytes);
+    }
+
     /** Builds a 32KB ROM whose two 16KB halves are filled with distinct, uniform marker bytes. */
     private static INesRom romWithDistinctHalves(final int firstHalfByte, final int secondHalfByte){
         final byte[] fileBytes = new byte[16 + 2 * 16384];
@@ -99,5 +115,44 @@ public class NromMapperTest {
         mapper.write(0x6000, 0x1FF);
 
         assertEquals(0xFF, mapper.read(0x6000));
+    }
+
+    @Test
+    public void chrRomReadsBackTheRomBytes(){
+        final NromMapper mapper = new NromMapper(romWithChr(1, false));
+
+        assertEquals(0x00, mapper.readChr(0x0000));
+        assertEquals(0x42, mapper.readChr(0x0042));
+    }
+
+    @Test
+    public void writesToChrRomAreNoOps(){
+        final NromMapper mapper = new NromMapper(romWithChr(1, false));
+
+        mapper.writeChr(0x0000, 0x55);
+
+        assertEquals(0x00, mapper.readChr(0x0000), "CHR-ROM has nothing to write to");
+    }
+
+    @Test
+    public void noChrBanksMeansWritableChrRam(){
+        final NromMapper mapper = new NromMapper(romWithChr(0, false));
+
+        mapper.writeChr(0x0123, 0x77);
+
+        assertEquals(0x77, mapper.readChr(0x0123));
+    }
+
+    @Test
+    public void chrRamStartsAtZero(){
+        final NromMapper mapper = new NromMapper(romWithChr(0, false));
+
+        assertEquals(0, mapper.readChr(0x0000));
+    }
+
+    @Test
+    public void mirroringReflectsTheHeaderBitAtConstructionTime(){
+        assertEquals(Mirroring.HORIZONTAL, new NromMapper(romWithChr(0, false)).nametableMirroring());
+        assertEquals(Mirroring.VERTICAL, new NromMapper(romWithChr(0, true)).nametableMirroring());
     }
 }

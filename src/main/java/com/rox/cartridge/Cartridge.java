@@ -27,6 +27,18 @@ public final class Cartridge implements MemoryBus {
         mapper.write(address, value);
     }
 
+    public int readChr(final int address){
+        return mapper.readChr(address);
+    }
+
+    public void writeChr(final int address, final int value){
+        mapper.writeChr(address, value);
+    }
+
+    public Mirroring nametableMirroring(){
+        return mapper.nametableMirroring();
+    }
+
     public INesRom rom(){
         return rom;
     }
