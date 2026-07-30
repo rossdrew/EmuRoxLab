@@ -33,8 +33,8 @@ pitest {
     junit5PluginVersion.set("1.2.2")
     targetClasses.set(pitestScope)
     targetTests.set(pitestScope)
-    //AudioSmokeDemo is a manual "run it and listen" entry point, not automatically testable
-    excludedClasses.set(listOf("com.rox.AudioSmokeDemo"))
+    //AudioSmokeDemo/RomAudioSmokeDemo are manual "run it and listen" entry points, not automatically testable
+    excludedClasses.set(listOf("com.rox.AudioSmokeDemo", "com.rox.RomAudioSmokeDemo"))
     threads.set(Runtime.getRuntime().availableProcessors())
     outputFormats.set(listOf("HTML", "XML"))
     timestampedReports.set(false)
@@ -63,8 +63,8 @@ tasks.jacocoTestReport {
     classDirectories.setFrom(
         files(classDirectories.files.map {
             fileTree(it) {
-                //AudioSmokeDemo is a manual "run it and listen" entry point, not automatically testable
-                exclude("com/rox/AudioSmokeDemo.class")
+                //AudioSmokeDemo/RomAudioSmokeDemo are manual "run it and listen" entry points, not automatically testable
+                exclude("com/rox/AudioSmokeDemo.class", "com/rox/RomAudioSmokeDemo.class")
             }
         })
     )

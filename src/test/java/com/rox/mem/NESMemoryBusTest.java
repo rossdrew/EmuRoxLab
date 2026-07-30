@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Test;
 import static com.rox.mem.NESMemoryBus.CARTRIDGE_START_ADDRESS;
 import static com.rox.mem.NESMemoryBus.IO_END_ADDRESS;
 import static com.rox.mem.NESMemoryBus.IO_START_ADDRESS;
+import static com.rox.mem.NESMemoryBus.PPU_END_ADDRESS;
+import static com.rox.mem.NESMemoryBus.PPU_START_ADDRESS;
 import static com.rox.mem.NESMemoryBus.STATUS_REGISTER_ADDRESS;
 import static net.jqwik.api.Arbitraries.integers;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -18,6 +20,7 @@ public class NESMemoryBusTest extends Arbitraries {
     private MemoryBus ramBus;
     private MemoryBus io;
     private MemoryBus cartridge;
+    private MemoryBus ppu;
     private NESMemoryBus memoryBus;
 
     @BeforeEach
@@ -26,12 +29,18 @@ public class NESMemoryBusTest extends Arbitraries {
         ramBus = mock(MemoryBus.class);
         io = mock(MemoryBus.class);
         cartridge = mock(MemoryBus.class);
-        memoryBus = new NESMemoryBus(ramBus, io, cartridge);
+        ppu = mock(MemoryBus.class);
+        memoryBus = new NESMemoryBus(ramBus, io, cartridge, ppu);
     }
 
     @Provide
-    Arbitrary<Integer> belowIORange() {
-        return integers().between(0x0000, IO_START_ADDRESS - 1);
+    Arbitrary<Integer> belowPpuRange() {
+        return integers().between(0x0000, PPU_START_ADDRESS - 1);
+    }
+
+    @Provide
+    Arbitrary<Integer> inPpuRange() {
+        return integers().between(PPU_START_ADDRESS, PPU_END_ADDRESS);
     }
 
     @Provide
@@ -56,11 +65,23 @@ public class NESMemoryBusTest extends Arbitraries {
     }
 
     @Property
-    public void writeBelowIORangeHitsRamUntouched(@ForAll("belowIORange") int address,
+    public void writeBelowPpuRangeHitsRamUntouched(@ForAll("belowPpuRange") int address,
                                                   @ForAll("byteValue") int value){
         memoryBus.write(address, value);
 
         verify(ramBus, times(1)).write(address, value);
+        verifyNoInteractions(io);
+        verifyNoInteractions(cartridge);
+        verifyNoInteractions(ppu);
+    }
+
+    @Property
+    public void writeInPpuRangeRoutedToPpu(@ForAll("inPpuRange") int address,
+                                           @ForAll("byteValue") int value){
+        memoryBus.write(address, value);
+
+        verify(ppu, times(1)).write(address, value);
+        verifyNoInteractions(ramBus);
         verifyNoInteractions(io);
         verifyNoInteractions(cartridge);
     }
@@ -73,6 +94,7 @@ public class NESMemoryBusTest extends Arbitraries {
         verify(ramBus, times(1)).write(address, value);
         verifyNoInteractions(io);
         verifyNoInteractions(cartridge);
+        verifyNoInteractions(ppu);
     }
 
     @Property
@@ -83,6 +105,7 @@ public class NESMemoryBusTest extends Arbitraries {
         verify(io, times(1)).write(address, value);
         verifyNoInteractions(ramBus);
         verifyNoInteractions(cartridge);
+        verifyNoInteractions(ppu);
     }
 
     @Property
@@ -93,14 +116,27 @@ public class NESMemoryBusTest extends Arbitraries {
         verify(cartridge, times(1)).write(address, value);
         verifyNoInteractions(ramBus);
         verifyNoInteractions(io);
+        verifyNoInteractions(ppu);
     }
 
     @Property
-    public void readBelowIORangeHitsRamUntouched(@ForAll("belowIORange") int address){
+    public void readBelowPpuRangeHitsRamUntouched(@ForAll("belowPpuRange") int address){
         when(ramBus.read(address)).thenReturn(0x42);
 
         assertEquals(0x42, memoryBus.read(address));
         verify(ramBus, times(1)).read(address);
+        verifyNoInteractions(io);
+        verifyNoInteractions(cartridge);
+        verifyNoInteractions(ppu);
+    }
+
+    @Property
+    public void readInPpuRangeRoutedToPpu(@ForAll("inPpuRange") int address){
+        when(ppu.read(address)).thenReturn(0x42);
+
+        assertEquals(0x42, memoryBus.read(address));
+        verify(ppu, times(1)).read(address);
+        verifyNoInteractions(ramBus);
         verifyNoInteractions(io);
         verifyNoInteractions(cartridge);
     }
@@ -114,6 +150,7 @@ public class NESMemoryBusTest extends Arbitraries {
         verify(ramBus, times(1)).read(address);
         verifyNoInteractions(io);
         verifyNoInteractions(cartridge);
+        verifyNoInteractions(ppu);
     }
 
     @Property
@@ -124,6 +161,7 @@ public class NESMemoryBusTest extends Arbitraries {
         verify(cartridge, times(1)).read(address);
         verifyNoInteractions(ramBus);
         verifyNoInteractions(io);
+        verifyNoInteractions(ppu);
     }
 
     @Property
@@ -132,6 +170,7 @@ public class NESMemoryBusTest extends Arbitraries {
         verifyNoInteractions(io);
         verifyNoInteractions(ramBus);
         verifyNoInteractions(cartridge);
+        verifyNoInteractions(ppu);
     }
 
     @Test
@@ -142,33 +181,47 @@ public class NESMemoryBusTest extends Arbitraries {
         verify(io, times(1)).read(STATUS_REGISTER_ADDRESS);
         verifyNoInteractions(ramBus);
         verifyNoInteractions(cartridge);
+        verifyNoInteractions(ppu);
     }
 
     @Test
-    public void writeJustBelowIORangeHitsRam(){
-        memoryBus.write(0x3FFF, 0x11);
+    public void writeJustBelowPpuRangeHitsRam(){
+        memoryBus.write(PPU_START_ADDRESS - 1, 0x11);
 
-        verify(ramBus, times(1)).write(0x3FFF, 0x11);
+        verify(ramBus, times(1)).write(PPU_START_ADDRESS - 1, 0x11);
+        verifyNoInteractions(io);
+        verifyNoInteractions(cartridge);
+        verifyNoInteractions(ppu);
+    }
+
+    @Test
+    public void writeAtPpuRangeStartRoutedToPpu(){
+        memoryBus.write(PPU_START_ADDRESS, 0x11);
+
+        verify(ppu, times(1)).write(PPU_START_ADDRESS, 0x11);
+        verifyNoInteractions(ramBus);
         verifyNoInteractions(io);
         verifyNoInteractions(cartridge);
     }
 
     @Test
-    public void writeAtIORangeStartRoutedToIO(){
-        memoryBus.write(IO_START_ADDRESS, 0x11);
+    public void writeAtPpuRangeEndRoutedToPpu(){
+        memoryBus.write(PPU_END_ADDRESS, 0x11);
 
-        verify(io, times(1)).write(IO_START_ADDRESS, 0x11);
+        verify(ppu, times(1)).write(PPU_END_ADDRESS, 0x11);
         verifyNoInteractions(ramBus);
+        verifyNoInteractions(io);
         verifyNoInteractions(cartridge);
     }
 
     @Test
-    public void writeAtIORangeEndRoutedToIO(){
-        memoryBus.write(IO_END_ADDRESS, 0x11);
+    public void writeJustAbovePpuRangeRoutedToIO(){
+        memoryBus.write(PPU_END_ADDRESS + 1, 0x11);
 
-        verify(io, times(1)).write(IO_END_ADDRESS, 0x11);
+        verify(io, times(1)).write(PPU_END_ADDRESS + 1, 0x11);
         verifyNoInteractions(ramBus);
         verifyNoInteractions(cartridge);
+        verifyNoInteractions(ppu);
     }
 
     @Test
@@ -178,6 +231,7 @@ public class NESMemoryBusTest extends Arbitraries {
         verify(ramBus, times(1)).write(0x4018, 0x11);
         verifyNoInteractions(io);
         verifyNoInteractions(cartridge);
+        verifyNoInteractions(ppu);
     }
 
     @Test
@@ -187,6 +241,7 @@ public class NESMemoryBusTest extends Arbitraries {
         verify(ramBus, times(1)).write(CARTRIDGE_START_ADDRESS - 1, 0x11);
         verifyNoInteractions(io);
         verifyNoInteractions(cartridge);
+        verifyNoInteractions(ppu);
     }
 
     @Test
@@ -196,6 +251,7 @@ public class NESMemoryBusTest extends Arbitraries {
         verify(cartridge, times(1)).write(CARTRIDGE_START_ADDRESS, 0x11);
         verifyNoInteractions(ramBus);
         verifyNoInteractions(io);
+        verifyNoInteractions(ppu);
     }
 
     @Test
@@ -205,5 +261,6 @@ public class NESMemoryBusTest extends Arbitraries {
         verify(cartridge, times(1)).write(0xFFFF, 0x11);
         verifyNoInteractions(ramBus);
         verifyNoInteractions(io);
+        verifyNoInteractions(ppu);
     }
 }

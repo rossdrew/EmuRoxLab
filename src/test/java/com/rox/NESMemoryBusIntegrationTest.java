@@ -13,6 +13,7 @@ import com.rox.mem.MemoryBus;
 import com.rox.mem.MemoryBus8Bit;
 import com.rox.mem.NESMemoryBus;
 import com.rox.mem.RAM;
+import com.rox.ppu.PPU;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -63,7 +64,7 @@ public class NESMemoryBusIntegrationTest {
             @Override
             public void write(final int address, final int value) { }
         };
-        final MemoryBus nesMemoryBus = new NESMemoryBus(new MemoryBus8Bit(ram), noOpDeviceBus, cartridge);
+        final MemoryBus nesMemoryBus = new NESMemoryBus(new MemoryBus8Bit(ram), noOpDeviceBus, cartridge, new PPU());
         final MOS6502 cpu = new MOS6502(new Latched8BitMemoryBus(nesMemoryBus));
         cpu.setPC(program.startAddress());
 

@@ -15,6 +15,7 @@ import com.rox.mem.MemoryBus;
 import com.rox.mem.MemoryBus8Bit;
 import com.rox.mem.NESMemoryBus;
 import com.rox.mem.RAM;
+import com.rox.ppu.PPU;
 import com.rox.time.SystemTimeSource;
 import com.rox.time.ThreadSleeper;
 
@@ -201,7 +202,8 @@ public final class AudioSmokeDemo {
     final static Memory ram = new RAM(0x10000);
     final static MemoryBus ramBus = new MemoryBus8Bit(ram);
     final static APU apu = new APU(ramBus);
-    final static NESMemoryBus nesMemoryBus = new NESMemoryBus(ramBus, apu, cartridge);
+    final static PPU ppu = new PPU();
+    final static NESMemoryBus nesMemoryBus = new NESMemoryBus(ramBus, apu, cartridge, ppu);
     final static MOS6502 cpu = new MOS6502(new Latched8BitMemoryBus(nesMemoryBus));
 
     final static Resampler resampler = new Resampler(1_789_773, 44_100);
@@ -243,6 +245,7 @@ public final class AudioSmokeDemo {
 
         clock.addListener(cpu);
         clock.addListener(apu);
+        clock.addListener(ppu);
         clock.addListener(() -> resampler.accept(apu.outputSample()).ifPresent(sample -> {
             audioOutput.write(sample);
             if (capturedCount[0] < captured.length){

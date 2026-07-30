@@ -10,7 +10,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
@@ -56,6 +59,37 @@ public class NESTest {
         return RomLoader.fromBytes(fileBytes);
     }
 
+    /**
+     * A cartridge whose reset vector points at a "JMP $9000" self-loop, and whose NMI vector points
+     * at a separate "JMP $9100" self-loop - lets a test tell "still waiting for NMI" and "NMI was
+     * serviced" apart just by watching where the CPU's PC settles.
+     */
+    private static Cartridge nmiSelfLoopingCartridge(){
+        final byte[] header = {'N', 'E', 'S', 0x1A, 0x01, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0};
+        final byte[] fileBytes = new byte[header.length + PRG_ROM_SIZE];
+        System.arraycopy(header, 0, fileBytes, 0, header.length);
+
+        final int resetLoopOffset = header.length + ((0x9000 - 0x8000) % PRG_ROM_SIZE);
+        fileBytes[resetLoopOffset] = 0x4C; //JMP absolute
+        fileBytes[resetLoopOffset + 1] = 0x00;
+        fileBytes[resetLoopOffset + 2] = (byte) 0x90; //-> $9000 (itself)
+
+        final int nmiLoopOffset = header.length + ((0x9100 - 0x8000) % PRG_ROM_SIZE);
+        fileBytes[nmiLoopOffset] = 0x4C; //JMP absolute
+        fileBytes[nmiLoopOffset + 1] = 0x00;
+        fileBytes[nmiLoopOffset + 2] = (byte) 0x91; //-> $9100 (itself)
+
+        final int resetVectorOffset = header.length + ((0xFFFC - 0x8000) % PRG_ROM_SIZE);
+        fileBytes[resetVectorOffset] = 0x00;
+        fileBytes[resetVectorOffset + 1] = (byte) 0x90; //reset vector -> $9000
+
+        final int nmiVectorOffset = header.length + ((0xFFFA - 0x8000) % PRG_ROM_SIZE);
+        fileBytes[nmiVectorOffset] = 0x00;
+        fileBytes[nmiVectorOffset + 1] = (byte) 0x91; //NMI vector -> $9100
+
+        return RomLoader.fromBytes(fileBytes);
+    }
+
     @Test
     public void constructsWithCpuAndApuWiredOntoTheSharedClock(){
         new NES(mock(AudioOutput.class), blankCartridge());
@@ -70,13 +104,184 @@ public class NESTest {
         thread.start();
 
         verify(audioOutput, timeout(2000).atLeastOnce()).write(anyDouble());
+        //wait until start() has actually happened, then give it a moment: powerOn() must still be
+        //blocked (parked on the internal clock thread) at this point, not merely between calls
+        verify(audioOutput, timeout(2000)).start();
+        Thread.sleep(200);
+        assertTrue(thread.isAlive(), "powerOn() should still be blocking (waiting on the clock thread) until powerOff() is called");
 
         nes.powerOff();
-        thread.join(2000);
+        thread.join(5000);
 
         assertFalse(thread.isAlive(), "clock thread should have stopped within the join budget");
-        verify(audioOutput).start();
         verify(audioOutput).stop();
+    }
+
+    /**
+     * SpeakerAudioOutput drains a ring buffer that {@link AudioOutput#write} feeds and
+     * {@link AudioOutput#start()}'s writer thread empties - starting playback before any samples
+     * exist immediately underruns (audible clicks). powerOn() must let the clock tick (and so
+     * start feeding samples) for a warm-up period *before* starting audio output, giving the
+     * buffer a cushion.
+     */
+    @Test
+    public void powerOnLetsTheClockWarmUpBeforeStartingAudioOutput() throws InterruptedException {
+        final AudioOutput audioOutput = mock(AudioOutput.class);
+        final long[] firstWriteNanos = {-1};
+        final long[] startNanos = {-1};
+        doAnswer(invocation -> {
+            if (firstWriteNanos[0] == -1){
+                firstWriteNanos[0] = System.nanoTime();
+            }
+            return null;
+        }).when(audioOutput).write(anyDouble());
+        doAnswer(invocation -> {
+            startNanos[0] = System.nanoTime();
+            return null;
+        }).when(audioOutput).start();
+
+        final NES nes = new NES(audioOutput, blankCartridge());
+        final Thread thread = new Thread(nes::powerOn);
+        thread.start();
+
+        verify(audioOutput, timeout(2000)).start();
+        verify(audioOutput, atLeastOnce()).write(anyDouble());
+
+        nes.powerOff();
+        thread.join(5000);
+
+        assertTrue(firstWriteNanos[0] > 0 && startNanos[0] > 0, "expected both write() and start() to have been invoked");
+        assertTrue(firstWriteNanos[0] < startNanos[0],
+                "the clock should begin producing samples before audio output starts, giving the ring buffer a cushion");
+        final long warmUpGapMillis = (startNanos[0] - firstWriteNanos[0]) / 1_000_000;
+        assertTrue(warmUpGapMillis >= 100,
+                "expected a substantial warm-up gap before audio output starts, was " + warmUpGapMillis + "ms");
+    }
+
+    /**
+     * Interrupting the thread running powerOn() before warm-up completes must not start audio (the
+     * caller has effectively asked to cancel) and must not return until the internal clock thread is
+     * genuinely stopped - not just have the calling thread finish quickly while secretly leaving the
+     * clock running in the background for some later powerOff() call that might never come.
+     */
+    @Test
+    public void powerOnGracefullyHandlesInterruptionDuringWarmUpInsteadOfStartingAudioOrLeakingTheClock() throws InterruptedException {
+        final AudioOutput audioOutput = mock(AudioOutput.class);
+        final NES nes = new NES(audioOutput, blankCartridge());
+
+        final Thread thread = new Thread(nes::powerOn);
+        thread.start();
+        thread.interrupt();
+
+        thread.join(5000);
+        assertFalse(thread.isAlive(), "powerOn() should return within a bounded time even when interrupted");
+        assertFalse(nes.clock().isRunning(),
+                "an interrupted powerOn() must stop the clock before returning, not leave it running silently");
+        verify(audioOutput, never()).start();
+    }
+
+    /**
+     * Interrupting powerOn() after audio has already legitimately started exercises a third, later
+     * catch site: the final clockThread.join(). An interrupt caught only there previously never
+     * triggered clock.stop() (that only happened using interrupted's state from before this late
+     * interrupt arrived) - powerOn() would block forever waiting for a clock thread nobody ever told
+     * to stop, since nothing else would.
+     */
+    @Test
+    public void powerOnGracefullyHandlesInterruptionAfterAudioHasAlreadyStarted() throws InterruptedException {
+        final AudioOutput audioOutput = mock(AudioOutput.class);
+        final NES nes = new NES(audioOutput, blankCartridge());
+
+        final Thread thread = new Thread(nes::powerOn);
+        thread.start();
+        verify(audioOutput, timeout(2000)).start(); //wait until well past the warm-up decision point
+        thread.interrupt();
+
+        thread.join(5000);
+        assertFalse(thread.isAlive(), "powerOn() should return within a bounded time even when interrupted late");
+        assertFalse(nes.clock().isRunning(),
+                "an interrupt caught only in the final join() must still stop the clock, not leave it running silently");
+    }
+
+    /**
+     * The test above interrupts immediately after thread.start(), which in practice always lands
+     * during the near-instant clockStarted latch wait (its own catch block), never during the much
+     * longer 300ms warm-up sleep - so the sleep's own catch block never runs. A short real delay
+     * before interrupting reliably lands inside the sleep instead, exercising that code path too.
+     */
+    @Test
+    public void powerOnGracefullyHandlesInterruptionDuringTheWarmUpSleepItself() throws InterruptedException {
+        final AudioOutput audioOutput = mock(AudioOutput.class);
+        final NES nes = new NES(audioOutput, blankCartridge());
+
+        final Thread thread = new Thread(nes::powerOn);
+        thread.start();
+        //wait for proof the clock has genuinely started ticking (the latch has fired and we're now
+        //inside the warm-up sleep) rather than guessing at timing with an arbitrary sleep
+        verify(audioOutput, timeout(2000).atLeastOnce()).write(anyDouble());
+        thread.interrupt();
+
+        thread.join(5000);
+        assertFalse(thread.isAlive(), "powerOn() should return within a bounded time even when interrupted mid-sleep");
+        assertFalse(nes.clock().isRunning(),
+                "an interrupted warm-up sleep must stop the clock before returning, not leave it running silently");
+        verify(audioOutput, never()).start();
+    }
+
+    /**
+     * powerOff() called partway through the warm-up sleep must prevent audioOutput.start() from
+     * running afterward - without this, playback would come back up right after the caller had
+     * already asked to shut it down.
+     */
+    @Test
+    public void powerOffDuringWarmUpPreventsAudioFromStartingAfterShutdown() throws InterruptedException {
+        final AudioOutput audioOutput = mock(AudioOutput.class);
+        final NES nes = new NES(audioOutput, blankCartridge());
+
+        final Thread thread = new Thread(nes::powerOn);
+        thread.start();
+        //wait for proof the clock has genuinely started ticking rather than guessing at timing with
+        //an arbitrary sleep - reliably lands during the warm-up sleep, not before it or after it ends
+        verify(audioOutput, timeout(2000).atLeastOnce()).write(anyDouble());
+        nes.powerOff();
+
+        thread.join(5000);
+        assertFalse(thread.isAlive(), "powerOn() should return once the clock has stopped");
+        verify(audioOutput, never()).start();
+        verify(audioOutput).stop();
+    }
+
+    /**
+     * The real bug this guards against: calling powerOff() as soon as powerOn() has demonstrably
+     * begun executing (but before its internal clockThread has necessarily started) gives it a real
+     * chance of racing ahead of that thread - so its clock.stop() call lands before clock.run() ever
+     * sets its own running flag true, making that particular stop() call a no-op. Without
+     * stopRequested catching this, clockThread runs forever unstopped, and powerOn() blocks forever
+     * joining it - leaking both threads permanently (confirmed via a standalone reproduction that
+     * hung the JVM indefinitely before this fix). The busy-poll below (mirroring
+     * powerOnResetsTheCpuToTheCartridgesResetVector) only proves powerOn() has started, not that
+     * this specific race is hit - the gap before powerOn() has executed anything at all (between
+     * thread.start() returning and its first instruction running) isn't something any internal
+     * design can close, so racing that undefined gap wouldn't be a meaningful test.
+     */
+    @Test
+    public void powerOffCalledImmediatelyAfterPowerOnStillStopsTheClockRatherThanLeakingBothThreads() throws InterruptedException {
+        final AudioOutput audioOutput = mock(AudioOutput.class);
+        final NES nes = new NES(audioOutput, selfLoopingCartridge());
+
+        final Thread thread = new Thread(nes::powerOn);
+        thread.start();
+
+        final long deadline = System.currentTimeMillis() + 2000;
+        while (System.currentTimeMillis() < deadline && nes.cpu().getEnvironmentSnapshot().getPC() != 0x9000){
+            //busy-wait for proof powerOn() has genuinely begun executing (cpu.reset() has run)
+        }
+        nes.powerOff();
+
+        thread.join(5000);
+        assertFalse(thread.isAlive(), "powerOn() should return even when powerOff() races ahead of the clock thread starting");
+        assertFalse(nes.clock().isRunning(), "the clock must not be left running just because powerOff() arrived before it started");
+        verify(audioOutput, never()).start();
     }
 
     @Test
@@ -98,7 +303,7 @@ public class NESTest {
         }
 
         nes.powerOff();
-        thread.join(2000);
+        thread.join(5000);
 
         assertTrue(reachedResetTarget, "PC never reached $9000 - powerOn() should reset the CPU to the cartridge's reset vector");
     }
@@ -135,6 +340,53 @@ public class NESTest {
             }
             nes.clock().tick();
         }
+    }
+
+    /**
+     * End-to-end proof that the phase-3 PPU vblank/NMI wiring in the constructor actually reaches
+     * the real {@code MOS6502} - {@code PPUTest} only proves {@code consumeNmiEdge()} in isolation.
+     */
+    @Test
+    public void vblankNmiReachesTheCpusRealNmiLine(){
+        final NES nes = new NES(mock(AudioOutput.class), nmiSelfLoopingCartridge());
+        nes.cpu().reset(); //lands at $9000, the reset self-loop
+        nes.ppu().write(0x2000, 0x80); //enable NMI generation on vblank
+
+        //generously bounded poll (real requirement is PPU.TICKS_UNTIL_VBLANK_START, ~27,394 ticks)
+        //rather than a hand-derived exact count, so this isn't fragile against timing details
+        final int maxTicks = 100_000;
+        int ticks = 0;
+        while (nes.cpu().getEnvironmentSnapshot().getPC() != 0x9100){
+            if (++ticks > maxTicks){
+                fail("PPU vblank NMI never reached the CPU's real NMI line within " + maxTicks + " ticks");
+            }
+            nes.clock().tick();
+        }
+    }
+
+    /**
+     * Companion to {@link #vblankNmiReachesTheCpusRealNmiLine()}: proves NMI does NOT fire on just
+     * any tick - only a real edge should trigger it. Without this, a broken "fire on every tick
+     * instead of just on an edge" wiring bug would still pass the other test (it would just reach
+     * $9100 even sooner) without ever being caught.
+     */
+    @Test
+    public void vblankNmiDoesNotFireBeforeTheRealVblankEdge(){
+        final NES nes = new NES(mock(AudioOutput.class), nmiSelfLoopingCartridge());
+        nes.cpu().reset(); //lands at $9000
+        nes.ppu().write(0x2000, 0x80); //enable NMI generation on vblank
+
+        //real vblank start is ~27,394 ticks away - PC must still be cycling within the reset loop's
+        //own 3 bytes (JMP $9000 fetches its opcode at $9000, then operand bytes at $9001/$9002
+        //before landing back on $9000) well before that, not off in the NMI target ($9100)
+        for (int i = 0; i < 1000; i++){
+            nes.clock().tick();
+        }
+
+        final int pc = nes.cpu().getEnvironmentSnapshot().getPC();
+        assertTrue(pc >= 0x9000 && pc <= 0x9002,
+                "PC should still be cycling within the reset loop (was $" + Integer.toHexString(pc)
+                        + ") - NMI must not fire before the real vblank edge");
     }
 
     /**

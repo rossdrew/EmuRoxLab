@@ -76,16 +76,27 @@ public class FPSClock implements Clock, AutoCloseable {
 
         running = true;
 
+        //anchored to a single fixed reference point (runStartTime), not re-measured fresh each
+        //frame - Thread.sleep() (via Sleeper) routinely oversleeps its requested duration by tens to
+        //hundreds of microseconds (OS scheduler granularity), and a fresh-each-frame measurement
+        //never recovers that lost time, so it accumulates: ~10ms/s of real-time drift measured
+        //empirically, enough to exhaust a 200ms audio buffer margin in about 20 seconds. Anchoring
+        //each frame's deadline to runStartTime + frameIndex*FRAME_TIME_NS means an oversleep on one
+        //frame simply shortens (or skips) the next frame's sleep, so the schedule self-corrects
+        //instead of drifting indefinitely.
+        final long runStartTime = timeSource.nanoTime();
+        long frameIndex = 0;
+
         while (running) {
             //XXX This could be wrapped in a executeWithinFrame(()->{})
-            long frameStartTime = System.nanoTime();
             runFrame();
             try {
-                throttle(frameStartTime);
+                throttle(runStartTime + frameIndex * FRAME_TIME_NS);
             } catch (InterruptedException e) {
                 /* LOG */System.out.println("Encountered issues using Thread.sleep(), terminating clock!");
                 running = false;
             }
+            frameIndex++;
         }
     }
 
