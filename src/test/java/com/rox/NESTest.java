@@ -228,6 +228,39 @@ public class NESTest {
         verify(audioOutput).stop();
     }
 
+    /**
+     * The real bug this guards against: calling powerOff() as soon as powerOn() has demonstrably
+     * begun executing (but before its internal clockThread has necessarily started) gives it a real
+     * chance of racing ahead of that thread - so its clock.stop() call lands before clock.run() ever
+     * sets its own running flag true, making that particular stop() call a no-op. Without
+     * stopRequested catching this, clockThread runs forever unstopped, and powerOn() blocks forever
+     * joining it - leaking both threads permanently (confirmed via a standalone reproduction that
+     * hung the JVM indefinitely before this fix). The busy-poll below (mirroring
+     * powerOnResetsTheCpuToTheCartridgesResetVector) only proves powerOn() has started, not that
+     * this specific race is hit - the gap before powerOn() has executed anything at all (between
+     * thread.start() returning and its first instruction running) isn't something any internal
+     * design can close, so racing that undefined gap wouldn't be a meaningful test.
+     */
+    @Test
+    public void powerOffCalledImmediatelyAfterPowerOnStillStopsTheClockRatherThanLeakingBothThreads() throws InterruptedException {
+        final AudioOutput audioOutput = mock(AudioOutput.class);
+        final NES nes = new NES(audioOutput, selfLoopingCartridge());
+
+        final Thread thread = new Thread(nes::powerOn);
+        thread.start();
+
+        final long deadline = System.currentTimeMillis() + 2000;
+        while (System.currentTimeMillis() < deadline && nes.cpu().getEnvironmentSnapshot().getPC() != 0x9000){
+            //busy-wait for proof powerOn() has genuinely begun executing (cpu.reset() has run)
+        }
+        nes.powerOff();
+
+        thread.join(5000);
+        assertFalse(thread.isAlive(), "powerOn() should return even when powerOff() races ahead of the clock thread starting");
+        assertFalse(nes.clock().isRunning(), "the clock must not be left running just because powerOff() arrived before it started");
+        verify(audioOutput, never()).start();
+    }
+
     @Test
     public void powerOnResetsTheCpuToTheCartridgesResetVector() throws InterruptedException {
         final NES nes = new NES(mock(AudioOutput.class), selfLoopingCartridge());

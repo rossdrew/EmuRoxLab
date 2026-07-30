@@ -30,6 +30,9 @@ public class NES {
     private final Clock clock;
     private final LatchedMemoryBus memoryBus;
     private final AudioOutput audioOutput;
+    //set by powerOff(), read by powerOn() - catches a powerOff() that races ahead of clockThread
+    //even starting (see powerOn()'s comment on why clock.stop() alone can't catch that case)
+    private volatile boolean stopRequested;
 
     public NES(final Cartridge cartridge) throws LineUnavailableException {
         this(new SpeakerAudioOutput(), cartridge);
@@ -63,6 +66,7 @@ public class NES {
 
     public void powerOn(){
         cpu.reset();
+        stopRequested = false;
         //signalled once the clock thread is genuinely executing clock.run(), not just scheduled to -
         //without this, the warm-up sleep below could overlap with OS scheduling delay on a loaded
         //system and elapse before the clock has actually started producing samples
@@ -78,7 +82,10 @@ public class NES {
         //down the latch is the very first thing clockThread does) before anything below that might
         //call clock.stop(): stopping before clock.run() has actually begun has no effect, since
         //run() unconditionally sets its own running flag back to true the moment it starts, silently
-        //undoing an earlier stop() - so this wait must not be abandoned early on interrupt.
+        //undoing an earlier stop() - so this wait must not be abandoned early on interrupt. This also
+        //means a powerOff() that races ahead of clockThread even starting can't be caught by
+        //clock.stop() alone (its call lands before clock.run() does, so it's a no-op too) - that's
+        //what stopRequested is for below, checked only once we're sure the clock is genuinely running.
         while (true){
             try {
                 clockStarted.await();
@@ -88,7 +95,7 @@ public class NES {
             }
         }
 
-        if (!interrupted){
+        if (!interrupted && !stopRequested){
             try {
                 Thread.sleep(AUDIO_WARM_UP_MILLIS);
             } catch (InterruptedException e){
@@ -98,13 +105,15 @@ public class NES {
 
         //clock.isRunning() is false if powerOff() ran concurrently during warm-up - audio must not
         //start after a shutdown was already requested, interrupted or not
-        if (!interrupted && clock.isRunning()){
+        if (!interrupted && !stopRequested && clock.isRunning()){
             audioOutput.start();
         }
 
-        if (interrupted){
-            //an interrupted warm-up must not silently leave the clock thread running in the
-            //background for some later powerOff() call the caller might never make
+        if (interrupted || stopRequested){
+            //an interrupted warm-up, or a powerOff() that arrived at any point up to here (even
+            //before the clock genuinely started, when its own clock.stop() call would have been a
+            //no-op), must not silently leave the clock thread running in the background - by this
+            //point clockStarted has definitely fired, so this call is guaranteed effective
             clock.stop();
         }
         //retry join() until the thread has genuinely terminated - a single interrupted join() would
@@ -125,6 +134,7 @@ public class NES {
     }
 
     public void powerOff(){
+        stopRequested = true;
         clock.stop();
         audioOutput.stop();
     }
