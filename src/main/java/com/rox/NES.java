@@ -18,6 +18,10 @@ import javax.sound.sampled.LineUnavailableException;
 public class NES {
     private static final long CPU_HZ = 1_789_773;
     private static final long AUDIO_SAMPLE_RATE_HZ = 44_100;
+    //gives the JVM's JIT time to compile the emulation's hot per-cycle tick loop, and lets the
+    //ring buffer build up a cushion, before audio playback (and thus underrun risk) begins - see
+    //SpeakerAudioOutput's own class doc for why draining starts empty otherwise
+    private static final long AUDIO_WARM_UP_MILLIS = 300;
 
     private final MOS6502 cpu;
     private final APU apu;
@@ -58,8 +62,22 @@ public class NES {
 
     public void powerOn(){
         cpu.reset();
+        final Thread clockThread = new Thread(clock::run);
+        clockThread.start();
+        try {
+            Thread.sleep(AUDIO_WARM_UP_MILLIS);
+        } catch (InterruptedException e){
+            Thread.currentThread().interrupt();
+        }
         audioOutput.start();
-        clock.run();
+        try {
+            clockThread.join();
+        } catch (InterruptedException e){
+            //standard practice even though nothing in this method observes the flag afterward -
+            //powerOn() returns right after this, so this line is an accepted, unobservable pitest
+            //survivor rather than something worth chasing a test for
+            Thread.currentThread().interrupt();
+        }
     }
 
     public void powerOff(){

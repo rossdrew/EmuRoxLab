@@ -10,6 +10,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
@@ -101,13 +103,85 @@ public class NESTest {
         thread.start();
 
         verify(audioOutput, timeout(2000).atLeastOnce()).write(anyDouble());
+        //wait until start() has actually happened, then give it a moment: powerOn() must still be
+        //blocked (parked on the internal clock thread) at this point, not merely between calls
+        verify(audioOutput, timeout(2000)).start();
+        Thread.sleep(200);
+        assertTrue(thread.isAlive(), "powerOn() should still be blocking (waiting on the clock thread) until powerOff() is called");
 
         nes.powerOff();
         thread.join(2000);
 
         assertFalse(thread.isAlive(), "clock thread should have stopped within the join budget");
-        verify(audioOutput).start();
         verify(audioOutput).stop();
+    }
+
+    /**
+     * SpeakerAudioOutput drains a ring buffer that {@link AudioOutput#write} feeds and
+     * {@link AudioOutput#start()}'s writer thread empties - starting playback before any samples
+     * exist immediately underruns (audible clicks). powerOn() must let the clock tick (and so
+     * start feeding samples) for a warm-up period *before* starting audio output, giving the
+     * buffer a cushion.
+     */
+    @Test
+    public void powerOnLetsTheClockWarmUpBeforeStartingAudioOutput() throws InterruptedException {
+        final AudioOutput audioOutput = mock(AudioOutput.class);
+        final long[] firstWriteNanos = {-1};
+        final long[] startNanos = {-1};
+        doAnswer(invocation -> {
+            if (firstWriteNanos[0] == -1){
+                firstWriteNanos[0] = System.nanoTime();
+            }
+            return null;
+        }).when(audioOutput).write(anyDouble());
+        doAnswer(invocation -> {
+            startNanos[0] = System.nanoTime();
+            return null;
+        }).when(audioOutput).start();
+
+        final NES nes = new NES(audioOutput, blankCartridge());
+        final Thread thread = new Thread(nes::powerOn);
+        thread.start();
+
+        verify(audioOutput, timeout(2000)).start();
+        verify(audioOutput, atLeastOnce()).write(anyDouble());
+
+        nes.powerOff();
+        thread.join(2000);
+
+        assertTrue(firstWriteNanos[0] > 0 && startNanos[0] > 0, "expected both write() and start() to have been invoked");
+        assertTrue(firstWriteNanos[0] < startNanos[0],
+                "the clock should begin producing samples before audio output starts, giving the ring buffer a cushion");
+        final long warmUpGapMillis = (startNanos[0] - firstWriteNanos[0]) / 1_000_000;
+        assertTrue(warmUpGapMillis >= 100,
+                "expected a substantial warm-up gap before audio output starts, was " + warmUpGapMillis + "ms");
+    }
+
+    /**
+     * Interrupting the thread running powerOn() before it reaches the warm-up sleep means that sleep
+     * throws immediately (Thread.sleep() checks interrupt status at entry) - powerOn() must catch
+     * that, restore the interrupt status per standard practice, and carry on rather than propagating
+     * or aborting. Restoring the status then means the very next blocking call (clockThread.join())
+     * also observes it set and throws immediately too, exercising both catch blocks from one
+     * interrupt() call.
+     */
+    @Test
+    public void powerOnGracefullyHandlesInterruptionDuringWarmUpInsteadOfPropagatingOrHanging() throws InterruptedException {
+        final AudioOutput audioOutput = mock(AudioOutput.class);
+        final NES nes = new NES(audioOutput, blankCartridge());
+
+        final Thread thread = new Thread(nes::powerOn);
+        thread.start();
+        thread.interrupt();
+
+        thread.join(2000);
+        assertFalse(thread.isAlive(),
+                "powerOn() should return promptly when interrupted, not propagate InterruptedException or hang in join()");
+        verify(audioOutput, timeout(2000)).start();
+
+        //the internal clock thread is still running (powerOn() returned without genuinely waiting
+        //for it, since join() threw immediately) - powerOff() stops it regardless
+        nes.powerOff();
     }
 
     @Test
