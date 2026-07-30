@@ -38,13 +38,14 @@ public class SpeakerAudioOutput implements AudioOutput {
     //a full WRITE_CHUNK_SAMPLES batch normally fills well within this (real production is far denser
     //than 1024 samples per 50ms), so this only bounds latency for slow/sparse producers - it stops the
     //writer thread waiting forever for a full batch that may never come
-    private static final long PARTIAL_BATCH_TIMEOUT_MILLIS = 50;
+    private static final long DEFAULT_PARTIAL_BATCH_TIMEOUT_MILLIS = 50;
     //requests a generous hardware buffer so producer jitter (GC pauses, OS scheduling, the
     //emulation's bursty per-frame production) has room to absorb without underrunning and
     //clicking; the JVM's platform-default buffer size can be too small for that
     private static final float LINE_BUFFER_DURATION_SECONDS = 0.2f;
 
     private final SourceDataLine line;
+    private final long partialBatchTimeoutMillis;
     private final short[] ringBuffer = new short[RING_BUFFER_CAPACITY];
     private final Object bufferLock = new Object();
     private int writeIndex;
@@ -63,7 +64,15 @@ public class SpeakerAudioOutput implements AudioOutput {
     }
 
     SpeakerAudioOutput(final SourceDataLine line){
+        this(line, DEFAULT_PARTIAL_BATCH_TIMEOUT_MILLIS);
+    }
+
+    //test seam: an artificially large timeout lets a test prove "flushes promptly" without a tight
+    //wall-clock margin below the real default - a regression back to timed waiting then takes seconds
+    //to detect instead of tens of milliseconds, immune to scheduler jitter on a freshly-started thread
+    SpeakerAudioOutput(final SourceDataLine line, final long partialBatchTimeoutMillis){
         this.line = line;
+        this.partialBatchTimeoutMillis = partialBatchTimeoutMillis;
     }
 
     private static SourceDataLine openDefaultLine() throws LineUnavailableException {
@@ -147,7 +156,7 @@ public class SpeakerAudioOutput implements AudioOutput {
                 //is present the instant a single write() call notifies us - the latter defeats the
                 //batching entirely (a fresh byte[] + native call per 1-3 samples instead of per 1024),
                 //and the resulting overhead/GC churn was itself a source of the underruns it was meant
-                //to avoid. Once any data has arrived, PARTIAL_BATCH_TIMEOUT_MILLIS bounds how long we'll
+                //to avoid. Once any data has arrived, partialBatchTimeoutMillis bounds how long we'll
                 //hold out for a full batch before flushing a smaller one - without this, a producer that
                 //never quite reaches a full batch (sparse/slow production, or simply winding down) would
                 //never get flushed at all.
@@ -165,7 +174,7 @@ public class SpeakerAudioOutput implements AudioOutput {
                     if (batchStartNanos < 0){
                         batchStartNanos = System.nanoTime();
                     }
-                    final long remainingMillis = PARTIAL_BATCH_TIMEOUT_MILLIS
+                    final long remainingMillis = partialBatchTimeoutMillis
                             - (System.nanoTime() - batchStartNanos) / 1_000_000;
                     if (remainingMillis <= 0){
                         break;

@@ -14,6 +14,7 @@ import com.rox.time.SystemTimeSource;
 import com.rox.time.ThreadSleeper;
 
 import javax.sound.sampled.LineUnavailableException;
+import java.util.concurrent.CountDownLatch;
 
 public class NES {
     private static final long CPU_HZ = 1_789_773;
@@ -62,20 +63,63 @@ public class NES {
 
     public void powerOn(){
         cpu.reset();
-        final Thread clockThread = new Thread(clock::run);
+        //signalled once the clock thread is genuinely executing clock.run(), not just scheduled to -
+        //without this, the warm-up sleep below could overlap with OS scheduling delay on a loaded
+        //system and elapse before the clock has actually started producing samples
+        final CountDownLatch clockStarted = new CountDownLatch(1);
+        final Thread clockThread = new Thread(() -> {
+            clockStarted.countDown();
+            clock.run();
+        });
         clockThread.start();
-        try {
-            Thread.sleep(AUDIO_WARM_UP_MILLIS);
-        } catch (InterruptedException e){
-            Thread.currentThread().interrupt();
+
+        boolean interrupted = false;
+        //always wait for the clock to genuinely start (a near-instant wait in practice - counting
+        //down the latch is the very first thing clockThread does) before anything below that might
+        //call clock.stop(): stopping before clock.run() has actually begun has no effect, since
+        //run() unconditionally sets its own running flag back to true the moment it starts, silently
+        //undoing an earlier stop() - so this wait must not be abandoned early on interrupt.
+        while (true){
+            try {
+                clockStarted.await();
+                break;
+            } catch (InterruptedException e){
+                interrupted = true;
+            }
         }
-        audioOutput.start();
-        try {
-            clockThread.join();
-        } catch (InterruptedException e){
-            //standard practice even though nothing in this method observes the flag afterward -
-            //powerOn() returns right after this, so this line is an accepted, unobservable pitest
-            //survivor rather than something worth chasing a test for
+
+        if (!interrupted){
+            try {
+                Thread.sleep(AUDIO_WARM_UP_MILLIS);
+            } catch (InterruptedException e){
+                interrupted = true;
+            }
+        }
+
+        //clock.isRunning() is false if powerOff() ran concurrently during warm-up - audio must not
+        //start after a shutdown was already requested, interrupted or not
+        if (!interrupted && clock.isRunning()){
+            audioOutput.start();
+        }
+
+        if (interrupted){
+            //an interrupted warm-up must not silently leave the clock thread running in the
+            //background for some later powerOff() call the caller might never make
+            clock.stop();
+        }
+        //retry join() until the thread has genuinely terminated - a single interrupted join() would
+        //otherwise return early without actually waiting, silently leaving the clock thread running
+        while (clockThread.isAlive()){
+            try {
+                clockThread.join();
+            } catch (InterruptedException e){
+                interrupted = true;
+            }
+        }
+        //standard practice even though nothing in this method (or its callers) observes the flag
+        //afterward - powerOn() returns right after this, so this is an accepted, unobservable pitest
+        //survivor rather than something worth chasing a test for
+        if (interrupted){
             Thread.currentThread().interrupt();
         }
     }

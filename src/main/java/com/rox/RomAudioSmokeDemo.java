@@ -37,9 +37,17 @@ public final class RomAudioSmokeDemo {
             Thread.sleep(runSeconds * 1000L);
         } finally {
             nes.powerOff();
-            try {
-                nesThread.join();
-            } catch (InterruptedException e){
+            //retry until nesThread has genuinely terminated - a single interrupted join() would
+            //otherwise return early without actually waiting, leaving the emulation thread running
+            boolean interrupted = false;
+            while (nesThread.isAlive()){
+                try {
+                    nesThread.join();
+                } catch (InterruptedException e){
+                    interrupted = true;
+                }
+            }
+            if (interrupted){
                 Thread.currentThread().interrupt();
             }
         }

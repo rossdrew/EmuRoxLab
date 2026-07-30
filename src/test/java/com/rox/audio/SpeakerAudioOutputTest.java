@@ -121,9 +121,11 @@ public class SpeakerAudioOutputTest {
      * The writer thread waits for a full WRITE_CHUNK_SAMPLES batch when it can (real per-call
      * overhead/GC churn from draining 1-3 samples at a time was itself a source of audible
      * underruns), but a partial batch that never reaches that size must still get flushed rather
-     * than waiting forever - bounded by PARTIAL_BATCH_TIMEOUT_MILLIS. This checks the flush happens
-     * in that bounded window: not instantly (which would mean the batching was defeated again) and
-     * not never (a regression to unbounded waiting).
+     * than waiting forever - bounded by the partial-batch timeout (50ms in production, via the
+     * default constructor {@code output} uses). This checks the flush happens in a bounded window
+     * around that: not instantly (which would mean the batching was defeated again) and not far
+     * beyond it either (a regression toward unbounded waiting). The upper bound is generous (6x the
+     * real timeout) to tolerate CI scheduler jitter while still catching a genuine regression.
      */
     @Test
     public void aPartialBatchIsFlushedAfterABoundedWaitRatherThanInstantlyOrNever(){
@@ -135,25 +137,30 @@ public class SpeakerAudioOutputTest {
         verify(line, timeout(1000)).write(frame.capture(), anyInt(), anyInt());
         final long elapsedMillis = (System.nanoTime() - startNanos) / 1_000_000;
 
-        assertTrue(elapsedMillis >= 20,
-                "a partial batch should wait out roughly the partial-batch timeout before flushing, not flush near-instantly, took "
+        assertTrue(elapsedMillis >= 20 && elapsedMillis < 300,
+                "expected the partial batch to flush after roughly the 50ms partial-batch timeout, not near-instantly or far beyond it, took "
                         + elapsedMillis + "ms");
     }
 
-    /** Contrast with the above: a batch that's already full when start() is called must flush promptly, not wait out the partial-batch timeout. */
+    /**
+     * Contrast with the above: a batch that's already full when start() is called must flush
+     * promptly, not wait out the partial-batch timeout. Uses an artificially large timeout (via the
+     * test-seam constructor) rather than a tight wall-clock margin below the real 50ms default - a
+     * regression back to timed waiting then takes seconds to detect, not tens of milliseconds, so a
+     * freshly-started thread merely being slow to get scheduled can't cause a false failure.
+     */
     @Test
     public void aFullBatchIsFlushedPromptlyWithoutWaitingForThePartialBatchTimeout(){
+        final SpeakerAudioOutput largeTimeoutOutput = new SpeakerAudioOutput(line, 5000);
         for (int i = 0; i < SpeakerAudioOutput.WRITE_CHUNK_SAMPLES; i++){
-            output.write(0.0);
+            largeTimeoutOutput.write(0.0);
         }
 
-        final long startNanos = System.nanoTime();
-        output.start();
-
-        verify(line, timeout(200).atLeastOnce()).write(any(byte[].class), anyInt(), anyInt());
-        final long elapsedMillis = (System.nanoTime() - startNanos) / 1_000_000;
-
-        assertTrue(elapsedMillis < 40,
-                "a full batch should flush promptly rather than waiting out the partial-batch timeout, took " + elapsedMillis + "ms");
+        largeTimeoutOutput.start();
+        try {
+            verify(line, timeout(1000).atLeastOnce()).write(any(byte[].class), anyInt(), anyInt());
+        } finally {
+            largeTimeoutOutput.stop();
+        }
     }
 }
