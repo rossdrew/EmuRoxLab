@@ -56,6 +56,37 @@ public class NESTest {
         return RomLoader.fromBytes(fileBytes);
     }
 
+    /**
+     * A cartridge whose reset vector points at a "JMP $9000" self-loop, and whose NMI vector points
+     * at a separate "JMP $9100" self-loop - lets a test tell "still waiting for NMI" and "NMI was
+     * serviced" apart just by watching where the CPU's PC settles.
+     */
+    private static Cartridge nmiSelfLoopingCartridge(){
+        final byte[] header = {'N', 'E', 'S', 0x1A, 0x01, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0};
+        final byte[] fileBytes = new byte[header.length + PRG_ROM_SIZE];
+        System.arraycopy(header, 0, fileBytes, 0, header.length);
+
+        final int resetLoopOffset = header.length + ((0x9000 - 0x8000) % PRG_ROM_SIZE);
+        fileBytes[resetLoopOffset] = 0x4C; //JMP absolute
+        fileBytes[resetLoopOffset + 1] = 0x00;
+        fileBytes[resetLoopOffset + 2] = (byte) 0x90; //-> $9000 (itself)
+
+        final int nmiLoopOffset = header.length + ((0x9100 - 0x8000) % PRG_ROM_SIZE);
+        fileBytes[nmiLoopOffset] = 0x4C; //JMP absolute
+        fileBytes[nmiLoopOffset + 1] = 0x00;
+        fileBytes[nmiLoopOffset + 2] = (byte) 0x91; //-> $9100 (itself)
+
+        final int resetVectorOffset = header.length + ((0xFFFC - 0x8000) % PRG_ROM_SIZE);
+        fileBytes[resetVectorOffset] = 0x00;
+        fileBytes[resetVectorOffset + 1] = (byte) 0x90; //reset vector -> $9000
+
+        final int nmiVectorOffset = header.length + ((0xFFFA - 0x8000) % PRG_ROM_SIZE);
+        fileBytes[nmiVectorOffset] = 0x00;
+        fileBytes[nmiVectorOffset + 1] = (byte) 0x91; //NMI vector -> $9100
+
+        return RomLoader.fromBytes(fileBytes);
+    }
+
     @Test
     public void constructsWithCpuAndApuWiredOntoTheSharedClock(){
         new NES(mock(AudioOutput.class), blankCartridge());
@@ -135,6 +166,53 @@ public class NESTest {
             }
             nes.clock().tick();
         }
+    }
+
+    /**
+     * End-to-end proof that the phase-3 PPU vblank/NMI wiring in the constructor actually reaches
+     * the real {@code MOS6502} - {@code PPUTest} only proves {@code consumeNmiEdge()} in isolation.
+     */
+    @Test
+    public void vblankNmiReachesTheCpusRealNmiLine(){
+        final NES nes = new NES(mock(AudioOutput.class), nmiSelfLoopingCartridge());
+        nes.cpu().reset(); //lands at $9000, the reset self-loop
+        nes.ppu().write(0x2000, 0x80); //enable NMI generation on vblank
+
+        //generously bounded poll (real requirement is PPU.TICKS_UNTIL_VBLANK_START, ~27,394 ticks)
+        //rather than a hand-derived exact count, so this isn't fragile against timing details
+        final int maxTicks = 100_000;
+        int ticks = 0;
+        while (nes.cpu().getEnvironmentSnapshot().getPC() != 0x9100){
+            if (++ticks > maxTicks){
+                fail("PPU vblank NMI never reached the CPU's real NMI line within " + maxTicks + " ticks");
+            }
+            nes.clock().tick();
+        }
+    }
+
+    /**
+     * Companion to {@link #vblankNmiReachesTheCpusRealNmiLine()}: proves NMI does NOT fire on just
+     * any tick - only a real edge should trigger it. Without this, a broken "fire on every tick
+     * instead of just on an edge" wiring bug would still pass the other test (it would just reach
+     * $9100 even sooner) without ever being caught.
+     */
+    @Test
+    public void vblankNmiDoesNotFireBeforeTheRealVblankEdge(){
+        final NES nes = new NES(mock(AudioOutput.class), nmiSelfLoopingCartridge());
+        nes.cpu().reset(); //lands at $9000
+        nes.ppu().write(0x2000, 0x80); //enable NMI generation on vblank
+
+        //real vblank start is ~27,394 ticks away - PC must still be cycling within the reset loop's
+        //own 3 bytes (JMP $9000 fetches its opcode at $9000, then operand bytes at $9001/$9002
+        //before landing back on $9000) well before that, not off in the NMI target ($9100)
+        for (int i = 0; i < 1000; i++){
+            nes.clock().tick();
+        }
+
+        final int pc = nes.cpu().getEnvironmentSnapshot().getPC();
+        assertTrue(pc >= 0x9000 && pc <= 0x9002,
+                "PC should still be cycling within the reset loop (was $" + Integer.toHexString(pc)
+                        + ") - NMI must not fire before the real vblank edge");
     }
 
     /**

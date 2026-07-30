@@ -9,6 +9,7 @@ import com.rox.clock.Clock;
 import com.rox.clock.FPSClock;
 import com.rox.cpu.mos6502.MOS6502;
 import com.rox.mem.*;
+import com.rox.ppu.PPU;
 import com.rox.time.SystemTimeSource;
 import com.rox.time.ThreadSleeper;
 
@@ -20,6 +21,7 @@ public class NES {
 
     private final MOS6502 cpu;
     private final APU apu;
+    private final PPU ppu;
     private final Clock clock;
     private final LatchedMemoryBus memoryBus;
     private final AudioOutput audioOutput;
@@ -35,7 +37,8 @@ public class NES {
         //so the cartridge alone is a complete, correct DMA source with no need to route through
         //NESMemoryBus (which would need apu itself to construct, a circular dependency)
         this.apu = new APU(cartridge);
-        this.memoryBus = new Latched8BitMemoryBus(new NESMemoryBus(ramBus, apu, cartridge));
+        this.ppu = new PPU();
+        this.memoryBus = new Latched8BitMemoryBus(new NESMemoryBus(ramBus, apu, cartridge, ppu));
         this.cpu = new MOS6502(memoryBus);
         this.clock = new FPSClock(CPU_HZ, 60, new SystemTimeSource(), new ThreadSleeper());
         this.audioOutput = audioOutput;
@@ -43,7 +46,13 @@ public class NES {
         final Resampler resampler = new Resampler(CPU_HZ, AUDIO_SAMPLE_RATE_HZ);
         clock.addListener(cpu);
         clock.addListener(apu);
+        clock.addListener(ppu);
         clock.addListener(() -> cpu.setIRQLine(apu.isIrqAsserted()));
+        clock.addListener(() -> {
+            if (ppu.consumeNmiEdge()){
+                cpu.signalNMI();
+            }
+        });
         clock.addListener(() -> resampler.accept(apu.outputSample()).ifPresent(audioOutput::write));
     }
 
@@ -64,6 +73,10 @@ public class NES {
 
     APU apu(){
         return apu;
+    }
+
+    PPU ppu(){
+        return ppu;
     }
 
     Clock clock(){
