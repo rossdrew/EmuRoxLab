@@ -10,6 +10,8 @@ import org.mockito.ArgumentCaptor;
 import javax.sound.sampled.SourceDataLine;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -113,5 +115,45 @@ public class SpeakerAudioOutputTest {
         verify(line, timeout(1000)).write(frame.capture(), anyInt(), anyInt());
         assertEquals((byte) 0xFF, frame.getValue()[0]);
         assertEquals((byte) 0x7F, frame.getValue()[1]);
+    }
+
+    /**
+     * The writer thread waits for a full WRITE_CHUNK_SAMPLES batch when it can (real per-call
+     * overhead/GC churn from draining 1-3 samples at a time was itself a source of audible
+     * underruns), but a partial batch that never reaches that size must still get flushed rather
+     * than waiting forever - bounded by PARTIAL_BATCH_TIMEOUT_MILLIS. This checks the flush happens
+     * in that bounded window: not instantly (which would mean the batching was defeated again) and
+     * not never (a regression to unbounded waiting).
+     */
+    @Test
+    public void aPartialBatchIsFlushedAfterABoundedWaitRatherThanInstantlyOrNever(){
+        final long startNanos = System.nanoTime();
+        output.start();
+        output.write(1.0); //a single sample - nowhere near a full WRITE_CHUNK_SAMPLES batch
+
+        final ArgumentCaptor<byte[]> frame = ArgumentCaptor.forClass(byte[].class);
+        verify(line, timeout(1000)).write(frame.capture(), anyInt(), anyInt());
+        final long elapsedMillis = (System.nanoTime() - startNanos) / 1_000_000;
+
+        assertTrue(elapsedMillis >= 20,
+                "a partial batch should wait out roughly the partial-batch timeout before flushing, not flush near-instantly, took "
+                        + elapsedMillis + "ms");
+    }
+
+    /** Contrast with the above: a batch that's already full when start() is called must flush promptly, not wait out the partial-batch timeout. */
+    @Test
+    public void aFullBatchIsFlushedPromptlyWithoutWaitingForThePartialBatchTimeout(){
+        for (int i = 0; i < SpeakerAudioOutput.WRITE_CHUNK_SAMPLES; i++){
+            output.write(0.0);
+        }
+
+        final long startNanos = System.nanoTime();
+        output.start();
+
+        verify(line, timeout(200).atLeastOnce()).write(any(byte[].class), anyInt(), anyInt());
+        final long elapsedMillis = (System.nanoTime() - startNanos) / 1_000_000;
+
+        assertTrue(elapsedMillis < 40,
+                "a full batch should flush promptly rather than waiting out the partial-batch timeout, took " + elapsedMillis + "ms");
     }
 }
