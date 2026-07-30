@@ -46,6 +46,30 @@ public class Mmc1MapperTest {
         return INesRom.parse(fileBytes);
     }
 
+    /**
+     * 1 PRG bank plus the given number of 4KB CHR-ROM banks, every byte within a bank set to that
+     * bank's own index - unlike position-encoded data (which is invariant to which bank you're in
+     * whenever the bank size is a multiple of 256, as 4KB/8KB both are), this lets a test tell *which*
+     * bank got selected, not just whether some byte within it round-trips correctly.
+     */
+    private static INesRom romWithIndexedChrBanks(final int chr4kBankCount){
+        final int chrSize = chr4kBankCount * 0x1000;
+        final byte[] fileBytes = new byte[16 + 0x4000 + chrSize];
+        fileBytes[0] = 'N';
+        fileBytes[1] = 'E';
+        fileBytes[2] = 'S';
+        fileBytes[3] = 0x1A;
+        fileBytes[4] = 1;
+        fileBytes[5] = (byte) (chrSize / 8192);
+        fileBytes[6] = 0x10;
+        for (int bank = 0; bank < chr4kBankCount; bank++){
+            for (int i = 0; i < 0x1000; i++){
+                fileBytes[16 + 0x4000 + bank * 0x1000 + i] = (byte) bank;
+            }
+        }
+        return INesRom.parse(fileBytes);
+    }
+
     /** 1 PRG bank plus the given number of 4KB CHR-ROM banks, each byte set to its own low-order global offset. */
     private static INesRom romWithPositionEncodedChrBanks(final int chr4kBankCount){
         final int chrSize = chr4kBankCount * 0x1000;
@@ -299,6 +323,37 @@ public class Mmc1MapperTest {
         assertEquals(0, mapper.readChr(0x0000), "bank 1's first byte, offset 0x1000 & 0xFF = 0");
         assertEquals(0, mapper.readChr(0x1000), "bank 3's first byte, offset 0x3000 & 0xFF = 0");
         assertEquals(1, mapper.readChr(0x1001), "bank 3's second byte, offset 0x3001 & 0xFF = 1");
+    }
+
+    @Test
+    public void chrEightKbModeSelectsTheCorrectEightKbBankAmongSeveral(){
+        //8 x 4KB banks = 4 x 8KB banks (indices 0-3, each spanning two 4KB banks)
+        final Mmc1Mapper mapper = new Mmc1Mapper(romWithIndexedChrBanks(8));
+        writeFiveBits(mapper, 0x8000, 0x00); //control: bit4 clear -> 8KB mode
+        writeFiveBits(mapper, 0xA000, 0x07); //bank number 7 -> bit0 ignored -> 8KB bank index 3
+
+        assertEquals(6, mapper.readChr(0x0000), "8KB bank 3's first half is 4KB bank 6");
+        assertEquals(7, mapper.readChr(0x1000), "8KB bank 3's second half is 4KB bank 7");
+    }
+
+    @Test
+    public void chrFourKbModeSelectsIndependentBanksForEachHalf(){
+        final Mmc1Mapper mapper = new Mmc1Mapper(romWithIndexedChrBanks(8));
+        writeFiveBits(mapper, 0x8000, 0x10); //control: bit4 set -> 4KB mode
+        writeFiveBits(mapper, 0xA000, 0x05); //bank 5 at $0000-$0FFF
+        writeFiveBits(mapper, 0xC000, 0x02); //bank 2 at $1000-$1FFF
+
+        assertEquals(5, mapper.readChr(0x0000));
+        assertEquals(2, mapper.readChr(0x1000));
+    }
+
+    @Test
+    public void chrFourKbModeWrapsTheBankNumberModuloTheTotalBankCount(){
+        final Mmc1Mapper mapper = new Mmc1Mapper(romWithIndexedChrBanks(4)); //banks 0-3 only
+        writeFiveBits(mapper, 0x8000, 0x10); //4KB mode
+        writeFiveBits(mapper, 0xA000, 0x06); //bank register 6 -> 6 % 4 = 2
+
+        assertEquals(2, mapper.readChr(0x0000), "bank number must wrap modulo the total bank count");
     }
 
     @Test

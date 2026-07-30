@@ -487,9 +487,27 @@ public class PPUTest {
 
     @Test
     public void ctrlWriteLatchesNametableSelectBitsIntoT(){
-        ppu.write(PPUCTRL, 0x03); //NN = 11
+        ppu.write(PPUCTRL, 0x03); //NN = 11, and t started at 0 - so t must end up as exactly 0x03<<10
 
-        assertEquals(0x03 << 10, ppu.temporaryVramAddress() & (0x03 << 10));
+        assertEquals(0x03 << 10, ppu.temporaryVramAddress());
+    }
+
+    @Test
+    public void ctrlWriteOnlyLatchesTheLowTwoNametableSelectBitsFromValue(){
+        //every bit *except* NN (bits 0-1) set - a mutant that ORs the value in instead of masking it
+        //to 2 bits first would smear these other bits into t as well, not just NN into bits 10-11
+        ppu.write(PPUCTRL, 0xFC);
+
+        assertEquals(0, ppu.temporaryVramAddress(), "NN=00 here, so t must be completely untouched");
+    }
+
+    @Test
+    public void scrollFirstWriteClearsAnyPriorCoarseXBitsOfT(){
+        //t starts at 0, so a mutant that ORs COARSE_X_CLEAR_MASK into t instead of ANDing it would
+        //leave t non-zero even though this write's own coarse X (from value 0) is itself zero
+        ppu.write(PPUSCROLL, 0x00);
+
+        assertEquals(0, ppu.temporaryVramAddress());
     }
 
     @Test
@@ -497,6 +515,48 @@ public class PPUTest {
         ppu.write(PPUADDR, 0xFF); //top 2 bits of this byte must be discarded, not just the value written
 
         assertEquals(0x3F00, ppu.temporaryVramAddress() & 0x7F00, "only bits 8-13 may be set by the first write");
+    }
+
+    @Test
+    public void paletteReadBoundaryIsExactlyAtThreeFHundred(){
+        writeAddress(0x3EFF); //still nametable-mirrored space - buffered (delayed) read
+        ppu.write(PPUDATA, 0x11);
+        writeAddress(0x3F00); //first immediate (unbuffered) palette address
+        ppu.write(PPUDATA, 0x22);
+
+        writeAddress(0x3EFF);
+        final int primed = ppu.read(PPUDATA); //buffered path: returns stale content, not 0x11 yet
+        assertEquals(0, primed);
+        writeAddress(0x3EFF); //the read above auto-incremented v past $3EFF - reset it before reading again
+        assertEquals(0x11, ppu.read(PPUDATA), "$3EFF must still use the buffered (delayed) read path");
+
+        writeAddress(0x3F00);
+        assertEquals(0x22, ppu.read(PPUDATA), "$3F00 must use the immediate (unbuffered) read path");
+    }
+
+    @Test
+    public void readMemoryRoutesExactlyThreeFHundredToPaletteNotNametable(){
+        writeAddress(0x3F00);
+        ppu.write(PPUDATA, 0x2A);
+
+        writeAddress(0x3F00);
+        assertEquals(0x2A, ppu.read(PPUDATA), "exactly $3F00 must be palette RAM, read immediately");
+    }
+
+    @Test
+    public void paletteReadRefreshesTheBufferFromTheNametableByteUnderneathNotAbove(){
+        //"underneath" $3F00 is $2F00 (address - $1000) - a mutant using address + $1000 instead would
+        //instead read from an unrelated location, distinguishable via these two different sentinel values
+        writeAddress(0x2F00);
+        ppu.write(PPUDATA, 0x5A); //the correct "underneath" nametable byte
+        writeAddress(0x3F00);
+        ppu.write(PPUDATA, 0x99); //palette value itself - must differ from the sentinel above
+
+        writeAddress(0x3F00);
+        ppu.read(PPUDATA); //immediate palette read; its side effect (buffer refresh) is what's under test
+
+        writeAddress(0x0000); //any non-palette address, just to surface the current buffer via a plain read
+        assertEquals(0x5A, ppu.read(PPUDATA), "the read buffer must be refreshed from $2F00, not $3F00 + $1000");
     }
 
     @Test
