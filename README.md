@@ -62,7 +62,7 @@ Z. Looking at where else AI can be integrated.  For example, plans being tickets
 - Only NROM (mapper 0) and MMC1 (mapper 1) are implemented; other common mappers (UxROM, CNROM, MMC3, ...) aren't yet - loading one fails with a clear "unsupported mapper" error rather than silently misbehaving
 #### PPU
 - Headless only: no pixel rendering or framebuffer yet, though the full CHR/nametable/palette memory space and OAM DMA are wired up
-- OAM DMA always stalls the CPU for a fixed 514 cycles rather than the real hardware's cycle-accurate 513/514 (odd/even alignment isn't tracked) - a documented simplification, not expected to matter in practice
+- OAM DMA always stalls the CPU for a fixed 514 cycles rather than the real hardware's cycle-accurate 513/514 (odd/even alignment isn't tracked), which may affect cycle-sensitive software
 - Four-screen nametable mirroring isn't modeled (only horizontal/vertical/single-screen)
 #### Controller
 - No real input: $4016/$4017 always report "no buttons pressed", so games' input-polling loops behave sanely but nothing is ever actually pressed
