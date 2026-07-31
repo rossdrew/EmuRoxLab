@@ -43,7 +43,7 @@ final class OamViewerPanel extends JPanel {
     @Override
     protected void paintComponent(final Graphics g){
         super.paintComponent(g);
-        g.drawImage(render(), 0, 0, WIDTH_PX * SCALE, HEIGHT_PX * SCALE, null);
+        ScaledImageDrawer.drawCentered(g, render(), getWidth(), getHeight());
     }
 
     private BufferedImage render(){
