@@ -140,6 +140,36 @@ public class MOS6502Test {
     }
 
     @Test
+    public void stallSuspendsTickingForTheGivenNumberOfCycles(){
+        when(bus.fetch()).thenReturn(MOS6502OpCode.NOP_IMP.getId());
+        cpu.stall(2);
+
+        cpu.tick(); //stalled - must not fetch
+        cpu.tick(); //stalled - must not fetch
+
+        verify(bus, never()).loadMemoryAddress(anyInt());
+        verify(bus, never()).fetch();
+
+        cpu.tick(); //stall exhausted - resumes fetching normally
+
+        verify(bus, times(1)).fetch();
+    }
+
+    @Test
+    public void stallCallsAccumulateRatherThanOverwrite(){
+        when(bus.fetch()).thenReturn(MOS6502OpCode.NOP_IMP.getId());
+        cpu.stall(1);
+        cpu.stall(1); //must add to the existing stall, not replace it
+
+        cpu.tick(); //1st stall cycle
+        cpu.tick(); //2nd stall cycle
+        verify(bus, never()).fetch();
+
+        cpu.tick(); //stall exhausted
+        verify(bus, times(1)).fetch();
+    }
+
+    @Test
     public void resetReadsVectorFromRealMemory(){
         final Memory testRAM = new RAM(0x10000);
         testRAM.write(0xFFFC, 0x00);

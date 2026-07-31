@@ -14,6 +14,11 @@ package com.rox.mem;
  * I/O stub would otherwise return). $4016 writes (the joypad strobe, unrelated to the APU) are a
  * no-op rather than reaching the device bus - $4017 writes are still routed there unchanged, since
  * that address is genuinely the APU's frame counter register on write.
+ *
+ * {@code $4014} (OAM DMA) is special-cased out of the I/O range: it reads 256 bytes back out of
+ * {@code this} bus (whatever the source page actually maps to - normally internal RAM) starting at
+ * {@code value << 8}, and hands them to the PPU bus in one shot via {@link OamDmaBus#writeOamDma}
+ * rather than going through the byte-at-a-time OAMDATA register.
  */
 public class NESMemoryBus implements MemoryBus {
     public static final int PPU_START_ADDRESS = 0x2000;
@@ -21,20 +26,22 @@ public class NESMemoryBus implements MemoryBus {
     public static final int IO_START_ADDRESS = 0x4000;
     public static final int IO_END_ADDRESS = 0x4017;
     public static final int STATUS_REGISTER_ADDRESS = 0x4015;
+    public static final int OAM_DMA_ADDRESS = 0x4014;
     public static final int CONTROLLER_1_ADDRESS = 0x4016;
     public static final int CONTROLLER_2_ADDRESS = 0x4017;
     private static final int NO_BUTTONS_PRESSED = 0;
     public static final int CARTRIDGE_START_ADDRESS = 0x6000;
+    private static final int OAM_DMA_PAGE_SIZE = 0x100;
 
     private final MemoryBus ramBus;
     private final MemoryBus apuBus;
     private final MemoryBus cartridgeBus;
-    private final MemoryBus ppuBus;
+    private final OamDmaBus ppuBus;
 
     public NESMemoryBus(final MemoryBus ramBus,
                         final MemoryBus apuBus,
                         final MemoryBus cartridgeBus,
-                        final MemoryBus ppuBus){
+                        final OamDmaBus ppuBus){
         this.ramBus = ramBus;
         this.apuBus = apuBus;
         this.cartridgeBus = cartridgeBus;
@@ -72,6 +79,11 @@ public class NESMemoryBus implements MemoryBus {
             ppuBus.write(address, value);
             return;
         }
+        if (address == OAM_DMA_ADDRESS) {
+            final int[] pageBytes = readDmaSourcePage(value);
+            ppuBus.writeOamDma(pageBytes);
+            return;
+        }
         if (isInIORange(address)) {
             apuBus.write(address, value);
             return;
@@ -81,6 +93,19 @@ public class NESMemoryBus implements MemoryBus {
             return;
         }
         ramBus.write(address, value);
+    }
+
+    /**
+     * @param page from which to getch DMA block
+     * @return the block of {@link #OAM_DMA_PAGE_SIZE} bytes from the given `page`
+     */
+    private int[] readDmaSourcePage(final int page) {
+        final int pageStart = (page & 0xFF) << 8;
+        final int[] pageBytes = new int[OAM_DMA_PAGE_SIZE];
+        for (int i = 0; i < OAM_DMA_PAGE_SIZE; i++){
+            pageBytes[i] = read(pageStart + i);
+        }
+        return pageBytes;
     }
 
     private static boolean isInPpuRange(final int address){

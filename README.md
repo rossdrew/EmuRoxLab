@@ -40,12 +40,13 @@ I want to get to a quicker, more automated agent reviewer loop but I'm finding i
 4. A [6502 assembler](https://github.com/rossdrew/EmuRoxLab/tree/main/src/main/java/com/rox/cpu/mos6502/assembler)
 5. An APU (Audio Processing Unit) implementation capable of playing pulse, triangle, noise and dmc channels
 6. Real `.nes` ROM loading (NROM and MMC1 mappers), so actual game ROMs can be run instead of just hand-assembled test programs
-7. A headless PPU - just enough vblank/NMI timing to unstick real games' boot-time "wait for vblank" loops and drive their music, no pixel rendering yet
+7. A PPU with correct vblank/NMI timing, full CHR-ROM/CHR-RAM/nametable-mirroring/palette memory wiring and OAM DMA - no pixel rendering yet
 8. A controller stub and a CLI demo ([`RomAudioSmokeDemo`](https://github.com/rossdrew/EmuRoxLab/blob/main/src/main/java/com/rox/RomAudioSmokeDemo.java)) so `.nes` files can actually be run and heard
 
 ## Next up
 1. Reviewing the whole design for optimisations
 2. More mapper support (UxROM, CNROM, MMC3, ...) - NROM and MMC1 only for now
+3. PPU background/sprite rendering to a framebuffer, then a real screen to view it
 Y. Integrating this back into EmuRox
 Z. Looking at where else AI can be integrated.  For example, plans being tickets on a board or local AI review help.  Later, when there's a cohesive it might be good to have AI QA for system testing.
 
@@ -60,8 +61,9 @@ Z. Looking at where else AI can be integrated.  For example, plans being tickets
 #### Cartridges / Mappers
 - Only NROM (mapper 0) and MMC1 (mapper 1) are implemented; other common mappers (UxROM, CNROM, MMC3, ...) aren't yet - loading one fails with a clear "unsupported mapper" error rather than silently misbehaving
 #### PPU
-- Headless only: correct vblank/NMI timing, but no pixel rendering or framebuffer at all
-- $4014 OAM DMA is a no-op (doesn't stall the CPU) - there's no DMA-stall mechanism in the clock yet, the same simplification already noted for DMC above
+- Headless only: no pixel rendering or framebuffer yet, though the full CHR/nametable/palette memory space and OAM DMA are wired up
+- OAM DMA always stalls the CPU for a fixed 514 cycles rather than the real hardware's cycle-accurate 513/514 (odd/even alignment isn't tracked), which may affect cycle-sensitive software
+- Four-screen nametable mirroring isn't modeled (only horizontal/vertical/single-screen)
 #### Controller
 - No real input: $4016/$4017 always report "no buttons pressed", so games' input-polling loops behave sanely but nothing is ever actually pressed
 

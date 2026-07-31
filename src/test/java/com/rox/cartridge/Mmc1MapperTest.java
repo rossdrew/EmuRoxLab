@@ -46,6 +46,47 @@ public class Mmc1MapperTest {
         return INesRom.parse(fileBytes);
     }
 
+    /**
+     * 1 PRG bank plus the given number of 4KB CHR-ROM banks, every byte within a bank set to that
+     * bank's own index - unlike position-encoded data (which is invariant to which bank you're in
+     * whenever the bank size is a multiple of 256, as 4KB/8KB both are), this lets a test tell *which*
+     * bank got selected, not just whether some byte within it round-trips correctly.
+     */
+    private static INesRom romWithIndexedChrBanks(final int chr4kBankCount){
+        final int chrSize = chr4kBankCount * 0x1000;
+        final byte[] fileBytes = new byte[16 + 0x4000 + chrSize];
+        fileBytes[0] = 'N';
+        fileBytes[1] = 'E';
+        fileBytes[2] = 'S';
+        fileBytes[3] = 0x1A;
+        fileBytes[4] = 1;
+        fileBytes[5] = (byte) (chrSize / 8192);
+        fileBytes[6] = 0x10;
+        for (int bank = 0; bank < chr4kBankCount; bank++){
+            for (int i = 0; i < 0x1000; i++){
+                fileBytes[16 + 0x4000 + bank * 0x1000 + i] = (byte) bank;
+            }
+        }
+        return INesRom.parse(fileBytes);
+    }
+
+    /** 1 PRG bank plus the given number of 4KB CHR-ROM banks, each byte set to its own low-order global offset. */
+    private static INesRom romWithPositionEncodedChrBanks(final int chr4kBankCount){
+        final int chrSize = chr4kBankCount * 0x1000;
+        final byte[] fileBytes = new byte[16 + 0x4000 + chrSize];
+        fileBytes[0] = 'N';
+        fileBytes[1] = 'E';
+        fileBytes[2] = 'S';
+        fileBytes[3] = 0x1A;
+        fileBytes[4] = 1;
+        fileBytes[5] = (byte) (chrSize / 8192); //8KB units - rounds down, tests below use even 4KB-bank counts
+        fileBytes[6] = 0x10;
+        for (int i = 0; i < chrSize; i++){
+            fileBytes[16 + 0x4000 + i] = (byte) (i & 0xFF);
+        }
+        return INesRom.parse(fileBytes);
+    }
+
     @Test
     public void fiveWritesToLowRangeLatchTheControlRegister(){
         final Mmc1Mapper mapper = new Mmc1Mapper(romWithBanks(2));
@@ -258,5 +299,100 @@ public class Mmc1MapperTest {
     @Test
     public void rejectsZeroLengthPrgRom(){
         assertThrows(IllegalArgumentException.class, () -> new Mmc1Mapper(romWithBanks(0)));
+    }
+
+    @Test
+    public void chrEightKbModeSwitchesTheWholeWindowIgnoringTheBankRegistersLowBit(){
+        final Mmc1Mapper mapper = new Mmc1Mapper(romWithPositionEncodedChrBanks(4)); //4 x 4KB = 16KB CHR-ROM
+        writeFiveBits(mapper, 0x8000, 0x00); //control: bit4 clear -> 8KB mode
+        writeFiveBits(mapper, 0xA000, 0x03); //bank number 3 -> bit0 ignored -> 8KB bank index 1
+
+        //8KB bank 1 starts at global CHR offset 0x2000; offset+1 = 0x2001, &0xFF = 1
+        assertEquals(1, mapper.readChr(0x0001));
+        assertEquals(1, mapper.readChr(0x1001), "second half of the 8KB window should still read the same bank");
+    }
+
+    @Test
+    public void chrFourKbModeSwitchesEachHalfIndependently(){
+        final Mmc1Mapper mapper = new Mmc1Mapper(romWithPositionEncodedChrBanks(4));
+        writeFiveBits(mapper, 0x8000, 0x10); //control: bit4 set -> 4KB mode
+        writeFiveBits(mapper, 0xA000, 0x01); //4KB bank 1 at $0000-$0FFF
+        writeFiveBits(mapper, 0xC000, 0x03); //4KB bank 3 at $1000-$1FFF
+
+        //bank 1 starts at global CHR offset 0x1000; bank 3 starts at 0x3000
+        assertEquals(0, mapper.readChr(0x0000), "bank 1's first byte, offset 0x1000 & 0xFF = 0");
+        assertEquals(0, mapper.readChr(0x1000), "bank 3's first byte, offset 0x3000 & 0xFF = 0");
+        assertEquals(1, mapper.readChr(0x1001), "bank 3's second byte, offset 0x3001 & 0xFF = 1");
+    }
+
+    @Test
+    public void chrEightKbModeSelectsTheCorrectEightKbBankAmongSeveral(){
+        //8 x 4KB banks = 4 x 8KB banks (indices 0-3, each spanning two 4KB banks)
+        final Mmc1Mapper mapper = new Mmc1Mapper(romWithIndexedChrBanks(8));
+        writeFiveBits(mapper, 0x8000, 0x00); //control: bit4 clear -> 8KB mode
+        writeFiveBits(mapper, 0xA000, 0x07); //bank number 7 -> bit0 ignored -> 8KB bank index 3
+
+        assertEquals(6, mapper.readChr(0x0000), "8KB bank 3's first half is 4KB bank 6");
+        assertEquals(7, mapper.readChr(0x1000), "8KB bank 3's second half is 4KB bank 7");
+    }
+
+    @Test
+    public void chrFourKbModeSelectsIndependentBanksForEachHalf(){
+        final Mmc1Mapper mapper = new Mmc1Mapper(romWithIndexedChrBanks(8));
+        writeFiveBits(mapper, 0x8000, 0x10); //control: bit4 set -> 4KB mode
+        writeFiveBits(mapper, 0xA000, 0x05); //bank 5 at $0000-$0FFF
+        writeFiveBits(mapper, 0xC000, 0x02); //bank 2 at $1000-$1FFF
+
+        assertEquals(5, mapper.readChr(0x0000));
+        assertEquals(2, mapper.readChr(0x1000));
+    }
+
+    @Test
+    public void chrFourKbModeWrapsTheBankNumberModuloTheTotalBankCount(){
+        final Mmc1Mapper mapper = new Mmc1Mapper(romWithIndexedChrBanks(4)); //banks 0-3 only
+        writeFiveBits(mapper, 0x8000, 0x10); //4KB mode
+        writeFiveBits(mapper, 0xA000, 0x06); //bank register 6 -> 6 % 4 = 2
+
+        assertEquals(2, mapper.readChr(0x0000), "bank number must wrap modulo the total bank count");
+    }
+
+    @Test
+    public void noChrBanksMeansWritableChrRamIgnoringBankRegisters(){
+        final Mmc1Mapper mapper = new Mmc1Mapper(romWithBanks(2)); //romWithBanks has no CHR data
+
+        mapper.writeChr(0x0100, 0x42);
+
+        assertEquals(0x42, mapper.readChr(0x0100));
+    }
+
+    @Test
+    public void writesToChrRomAreNoOps(){
+        final Mmc1Mapper mapper = new Mmc1Mapper(romWithPositionEncodedChrBanks(2));
+
+        mapper.writeChr(0x0000, 0x99);
+
+        assertEquals(0, mapper.readChr(0x0000), "CHR-ROM has nothing to write to");
+    }
+
+    @Test
+    public void mirroringControlBitsZeroAndOneMeanFixedSingleScreens(){
+        final Mmc1Mapper mapper = new Mmc1Mapper(romWithBanks(2));
+
+        writeFiveBits(mapper, 0x8000, 0x00);
+        assertEquals(Mirroring.SINGLE_SCREEN_LOWER, mapper.nametableMirroring());
+
+        writeFiveBits(mapper, 0x8000, 0x01);
+        assertEquals(Mirroring.SINGLE_SCREEN_UPPER, mapper.nametableMirroring());
+    }
+
+    @Test
+    public void mirroringControlBitsTwoAndThreeMeanVerticalAndHorizontal(){
+        final Mmc1Mapper mapper = new Mmc1Mapper(romWithBanks(2));
+
+        writeFiveBits(mapper, 0x8000, 0x02);
+        assertEquals(Mirroring.VERTICAL, mapper.nametableMirroring());
+
+        writeFiveBits(mapper, 0x8000, 0x03);
+        assertEquals(Mirroring.HORIZONTAL, mapper.nametableMirroring());
     }
 }

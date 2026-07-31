@@ -202,7 +202,7 @@ public final class AudioSmokeDemo {
     final static Memory ram = new RAM(0x10000);
     final static MemoryBus ramBus = new MemoryBus8Bit(ram);
     final static APU apu = new APU(ramBus);
-    final static PPU ppu = new PPU();
+    final static PPU ppu = new PPU(cartridge);
     final static NESMemoryBus nesMemoryBus = new NESMemoryBus(ramBus, apu, cartridge, ppu);
     final static MOS6502 cpu = new MOS6502(new Latched8BitMemoryBus(nesMemoryBus));
 
