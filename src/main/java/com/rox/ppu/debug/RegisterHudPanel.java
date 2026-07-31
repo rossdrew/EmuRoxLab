@@ -16,18 +16,22 @@ final class RegisterHudPanel extends JPanel {
 
     private final PPU ppu;
     private final JTextArea text = new JTextArea();
+    private final BeamPositionPanel beamPosition;
 
     RegisterHudPanel(final PPU ppu){
         this.ppu = ppu;
+        this.beamPosition = new BeamPositionPanel(ppu);
         setLayout(new BorderLayout());
         text.setEditable(false);
-        text.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 13));
+        text.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 50));
         setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
-        add(text, BorderLayout.CENTER);
+        add(beamPosition, BorderLayout.CENTER);
+        add(text, BorderLayout.SOUTH);
         refresh();
     }
 
     void refresh(){
+        beamPosition.repaint();
         final int control = ppu.controlRegister();
         text.setText(String.format(
                 """
