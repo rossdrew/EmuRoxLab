@@ -6,6 +6,7 @@ import javax.swing.JPanel;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.image.BufferedImage;
+import java.util.stream.IntStream;
 
 /**
  * Renders both CHR pattern tables ({@code $0000-$0FFF} and {@code $1000-$1FFF}) as 16x16 tile grids
@@ -52,10 +53,12 @@ final class ChrViewerPanel extends JPanel {
 
         for (int tileIndex = 0; tileIndex < tileCount; tileIndex++){
             final int tileBase = tableBase + tileIndex * TILE_BYTES;
-            final int[] tileBytes = new int[TILE_BYTES];
-            for (int i = 0; i < TILE_BYTES; i++){
-                tileBytes[i] = cartridge.readChr(tileBase + i);
-            }
+
+            final int[] tileBytes = IntStream
+                    .range(tileBase, tileBase + TILE_BYTES)
+                    .map(cartridge::readChr)
+                    .toArray();
+
             final int[][] pixels = TileDecoder.decode(tileBytes);
 
             final int originX = (tileIndex % TILES_PER_ROW) * TILE_PX;
