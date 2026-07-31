@@ -33,8 +33,17 @@ pitest {
     junit5PluginVersion.set("1.2.2")
     targetClasses.set(pitestScope)
     targetTests.set(pitestScope)
-    //AudioSmokeDemo/RomAudioSmokeDemo are manual "run it and listen" entry points, not automatically testable
-    excludedClasses.set(listOf("com.rox.AudioSmokeDemo", "com.rox.RomAudioSmokeDemo"))
+    //AudioSmokeDemo/RomAudioSmokeDemo/PpuDebugViewerDemo are manual "run it and look/listen" entry
+    //points, not automatically testable - same for the Swing window/panels the debug viewer paints
+    //with (TileDecoder is deliberately not excluded here - it's the one piece of that package that's
+    //a pure, fully-testable function)
+    //trailing "*" on PpuDebugViewerDemo also catches its anonymous WindowAdapter ($1)
+    excludedClasses.set(listOf(
+            "com.rox.AudioSmokeDemo", "com.rox.RomAudioSmokeDemo", "com.rox.PpuDebugViewerDemo*",
+            "com.rox.ppu.debug.PpuDebugFrame", "com.rox.ppu.debug.ChrViewerPanel",
+            "com.rox.ppu.debug.NametableViewerPanel", "com.rox.ppu.debug.OamViewerPanel",
+            "com.rox.ppu.debug.RegisterHudPanel"
+    ))
     threads.set(Runtime.getRuntime().availableProcessors())
     outputFormats.set(listOf("HTML", "XML"))
     timestampedReports.set(false)
@@ -63,8 +72,14 @@ tasks.jacocoTestReport {
     classDirectories.setFrom(
         files(classDirectories.files.map {
             fileTree(it) {
-                //AudioSmokeDemo/RomAudioSmokeDemo are manual "run it and listen" entry points, not automatically testable
-                exclude("com/rox/AudioSmokeDemo.class", "com/rox/RomAudioSmokeDemo.class")
+                //see the matching pitest excludedClasses comment above for why these are excluded
+                exclude(
+                        "com/rox/AudioSmokeDemo.class", "com/rox/RomAudioSmokeDemo.class",
+                        "com/rox/PpuDebugViewerDemo.class", "com/rox/PpuDebugViewerDemo\$1.class",
+                        "com/rox/ppu/debug/PpuDebugFrame.class",
+                        "com/rox/ppu/debug/ChrViewerPanel.class", "com/rox/ppu/debug/NametableViewerPanel.class",
+                        "com/rox/ppu/debug/OamViewerPanel.class", "com/rox/ppu/debug/RegisterHudPanel.class"
+                )
             }
         })
     )
