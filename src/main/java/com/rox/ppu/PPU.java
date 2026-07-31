@@ -121,7 +121,9 @@ public class PPU implements ClockWatcher, OamDmaBus {
     private final int[] nametableRam = new int[NAMETABLE_SIZE];
     private final int[] paletteRam = new int[PALETTE_SIZE];
 
+    /**  a unit of time in which we advance by exactly one pixel-column's worth of work, whether or not that pixel is currently visible on screen. */
     private int dot;
+    /** 341 dots, 256 of which are visible pixels */
     private int scanline;
 
     private boolean vblankFlag;
