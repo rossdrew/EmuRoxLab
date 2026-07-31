@@ -587,6 +587,59 @@ public class PPUTest {
         assertEquals(0, ppu.consumeOamDmaStallCycles(), "the same DMA must not be reported twice");
     }
 
+    @Test
+    public void vblankFlagReflectsTheFlagWithoutTheReadAndClearSideEffect(){
+        tick(TICKS_UNTIL_VBLANK_START);
+
+        assertTrue(ppu.vblankFlag(), "first peek should observe it set");
+        assertTrue(ppu.vblankFlag(), "unlike read($2002), peeking must not clear it - still set on a second peek");
+        assertEquals(VBLANK_BIT, ppu.read(PPUSTATUS) & VBLANK_BIT, "the real register read must still see it too");
+    }
+
+    @Test
+    public void vblankFlagStartsFalse(){
+        assertFalse(ppu.vblankFlag());
+    }
+
+    @Test
+    public void oamAddressReflectsTheLastAddressWritten(){
+        ppu.write(OAMADDR, 0x42);
+
+        assertEquals(0x42, ppu.oamAddress());
+    }
+
+    @Test
+    public void nametableSnapshotReflectsWrittenData(){
+        writeAddress(0x2000);
+        ppu.write(PPUDATA, 0x37);
+
+        assertEquals(0x37, ppu.nametableSnapshot()[0]);
+    }
+
+    @Test
+    public void nametableSnapshotIsADefensiveCopy(){
+        final int[] snapshot = ppu.nametableSnapshot();
+        snapshot[0] = 0xFF;
+
+        assertEquals(0, ppu.nametableSnapshot()[0], "mutating a returned snapshot must not affect the PPU's own state");
+    }
+
+    @Test
+    public void oamSnapshotReflectsWrittenData(){
+        ppu.write(OAMADDR, 0x00);
+        ppu.write(OAMDATA, 0x64);
+
+        assertEquals(0x64, ppu.oamSnapshot()[0]);
+    }
+
+    @Test
+    public void oamSnapshotIsADefensiveCopy(){
+        final int[] snapshot = ppu.oamSnapshot();
+        snapshot[0] = 0xFF;
+
+        assertEquals(0, ppu.oamSnapshot()[0], "mutating a returned snapshot must not affect the PPU's own state");
+    }
+
     private void verifyChrByte(final int address, final int expectedValue){
         writeAddress(address);
         ppu.read(PPUDATA); //prime the read buffer
