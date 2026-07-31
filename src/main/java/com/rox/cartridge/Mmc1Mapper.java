@@ -118,6 +118,17 @@ public final class Mmc1Mapper implements Mapper {
         }
     }
 
+    /**
+     * <ul>
+     * <li>$8000-$FFFF is a fixed 32KB CPU window, but MMC1 PRG-ROM can be up to 512KB.</li>
+     * </ul>
+     * The extra ROM doesn't fit in the window, so the game writes to a bank-select register (via the 5-bit
+     * shift-register protocol you can see in write()/latch()) to say make a given chunk of the ROM
+     * visible in the window.
+     *
+     * @param address to translate from CPU 32KB addressable size
+     * @return address in addressable 512KB based on state of bank-select register state
+     */
     private int prgRomOffset(final int address){
         final int windowOffset = address - PRG_ROM_START_ADDRESS; //0..0x7FFF
         final int totalBanks = prgRom.length / PRG_BANK_SIZE;
@@ -154,6 +165,17 @@ public final class Mmc1Mapper implements Mapper {
         //writes to CHR-ROM are no-ops, same as PRG-ROM
     }
 
+    /**
+     * <ul>
+     * <li>$0000-$1FFF is a fixed 8KB PPU window, but CHR-ROM can be up to 128KB.</li>
+     * </ul>
+     * The extra ROM doesn't fit in the window, so the game writes to a bank-select register (via the 5-bit
+     * shift-register protocol you can see in write()/latch()) to say make a given chunk of the ROM
+     * visible in the window.
+     *
+     * @param address to translate from PPU 8KB addressable size
+     * @return address in addressable 128KB based on state of bank-select register state
+     */
     private int chrRomOffset(final int address){
         final boolean fourKbMode = (controlRegister & CHR_MODE_BIT) != 0;
         final int totalFourKbBanks = chrRom.length / CHR_BANK_4KB_SIZE;

@@ -21,12 +21,14 @@ import com.rox.mem.OamDmaBus;
  * {@code MOS6502}'s own {@code signalNMI()}/{@code consumeNMI()} edge-latch pattern) - see how
  * {@code NES.java} wires this in exactly like the existing APU-IRQ listener.
  *
- * The internal {@code v}/{@code t}/{@code x}/{@code w} registers follow nesdev's standard "loopy"
- * model: {@code v} (current VRAM address) and {@code t} (temporary VRAM address, staged by
- * {@code $2005}/{@code $2006} until latched into {@code v}) are both conceptually 15 bits laid out as
- * {@code 0yyy NNYY YYYX XXXX} (fine Y, nametable select, coarse Y, coarse X); {@code x} is the 3-bit
- * fine X scroll; {@code w} is the write toggle shared by {@code $2005}/{@code $2006}, reset by a
- * {@code $2002} read. This phase only implements the register-level bit manipulation ({@code $2000}
+ * The internal current/temporary VRAM address, fine-X-scroll and write-toggle fields follow nesdev's
+ * standard "loopy" model (traditionally named {@code v}/{@code t}/{@code x}/{@code w} there):
+ * {@link #currentVramAddress} (used for {@code $2007} access) and {@link #temporaryVramAddress}
+ * (staged by {@code $2005}/{@code $2006} until latched into {@code currentVramAddress}) are both
+ * conceptually 15 bits laid out as {@code 0yyy NNYY YYYX XXXX} (fine Y, nametable select, coarse Y,
+ * coarse X); {@link #fineXScroll} is 3 bits; {@link #writeToggle} is shared by
+ * {@code $2005}/{@code $2006}, reset by a {@code $2002} read. This phase only implements the
+ * register-level bit manipulation ({@code $2000}
  * nametable-select bits, {@code $2005} coarse/fine split, {@code $2006} address latching) - the
  * rendering-time-only updates (coarse-X increment during fetches, Y increment at dot 256, the
  * dot-257/280-304 horizontal/vertical copies) belong to the not-yet-written rendering pipeline.
@@ -132,10 +134,10 @@ public class PPU implements ClockWatcher, OamDmaBus {
     private int vramIncrement = VRAM_INCREMENT_1;
     private int oamAddress;
 
-    private boolean w; //shared $2005/$2006 write toggle
-    private int t; //temporary VRAM address (staged by $2005/$2006 until latched into v)
-    private int v; //current VRAM address (used for $2007 access)
-    private int x; //fine X scroll (3 bits)
+    private boolean writeToggle; //shared $2005/$2006 write toggle
+    private int temporaryVramAddress; //staged by $2005/$2006 until latched into currentVramAddress
+    private int currentVramAddress; //used for $2007 access
+    private int fineXScroll; //3 bits
     private int readBuffer; //$2007's one-read-of-latency buffer for non-palette addresses
 
     private boolean oamDmaPending;
@@ -231,7 +233,8 @@ public class PPU implements ClockWatcher, OamDmaBus {
         controlRegister = value & BYTE_MASK;
         nmiEnabled = (value & NMI_ENABLE_BIT) != 0;
         vramIncrement = (value & VRAM_INCREMENT_BIT) != 0 ? VRAM_INCREMENT_32 : VRAM_INCREMENT_1;
-        t = (t & NAMETABLE_SELECT_CLEAR_MASK) | ((value & NAMETABLE_SELECT_MASK) << NAMETABLE_SELECT_SHIFT);
+        temporaryVramAddress = (temporaryVramAddress & NAMETABLE_SELECT_CLEAR_MASK)
+                | ((value & NAMETABLE_SELECT_MASK) << NAMETABLE_SELECT_SHIFT);
         updateNmiLine();
     }
 
@@ -248,7 +251,7 @@ public class PPU implements ClockWatcher, OamDmaBus {
     private int readStatusRegister(){
         final int result = vblankFlag ? VBLANK_STATUS_BIT : 0;
         vblankFlag = false;
-        w = false;
+        writeToggle = false;
         return result;
     }
 
@@ -258,36 +261,38 @@ public class PPU implements ClockWatcher, OamDmaBus {
     }
 
     /**
-     * Handle a $2005 write (loopy model): first write sets fine X ({@link #x}) and t's coarse X bits
-     * (0-4); second write sets t's fine Y bits (12-14) and coarse Y bits (5-9). The legacy
-     * {@link #scrollX()}/{@link #scrollY()} test accessors reconstruct the original byte values from
-     * these fields.
+     * Handle a $2005 write (loopy model): first write sets {@link #fineXScroll} and
+     * {@link #temporaryVramAddress}'s coarse X bits (0-4); second write sets its fine Y bits (12-14)
+     * and coarse Y bits (5-9). The legacy {@link #scrollX()}/{@link #scrollY()} test accessors
+     * reconstruct the original byte values from these fields.
      */
     private void writeScrollRegister(final int value){
-        if (!w){
-            x = value & FINE_X_MASK;
-            t = (t & COARSE_X_CLEAR_MASK) | (value >> 3);
+        if (!writeToggle){
+            fineXScroll = value & FINE_X_MASK;
+            temporaryVramAddress = (temporaryVramAddress & COARSE_X_CLEAR_MASK) | (value >> 3);
         } else {
-            t = (t & FINE_Y_CLEAR_MASK) | ((value & FINE_X_MASK) << FINE_Y_SHIFT);
-            t = (t & COARSE_Y_CLEAR_MASK) | ((value >> 3) << COARSE_Y_SHIFT);
+            temporaryVramAddress = (temporaryVramAddress & FINE_Y_CLEAR_MASK) | ((value & FINE_X_MASK) << FINE_Y_SHIFT);
+            temporaryVramAddress = (temporaryVramAddress & COARSE_Y_CLEAR_MASK) | ((value >> 3) << COARSE_Y_SHIFT);
         }
-        w = !w;
+        writeToggle = !writeToggle;
     }
 
     /**
-     * Handle a $2006 write (loopy model): first write sets t's high 6 bits (8-13) and clears the
-     * unused 15th bit; second write sets t's low 8 bits and latches {@code v = t} - real hardware
-     * only updates the *visible* VRAM address on the second write, not the first.
+     * Handle a $2006 write (loopy model): first write sets {@link #temporaryVramAddress}'s high 6 bits
+     * (8-13) and clears the unused 15th bit; second write sets its low 8 bits and latches
+     * {@code currentVramAddress = temporaryVramAddress} - real hardware only updates the *visible*
+     * VRAM address on the second write, not the first.
      */
     private void writeAddressRegister(final int value){
-        if (!w){
-            t = ((t & ADDRESS_HIGH_BYTE_CLEAR_MASK) | ((value & ADDRESS_HIGH_BYTE_MASK) << ADDRESS_HIGH_BYTE_SHIFT))
+        if (!writeToggle){
+            temporaryVramAddress = ((temporaryVramAddress & ADDRESS_HIGH_BYTE_CLEAR_MASK)
+                    | ((value & ADDRESS_HIGH_BYTE_MASK) << ADDRESS_HIGH_BYTE_SHIFT))
                     & LOOPY_REGISTER_MASK;
         } else {
-            t = (t & ADDRESS_LOW_BYTE_CLEAR_MASK) | (value & BYTE_MASK);
-            v = t;
+            temporaryVramAddress = (temporaryVramAddress & ADDRESS_LOW_BYTE_CLEAR_MASK) | (value & BYTE_MASK);
+            currentVramAddress = temporaryVramAddress;
         }
-        w = !w;
+        writeToggle = !writeToggle;
     }
 
     /**
@@ -295,10 +300,11 @@ public class PPU implements ClockWatcher, OamDmaBus {
      * read (real hardware's well-known one-read-of-latency quirk), while palette addresses
      * ($3F00-$3FFF) return their value immediately - but still refresh the buffer with the nametable
      * byte "underneath" that palette mirror (real hardware physically stores nametable data at those
-     * VRAM addresses too; the palette read just bypasses it). Both paths auto-increment {@code v}.
+     * VRAM addresses too; the palette read just bypasses it). Both paths auto-increment
+     * {@link #currentVramAddress}.
      */
     private int readDataRegister(){
-        final int address = v & VRAM_ADDRESS_MASK;
+        final int address = currentVramAddress & VRAM_ADDRESS_MASK;
         final int result;
         if (address >= PALETTE_START_ADDRESS){
             result = readMemory(address);
@@ -310,13 +316,13 @@ public class PPU implements ClockWatcher, OamDmaBus {
             result = readBuffer;
             readBuffer = readMemory(address);
         }
-        v = (v + vramIncrement) & LOOPY_REGISTER_MASK;
+        currentVramAddress = (currentVramAddress + vramIncrement) & LOOPY_REGISTER_MASK;
         return result;
     }
 
     private void writeDataRegister(final int value){
-        writeMemory(v & VRAM_ADDRESS_MASK, value);
-        v = (v + vramIncrement) & LOOPY_REGISTER_MASK;
+        writeMemory(currentVramAddress & VRAM_ADDRESS_MASK, value);
+        currentVramAddress = (currentVramAddress + vramIncrement) & LOOPY_REGISTER_MASK;
     }
 
     /** $0000-$1FFF CHR (cartridge pattern tables), $2000-$3EFF nametables (mirrored), $3F00-$3FFF palette. */
@@ -391,23 +397,27 @@ public class PPU implements ClockWatcher, OamDmaBus {
         return maskRegister;
     }
 
-    /** Reconstructs the original $2005 first-write byte value from t's coarse X and x's fine X. */
+    /** Reconstructs the original $2005 first-write byte value from the coarse and fine X scroll. */
     int scrollX(){
-        return ((t & COARSE_X_MASK) << 3) | x;
+        return ((temporaryVramAddress & COARSE_X_MASK) << 3) | fineXScroll;
     }
 
-    /** Reconstructs the original $2005 second-write byte value from t's coarse Y and fine Y. */
+    /** Reconstructs the original $2005 second-write byte value from the coarse and fine Y scroll. */
     int scrollY(){
-        return (((t >> COARSE_Y_SHIFT) & COARSE_Y_MASK) << 3) | ((t >> FINE_Y_SHIFT) & FINE_Y_MASK);
+        return (((temporaryVramAddress >> COARSE_Y_SHIFT) & COARSE_Y_MASK) << 3)
+                | ((temporaryVramAddress >> FINE_Y_SHIFT) & FINE_Y_MASK);
     }
 
     int vramAddress(){
-        return v;
+        return currentVramAddress;
     }
 
-    /** The staging register ($2005/$2006 write into this, $2006's second write latches it into v). */
+    /**
+     * The staging register ($2005/$2006 write into this, $2006's second write latches it into
+     * {@link #currentVramAddress}).
+     */
     int temporaryVramAddress(){
-        return t;
+        return temporaryVramAddress;
     }
 
     int scanline(){
