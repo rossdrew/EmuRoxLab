@@ -80,11 +80,7 @@ public class NESMemoryBus implements MemoryBus {
             return;
         }
         if (address == OAM_DMA_ADDRESS) {
-            final int pageStart = (value & 0xFF) << 8;
-            final int[] pageBytes = new int[OAM_DMA_PAGE_SIZE];
-            for (int i = 0; i < OAM_DMA_PAGE_SIZE; i++){
-                pageBytes[i] = read(pageStart + i);
-            }
+            final int[] pageBytes = readDmaSourcePage(value);
             ppuBus.writeOamDma(pageBytes);
             return;
         }
@@ -97,6 +93,19 @@ public class NESMemoryBus implements MemoryBus {
             return;
         }
         ramBus.write(address, value);
+    }
+
+    /**
+     * @param page from which to getch DMA block
+     * @return the block of {@link #OAM_DMA_PAGE_SIZE} bytes from the given `page`
+     */
+    private int[] readDmaSourcePage(final int page) {
+        final int pageStart = (page & 0xFF) << 8;
+        final int[] pageBytes = new int[OAM_DMA_PAGE_SIZE];
+        for (int i = 0; i < OAM_DMA_PAGE_SIZE; i++){
+            pageBytes[i] = read(pageStart + i);
+        }
+        return pageBytes;
     }
 
     private static boolean isInPpuRange(final int address){
