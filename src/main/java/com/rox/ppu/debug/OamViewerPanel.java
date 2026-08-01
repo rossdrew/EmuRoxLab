@@ -49,7 +49,9 @@ final class OamViewerPanel extends JPanel {
         final int[] oam = ppu.oamSnapshot();
         final boolean tallSprites = (ppu.controlRegister() & SPRITE_SIZE_BIT) != 0;
 
-        for (int sprite = 0; sprite < SPRITE_COUNT; sprite++){
+        //draw lowest-priority (highest OAM index) first so lower-index sprites correctly paint over
+        //higher-index ones on overlap, matching real hardware's OAM-index sprite priority
+        for (int sprite = SPRITE_COUNT - 1; sprite >= 0; sprite--){
             final int base = sprite * BYTES_PER_SPRITE;
             final int y = oam[base];
             final int tileIndex = oam[base + 1];
@@ -83,6 +85,6 @@ final class OamViewerPanel extends JPanel {
                           final boolean flipH,
                           final boolean flipV){
         final int[][] pixels = TileDecoder.decode(cartridge, patternTable, tileNumber);
-        image.drawTile(pixels, originX, originY, flipH, flipV);
+        image.drawTile(pixels, originX, originY, flipH, flipV, true);
     }
 }

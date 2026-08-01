@@ -99,6 +99,60 @@ public class PixelGridBufferedImageTest {
         assertEquals(WHITE, image.getRGB(0, 0) & 0xFFFFFF, "source (4,4) should land in-bounds at (0,0)");
     }
 
+    @Test
+    public void withoutTransparentZeroValueZeroIsPaintedOpaqueBlack(){
+        final PixelGridBufferedImage image = new PixelGridBufferedImage(8, 8, BufferedImage.TYPE_INT_RGB);
+        image.setRGB(0, 0, WHITE); //pre-fill so we can tell "painted over" from "left alone"
+        final int[][] pixels = uniform(0);
+
+        image.drawTile(pixels, 0, 0, false, false, false);
+
+        assertEquals(BLACK, image.getRGB(0, 0) & 0xFFFFFF);
+    }
+
+    @Test
+    public void withTransparentZeroValueZeroLeavesExistingContentUntouched(){
+        final PixelGridBufferedImage image = new PixelGridBufferedImage(8, 8, BufferedImage.TYPE_INT_RGB);
+        image.setRGB(0, 0, WHITE);
+        final int[][] pixels = uniform(0);
+
+        image.drawTile(pixels, 0, 0, false, false, true);
+
+        assertEquals(WHITE, image.getRGB(0, 0) & 0xFFFFFF, "transparent zero must not overwrite what's underneath");
+    }
+
+    @Test
+    public void withTransparentZeroNonZeroValuesAreStillPainted(){
+        final PixelGridBufferedImage image = new PixelGridBufferedImage(8, 8, BufferedImage.TYPE_INT_RGB);
+        final int[][] pixels = markerAt(0, 0); //marker=3 at (0,0), rest 0
+
+        image.drawTile(pixels, 0, 0, false, false, true);
+
+        assertEquals(WHITE, image.getRGB(0, 0) & 0xFFFFFF);
+    }
+
+    @Test
+    public void fiveArgOverloadDefaultsToOpaqueZero(){
+        final PixelGridBufferedImage image = new PixelGridBufferedImage(8, 8, BufferedImage.TYPE_INT_RGB);
+        image.setRGB(0, 0, WHITE);
+        final int[][] pixels = uniform(0);
+
+        image.drawTile(pixels, 0, 0, false, false);
+
+        assertEquals(BLACK, image.getRGB(0, 0) & 0xFFFFFF, "the flip-only overload must not be transparent by default");
+    }
+
+    @Test
+    public void threeArgOverloadDefaultsToOpaqueZero(){
+        final PixelGridBufferedImage image = new PixelGridBufferedImage(8, 8, BufferedImage.TYPE_INT_RGB);
+        image.setRGB(0, 0, WHITE);
+        final int[][] pixels = uniform(0);
+
+        image.drawTile(pixels, 0, 0);
+
+        assertEquals(BLACK, image.getRGB(0, 0) & 0xFFFFFF, "the plain overload must not be transparent by default");
+    }
+
     /** An 8x8 grid, every pixel set to {@code value}. */
     private static int[][] uniform(final int value){
         final int[][] pixels = new int[8][8];
