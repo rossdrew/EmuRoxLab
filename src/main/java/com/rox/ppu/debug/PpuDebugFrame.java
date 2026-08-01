@@ -19,6 +19,8 @@ import java.awt.*;
 public final class PpuDebugFrame extends JFrame {
     private static final int REFRESH_MILLIS = 16; //~60fps
 
+    private final Timer refreshTimer;
+
     public PpuDebugFrame(final PPU ppu, final Cartridge cartridge){
         super("PPU Debug Viewer");
 
@@ -34,15 +36,22 @@ public final class PpuDebugFrame extends JFrame {
         content.add(titled("Registers", registerHud));
         setContentPane(content);
 
-        final Timer timer = new Timer(REFRESH_MILLIS, e -> {
+        refreshTimer = new Timer(REFRESH_MILLIS, e -> {
             registerHud.refresh();
             chrViewer.repaint();
             nametableViewer.repaint();
             oamViewer.repaint();
         });
-        timer.start();
+        refreshTimer.start();
 
         pack();
+    }
+
+    /** Stops the refresh timer before disposing, so a closed window doesn't keep repainting forever. */
+    @Override
+    public void dispose(){
+        refreshTimer.stop();
+        super.dispose();
     }
 
     private static JPanel titled(final String title, final JPanel panel){

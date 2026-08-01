@@ -43,6 +43,7 @@ public final class PpuDebugViewerDemo {
             frame.addWindowListener(new WindowAdapter(){
                 @Override
                 public void windowClosing(final WindowEvent e){
+                    frame.dispose();
                     windowClosed.countDown();
                 }
             });
