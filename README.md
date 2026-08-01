@@ -47,10 +47,10 @@ In future, I want to explore next levels of AI development integration:
 3. A [6502 implemented](https://github.com/rossdrew/EmuRoxLab/blob/main/resource/opcodes.svg) using a new approach to the old [functional enum](https://dev.to/rossdrew/functional-enums-in-java-34o1)
 4. A [6502 assembler](https://github.com/rossdrew/EmuRoxLab/tree/main/src/main/java/com/rox/cpu/mos6502/assembler)
 5. An APU (Audio Processing Unit) implementation capable of playing pulse, triangle, noise and dmc channels
-   6. A smoke test class capable of playing audio 
+   1. A smoke test class capable of playing audio 
 6. `.nes` ROM loading (NROM and MMC1 mappers), so actual game ROMs can be run instead of just hand-assembled test programs
 7. A PPU with correct vblank/NMI timing, full CHR-ROM/CHR-RAM/nametable-mirroring/palette memory wiring and OAM DMA.
-   8. A simple debug UI for visualising the structures from memory and playing sound from running ROMs
+   1. A simple debug UI for visualising the structures from memory and playing sound from running ROMs
    ![Current UI](https://github.com/rossdrew/EmuRoxLab/blob/main/resource/ui_010826.png)
 
 ## Next up
