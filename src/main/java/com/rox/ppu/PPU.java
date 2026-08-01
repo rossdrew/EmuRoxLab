@@ -41,8 +41,8 @@ import com.rox.mem.OamDmaBus;
  * and the 1-cycle difference doesn't affect correctness, only real-hardware-exact timing.
  */
 public class PPU implements ClockWatcher, OamDmaBus {
-    static final int DOTS_PER_SCANLINE = 341;
-    static final int SCANLINES_PER_FRAME = 262;
+    public static final int DOTS_PER_SCANLINE = 341;
+    public static final int SCANLINES_PER_FRAME = 262;
     static final int DOTS_PER_CPU_CYCLE = 3;
     static final int VBLANK_START_SCANLINE = 241;
     static final int VBLANK_END_SCANLINE = 261;
@@ -353,13 +353,17 @@ public class PPU implements ClockWatcher, OamDmaBus {
         final int nametableAddress = address & 0x0FFF; //fold $3000-$3EFF's mirror of $2000-$2EFF down
         final int logicalTable = (nametableAddress >> NAMETABLE_TABLE_SHIFT) & NAMETABLE_TABLE_MASK;
         final int offset = nametableAddress & NAMETABLE_OFFSET_MASK;
-        final int physicalTable = switch (cartridge.nametableMirroring()){
+        final int physicalTable = resolvePhysicalNametable(logicalTable);
+        return physicalTable * 0x400 + offset;
+    }
+
+    public int resolvePhysicalNametable(final int logicalTable){
+        return switch (cartridge.nametableMirroring()){
             case HORIZONTAL -> logicalTable >> 1;
             case VERTICAL -> logicalTable & 0x01;
             case SINGLE_SCREEN_LOWER -> 0;
             case SINGLE_SCREEN_UPPER -> 1;
         };
-        return physicalTable * 0x400 + offset;
     }
 
     /**
@@ -391,26 +395,26 @@ public class PPU implements ClockWatcher, OamDmaBus {
         return 0;
     }
 
-    int controlRegister(){
+    public int controlRegister(){
         return controlRegister;
     }
 
-    int maskRegister(){
+    public int maskRegister(){
         return maskRegister;
     }
 
     /** Reconstructs the original $2005 first-write byte value from the coarse and fine X scroll. */
-    int scrollX(){
+    public int scrollX(){
         return ((temporaryVramAddress & COARSE_X_MASK) << 3) | fineXScroll;
     }
 
     /** Reconstructs the original $2005 second-write byte value from the coarse and fine Y scroll. */
-    int scrollY(){
+    public int scrollY(){
         return (((temporaryVramAddress >> COARSE_Y_SHIFT) & COARSE_Y_MASK) << 3)
                 | ((temporaryVramAddress >> FINE_Y_SHIFT) & FINE_Y_MASK);
     }
 
-    int vramAddress(){
+    public int vramAddress(){
         return currentVramAddress;
     }
 
@@ -422,11 +426,34 @@ public class PPU implements ClockWatcher, OamDmaBus {
         return temporaryVramAddress;
     }
 
-    int scanline(){
+    public int scanline(){
         return scanline;
     }
 
-    int dot(){
+    public int dot(){
         return dot;
+    }
+
+    /**
+     * Peeks the vblank flag without the read-and-clear side effect real {@code $2002} access has via
+     * {@link #read} - a passive observer (e.g. a debug HUD) must not be able to accidentally eat the
+     * vblank flag/reset the write-latch out from under the emulated game's own polling.
+     */
+    public boolean vblankFlag(){
+        return vblankFlag;
+    }
+
+    public int oamAddress(){
+        return oamAddress;
+    }
+
+    /** Defensive copy - callers must not be able to mutate nametable RAM behind the PPU's back. */
+    public int[] nametableSnapshot(){
+        return nametableRam.clone();
+    }
+
+    /** Defensive copy - callers must not be able to mutate OAM behind the PPU's back. */
+    public int[] oamSnapshot(){
+        return oam.clone();
     }
 }
