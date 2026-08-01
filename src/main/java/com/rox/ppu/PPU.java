@@ -41,8 +41,8 @@ import com.rox.mem.OamDmaBus;
  * and the 1-cycle difference doesn't affect correctness, only real-hardware-exact timing.
  */
 public class PPU implements ClockWatcher, OamDmaBus {
-    static final int DOTS_PER_SCANLINE = 341;
-    static final int SCANLINES_PER_FRAME = 262;
+    public static final int DOTS_PER_SCANLINE = 341;
+    public static final int SCANLINES_PER_FRAME = 262;
     static final int DOTS_PER_CPU_CYCLE = 3;
     static final int VBLANK_START_SCANLINE = 241;
     static final int VBLANK_END_SCANLINE = 261;
@@ -353,13 +353,17 @@ public class PPU implements ClockWatcher, OamDmaBus {
         final int nametableAddress = address & 0x0FFF; //fold $3000-$3EFF's mirror of $2000-$2EFF down
         final int logicalTable = (nametableAddress >> NAMETABLE_TABLE_SHIFT) & NAMETABLE_TABLE_MASK;
         final int offset = nametableAddress & NAMETABLE_OFFSET_MASK;
-        final int physicalTable = switch (cartridge.nametableMirroring()){
+        final int physicalTable = resolvePhysicalNametable(logicalTable);
+        return physicalTable * 0x400 + offset;
+    }
+
+    public int resolvePhysicalNametable(final int logicalTable){
+        return switch (cartridge.nametableMirroring()){
             case HORIZONTAL -> logicalTable >> 1;
             case VERTICAL -> logicalTable & 0x01;
             case SINGLE_SCREEN_LOWER -> 0;
             case SINGLE_SCREEN_UPPER -> 1;
         };
-        return physicalTable * 0x400 + offset;
     }
 
     /**

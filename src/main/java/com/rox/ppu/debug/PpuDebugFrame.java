@@ -7,8 +7,8 @@ import javax.swing.BorderFactory;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.Timer;
-import java.awt.BorderLayout;
-import java.awt.GridLayout;
+import javax.swing.border.TitledBorder;
+import java.awt.*;
 
 /**
  * A live PPU debug window: CHR pattern tables, the current nametable, OAM sprites and a register/
@@ -47,7 +47,10 @@ public final class PpuDebugFrame extends JFrame {
 
     private static JPanel titled(final String title, final JPanel panel){
         final JPanel wrapper = new JPanel(new BorderLayout());
-        wrapper.setBorder(BorderFactory.createTitledBorder(title));
+        final TitledBorder titledBorder = BorderFactory.createTitledBorder(title);
+        titledBorder.setTitleFont(titledBorder.getTitleFont().deriveFont(Font.BOLD, 32f));
+        wrapper.setBorder(titledBorder);
+        wrapper.setBorder(titledBorder);
         wrapper.add(panel, BorderLayout.CENTER);
         return wrapper;
     }
