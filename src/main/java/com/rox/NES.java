@@ -39,6 +39,11 @@ public class NES {
     }
 
     NES(final AudioOutput audioOutput, final Cartridge cartridge){
+        this(audioOutput, cartridge, new FPSClock(CPU_HZ, 60, new SystemTimeSource(), new ThreadSleeper()));
+    }
+
+    /** Test-only entry point for injecting a fake {@link Clock} - see {@code NESTest}'s race-reproducing double. */
+    NES(final AudioOutput audioOutput, final Cartridge cartridge, final Clock clock){
         final MemoryBus ramBus = new MemoryBus8Bit(new RAM(0x10000));
         //DMC's own sample-address generator (see DMCChannel) only ever produces addresses in
         //$8000-$FFFF (base $C000+, wrapping no lower than $8000) - always within cartridge range,
@@ -48,7 +53,7 @@ public class NES {
         this.ppu = new PPU(cartridge);
         this.memoryBus = new Latched8BitMemoryBus(new NESMemoryBus(ramBus, apu, cartridge, ppu));
         this.cpu = new MOS6502(memoryBus);
-        this.clock = new FPSClock(CPU_HZ, 60, new SystemTimeSource(), new ThreadSleeper());
+        this.clock = clock;
         this.audioOutput = audioOutput;
 
         final Resampler resampler = new Resampler(CPU_HZ, AUDIO_SAMPLE_RATE_HZ);
@@ -99,6 +104,16 @@ public class NES {
             } catch (InterruptedException e){
                 interrupted = true;
             }
+        }
+        //clockStarted firing only guarantees clockThread has begun executing, not that clock.run() has
+        //reached its own "running = true" assignment yet - a real, observed race (not just a timing
+        //bound) if this method proceeds to clock.stop() below in that tiny gap: run() unconditionally
+        //sets running back to true the moment it starts (see FPSClock's own comment), silently undoing
+        //a stop() that raced ahead of it, and clockThread then loops forever since nothing else will
+        //ever call stop() again. Closing this gap is a handful of nanoseconds in practice, so a spin is
+        //appropriate rather than a second latch/callback plumbed through the general Clock interface.
+        while (!clock.isRunning()){
+            Thread.onSpinWait();
         }
 
         if (!interrupted && !stopRequested){

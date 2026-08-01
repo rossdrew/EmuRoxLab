@@ -181,6 +181,33 @@ public class NESTest {
     }
 
     /**
+     * The test above relies on real thread scheduling to land the interrupt in the tiny real-world gap
+     * between clockThread starting and FPSClock.run()'s own running=true - narrow enough that it only
+     * ever failed on CI, never locally, so a regression here wouldn't reliably be caught on a dev
+     * machine. {@link RaceReproducingClock} widens that same gap to something deterministic: without
+     * powerOn()'s spin-wait for clock.isRunning() before it may call clock.stop(), this reliably hangs
+     * (clockThread's run() stomps running back to true after the stop() already landed, so nothing ever
+     * stops it again) and this test would time out on thread.join(). See NES.powerOn()'s own comment
+     * on the spin-wait for the full mechanism.
+     */
+    @Test
+    public void powerOnClosesTheRaceBetweenClockThreadStartingAndClockRunFlippingRunning() throws InterruptedException {
+        final AudioOutput audioOutput = mock(AudioOutput.class);
+        final RaceReproducingClock clock = new RaceReproducingClock(50);
+        final NES nes = new NES(audioOutput, blankCartridge(), clock);
+
+        final Thread thread = new Thread(nes::powerOn);
+        thread.start();
+        thread.interrupt(); //lands well before the fake clock's 50ms startup delay elapses
+
+        thread.join(5000);
+        assertFalse(thread.isAlive(), "powerOn() must not hang even if stop() races ahead of run()'s startup");
+        assertFalse(clock.isRunning(),
+                "a stop() that raced ahead of run()'s startup must still end up stopped, not silently undone");
+        verify(audioOutput, never()).start();
+    }
+
+    /**
      * Interrupting powerOn() after audio has already legitimately started exercises a third, later
      * catch site: the final clockThread.join(). An interrupt caught only there previously never
      * triggered clock.stop() (that only happened using interrupted's state from before this late
