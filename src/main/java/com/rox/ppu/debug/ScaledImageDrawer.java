@@ -16,14 +16,10 @@ final class ScaledImageDrawer {
     }
 
     static void drawCentered(final Graphics g, final BufferedImage image, final int panelWidth, final int panelHeight){
-        final double scale = Math.min(panelWidth / (double) image.getWidth(), panelHeight / (double) image.getHeight());
-        final int drawWidth = (int) (image.getWidth() * scale);
-        final int drawHeight = (int) (image.getHeight() * scale);
-        final int x = (panelWidth - drawWidth) / 2;
-        final int y = (panelHeight - drawHeight) / 2;
+        final int[] rect = CenteredScale.fit(image.getWidth(), image.getHeight(), panelWidth, panelHeight);
 
         final Graphics2D g2 = (Graphics2D) g;
         g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-        g2.drawImage(image, x, y, drawWidth, drawHeight, null);
+        g2.drawImage(image, rect[0], rect[1], rect[2], rect[3], null);
     }
 }
