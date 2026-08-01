@@ -6,7 +6,6 @@ import javax.swing.JPanel;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.image.BufferedImage;
-import java.util.stream.IntStream;
 
 /**
  * Renders both CHR pattern tables ({@code $0000-$0FFF} and {@code $1000-$1FFF}) as 16x16 tile grids
@@ -21,7 +20,6 @@ final class ChrViewerPanel extends JPanel {
     private static final int PATTERN_TABLE_SIZE = 0x1000;
     private static final int SCALE = 3;
     private static final int PADDING = 4;
-    private static final int GRAY_STEP = 85; //0/85/170/255 - 4 evenly-spaced shades for a 2-bit value
     private static final int COMPOSITE_WIDTH = TABLE_PX * 2 + PADDING * 3;
     private static final int COMPOSITE_HEIGHT = TABLE_PX + PADDING * 2;
 
@@ -48,28 +46,18 @@ final class ChrViewerPanel extends JPanel {
     }
 
     private BufferedImage renderTable(final int tableBase){
-        final BufferedImage image = new BufferedImage(TABLE_PX, TABLE_PX, BufferedImage.TYPE_INT_RGB);
+        final PixelGridBufferedImage image = new PixelGridBufferedImage(TABLE_PX, TABLE_PX, BufferedImage.TYPE_INT_RGB);
         final int tileCount = TILES_PER_ROW * TILES_PER_ROW;
 
         for (int tileIndex = 0; tileIndex < tileCount; tileIndex++){
             final int tileBase = tableBase + tileIndex * TILE_BYTES;
 
-            final int[] tileBytes = IntStream
-                    .range(tileBase, tileBase + TILE_BYTES)
-                    .map(cartridge::readChr)
-                    .toArray();
-
-            final int[][] pixels = TileDecoder.decode(tileBytes);
+            final int[][] pixels = TileDecoder.decode(cartridge, tileBase);
 
             final int originX = (tileIndex % TILES_PER_ROW) * TILE_PX;
             final int originY = (tileIndex / TILES_PER_ROW) * TILE_PX;
 
-            for (int row = 0; row < TILE_PX; row++){
-                for (int col = 0; col < TILE_PX; col++){
-                    final int gray = pixels[row][col] * GRAY_STEP;
-                    image.setRGB(originX + col, originY + row, (gray << 16) | (gray << 8) | gray);
-                }
-            }
+            image.drawTile(pixels, originX, originY);
         }
         return image;
     }

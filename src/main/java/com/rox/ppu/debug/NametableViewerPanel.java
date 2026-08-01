@@ -41,7 +41,6 @@ final class NametableViewerPanel extends JPanel {
     private static final int NAMETABLE_SELECT_MASK = 0x03;
     private static final int PHYSICAL_NAMETABLE_SIZE = 0x400;
     private static final int SCALE = 1;
-    private static final int GRAY_STEP = 85;
     private static final Color VIEWPORT_COLOR = Color.GREEN;
 
     private final PPU ppu;
@@ -65,7 +64,7 @@ final class NametableViewerPanel extends JPanel {
                 ? BACKGROUND_PATTERN_TABLE_OFFSET
                 : 0;
 
-        final BufferedImage image = new BufferedImage(GRID_WIDTH_PX, GRID_HEIGHT_PX, BufferedImage.TYPE_INT_RGB);
+        final PixelGridBufferedImage image = new PixelGridBufferedImage(GRID_WIDTH_PX, GRID_HEIGHT_PX, BufferedImage.TYPE_INT_RGB);
         for (int logicalTable = 0; logicalTable < 4; logicalTable++){
             drawTable(image, nametable, patternTableBase, logicalTable);
         }
@@ -73,7 +72,7 @@ final class NametableViewerPanel extends JPanel {
         return image;
     }
 
-    private void drawTable(final BufferedImage image,
+    private void drawTable(final PixelGridBufferedImage image,
                            final int[] nametable,
                            final int patternTableBase,
                            final int logicalTable){
@@ -84,17 +83,12 @@ final class NametableViewerPanel extends JPanel {
         for (int row = 0; row < TILE_ROWS; row++){
             for (int col = 0; col < TILE_COLUMNS; col++){
                 final int tileIndex = nametable[physicalTableOffset + row * TILE_COLUMNS + col];
-
                 final int[][] pixels = TileDecoder.decode(cartridge, patternTableBase, tileIndex);
 
                 final int originX = quadrantOriginX + col * TILE_PX;
                 final int originY = quadrantOriginY + row * TILE_PX;
-                for (int pixelRow = 0; pixelRow < TILE_PX; pixelRow++){
-                    for (int pixelCol = 0; pixelCol < TILE_PX; pixelCol++){
-                        final int gray = pixels[pixelRow][pixelCol] * GRAY_STEP;
-                        image.setRGB(originX + pixelCol, originY + pixelRow, (gray << 16) | (gray << 8) | gray);
-                    }
-                }
+
+                image.drawTile(pixels, originX, originY);
             }
         }
     }

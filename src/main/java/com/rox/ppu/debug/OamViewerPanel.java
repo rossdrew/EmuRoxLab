@@ -28,7 +28,6 @@ final class OamViewerPanel extends JPanel {
     private static final int FLIP_HORIZONTAL_BIT = 0x40;
     private static final int FLIP_VERTICAL_BIT = 0x80;
     private static final int SCALE = 2;
-    private static final int GRAY_STEP = 85;
 
     private final PPU ppu;
     private final Cartridge cartridge;
@@ -46,7 +45,7 @@ final class OamViewerPanel extends JPanel {
     }
 
     private BufferedImage render(){
-        final BufferedImage image = new BufferedImage(WIDTH_PX, HEIGHT_PX, BufferedImage.TYPE_INT_RGB);
+        final PixelGridBufferedImage image = new PixelGridBufferedImage(WIDTH_PX, HEIGHT_PX, BufferedImage.TYPE_INT_RGB);
         final int[] oam = ppu.oamSnapshot();
         final boolean tallSprites = (ppu.controlRegister() & SPRITE_SIZE_BIT) != 0;
 
@@ -76,7 +75,7 @@ final class OamViewerPanel extends JPanel {
         return image;
     }
 
-    private void drawTile(final BufferedImage image,
+    private void drawTile(final PixelGridBufferedImage image,
                           final int originX,
                           final int originY,
                           final int patternTable,
@@ -84,17 +83,6 @@ final class OamViewerPanel extends JPanel {
                           final boolean flipH,
                           final boolean flipV){
         final int[][] pixels = TileDecoder.decode(cartridge, patternTable, tileNumber);
-
-        for (int row = 0; row < TILE_PX; row++){
-            for (int col = 0; col < TILE_PX; col++){
-                final int px = originX + (flipH ? TILE_PX - 1 - col : col);
-                final int py = originY + (flipV ? TILE_PX - 1 - row : row);
-                if (px < 0 || px >= WIDTH_PX || py < 0 || py >= HEIGHT_PX){
-                    continue; //sprite partially/fully off-canvas - a debug view, just clip it
-                }
-                final int gray = pixels[row][col] * GRAY_STEP;
-                image.setRGB(px, py, (gray << 16) | (gray << 8) | gray);
-            }
-        }
+        image.drawTile(pixels, originX, originY, flipH, flipV);
     }
 }
