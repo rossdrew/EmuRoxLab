@@ -51,6 +51,7 @@ In future, I want to explore next levels of AI development integration:
 6. `.nes` ROM loading (NROM and MMC1 mappers), so actual game ROMs can be run instead of just hand-assembled test programs
 7. A PPU with correct vblank/NMI timing, full CHR-ROM/CHR-RAM/nametable-mirroring/palette memory wiring and OAM DMA.
    8. A simple debug UI for visualising the structures from memory and playing sound from running ROMs
+   ![Current UI](https://github.com/rossdrew/EmuRoxLab/blob/main/resource/ui_010826.png)
 
 ## Next up
 1. Reviewing the whole design for optimisations
