@@ -1,5 +1,7 @@
 package com.rox.ppu.debug;
 
+import com.rox.cartridge.Cartridge;
+
 /**
  * Decodes a raw 16-byte NES CHR tile into an 8x8 grid of 2-bit pixel values (0-3): bytes 0-7 are
  * bit-plane 0 (one byte per row), bytes 8-15 are bit-plane 1 - column 0 is each row byte's MSB, not
@@ -7,6 +9,7 @@ package com.rox.ppu.debug;
  * maps to a displayed shade/colour.
  */
 public final class TileDecoder {
+    public static final int TILE_BYTES = 16;
     private static final int TILE_SIZE = 8;
     private static final int BITPLANE_SIZE = 8;
 
@@ -30,5 +33,32 @@ public final class TileDecoder {
             }
         }
         return pixels;
+    }
+
+    /**
+     * @param cartridge from which to extract the tile
+     * @param tileBase from which to extract the tile
+     * @return the 2D array of pixels for this tile
+     */
+    static int[][] decode(final Cartridge cartridge,
+                          final int tileBase){
+        final int[] tileBytes = new int[TILE_BYTES];
+        for (int i = 0; i < TILE_BYTES; i++){
+            tileBytes[i] = cartridge.readChr(tileBase + i);
+        }
+        return decode(tileBytes);
+    }
+
+    /**
+     * @param cartridge from which to extract the tile
+     * @param patternTableBase from which to extract the tile
+     * @param tileIndex to extract
+     * @return the 2D array of pixels for this tile
+     */
+    public static int[][] decode(final Cartridge cartridge,
+                                 final int patternTableBase,
+                                 final int tileIndex){
+        final int tileBase = patternTableBase + tileIndex * TILE_BYTES;
+        return decode(cartridge, tileBase);
     }
 }

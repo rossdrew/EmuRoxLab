@@ -36,7 +36,6 @@ final class NametableViewerPanel extends JPanel {
     private static final int TABLE_HEIGHT_PX = TILE_ROWS * TILE_PX;
     private static final int GRID_WIDTH_PX = TABLE_WIDTH_PX * 2;
     private static final int GRID_HEIGHT_PX = TABLE_HEIGHT_PX * 2;
-    private static final int TILE_BYTES = 16;
     private static final int BACKGROUND_PATTERN_TABLE_BIT = 0x10;
     private static final int BACKGROUND_PATTERN_TABLE_OFFSET = 0x1000;
     private static final int NAMETABLE_SELECT_MASK = 0x03;
@@ -85,12 +84,8 @@ final class NametableViewerPanel extends JPanel {
         for (int row = 0; row < TILE_ROWS; row++){
             for (int col = 0; col < TILE_COLUMNS; col++){
                 final int tileIndex = nametable[physicalTableOffset + row * TILE_COLUMNS + col];
-                final int tileBase = patternTableBase + tileIndex * TILE_BYTES;
-                final int[] tileBytes = new int[TILE_BYTES];
-                for (int i = 0; i < TILE_BYTES; i++){
-                    tileBytes[i] = cartridge.readChr(tileBase + i);
-                }
-                final int[][] pixels = TileDecoder.decode(tileBytes);
+
+                final int[][] pixels = TileDecoder.decode(cartridge, patternTableBase, tileIndex);
 
                 final int originX = quadrantOriginX + col * TILE_PX;
                 final int originY = quadrantOriginY + row * TILE_PX;

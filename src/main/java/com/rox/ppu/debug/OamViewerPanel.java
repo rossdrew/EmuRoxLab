@@ -22,7 +22,6 @@ final class OamViewerPanel extends JPanel {
     private static final int TILE_PX = 8;
     private static final int WIDTH_PX = 256;
     private static final int HEIGHT_PX = 240;
-    private static final int TILE_BYTES = 16;
     private static final int SPRITE_SIZE_BIT = 0x20;
     private static final int SPRITE_PATTERN_TABLE_BIT = 0x08;
     private static final int PATTERN_TABLE_OFFSET = 0x1000;
@@ -63,27 +62,28 @@ final class OamViewerPanel extends JPanel {
             if (!tallSprites){
                 final int patternTable = (ppu.controlRegister() & SPRITE_PATTERN_TABLE_BIT) != 0
                         ? PATTERN_TABLE_OFFSET : 0;
-                drawTile(image, x, y, patternTable + tileIndex * TILE_BYTES, flipH, flipV);
+                drawTile(image, x, y, patternTable, tileIndex, flipH, flipV);
             } else {
                 final int patternTable = (tileIndex & 0x01) != 0 ? PATTERN_TABLE_OFFSET : 0;
                 final int topTile = tileIndex & 0xFE;
                 final int bottomTile = topTile | 0x01;
                 final int firstTile = flipV ? bottomTile : topTile;
                 final int secondTile = flipV ? topTile : bottomTile;
-                drawTile(image, x, y, patternTable + firstTile * TILE_BYTES, flipH, flipV);
-                drawTile(image, x, y + TILE_PX, patternTable + secondTile * TILE_BYTES, flipH, flipV);
+                drawTile(image, x, y, patternTable, firstTile, flipH, flipV);
+                drawTile(image, x, y + TILE_PX, patternTable, secondTile, flipH, flipV);
             }
         }
         return image;
     }
 
-    private void drawTile(final BufferedImage image, final int originX, final int originY,
-                           final int chrBase, final boolean flipH, final boolean flipV){
-        final int[] tileBytes = new int[TILE_BYTES];
-        for (int i = 0; i < TILE_BYTES; i++){
-            tileBytes[i] = cartridge.readChr(chrBase + i);
-        }
-        final int[][] pixels = TileDecoder.decode(tileBytes);
+    private void drawTile(final BufferedImage image,
+                          final int originX,
+                          final int originY,
+                          final int patternTable,
+                          final int tileNumber,
+                          final boolean flipH,
+                          final boolean flipV){
+        final int[][] pixels = TileDecoder.decode(cartridge, patternTable, tileNumber);
 
         for (int row = 0; row < TILE_PX; row++){
             for (int col = 0; col < TILE_PX; col++){

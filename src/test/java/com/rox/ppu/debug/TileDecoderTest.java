@@ -1,11 +1,34 @@
 package com.rox.ppu.debug;
 
+import com.rox.cartridge.Cartridge;
+import com.rox.cartridge.INesRom;
+import com.rox.cartridge.Mapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 public class TileDecoderTest {
+    private Mapper mapper;
+    private Cartridge cartridge;
+
+    @BeforeEach
+    public void setup(){
+        final byte[] fileBytes = new byte[16 + 16384];
+        fileBytes[0] = 'N';
+        fileBytes[1] = 'E';
+        fileBytes[2] = 'S';
+        fileBytes[3] = 0x1A;
+        fileBytes[4] = 0x01;
+        final INesRom rom = INesRom.parse(fileBytes);
+        mapper = mock(Mapper.class);
+        cartridge = new Cartridge(rom, mapper);
+    }
 
     @Test
     public void allZeroTileDecodesToAllZeroPixels(){
@@ -92,5 +115,45 @@ public class TileDecoderTest {
 
         assertArrayEquals(new int[]{1, 1, 1, 1, 1, 1, 1, 1}, pixels[0], "row 0: low=1,high=0 -> pixel 1");
         assertArrayEquals(new int[]{2, 2, 2, 2, 2, 2, 2, 2}, pixels[1], "row 1: low=0,high=1 -> pixel 2");
+    }
+
+    @Test
+    public void decodeFromCartridgeReadsBytesStartingAtTileBase(){
+        final int tileBase = 0x0100;
+        for (int row = 0; row < 8; row++){
+            when(mapper.readChr(tileBase + row)).thenReturn(0xFF); //low plane
+        }
+        //high plane (tileBase+8..+15) left at the mock's default 0
+
+        final int[][] pixels = TileDecoder.decode(cartridge, tileBase);
+
+        for (final int[] row : pixels){
+            assertArrayEquals(new int[]{1, 1, 1, 1, 1, 1, 1, 1}, row);
+        }
+    }
+
+    @Test
+    public void decodeFromCartridgeReadsExactlySixteenConsecutiveAddressesStartingAtTileBase(){
+        final int tileBase = 0x0040;
+
+        TileDecoder.decode(cartridge, tileBase);
+
+        for (int offset = 0; offset < TileDecoder.TILE_BYTES; offset++){
+            verify(mapper).readChr(tileBase + offset);
+        }
+        verifyNoMoreInteractions(mapper);
+    }
+
+    @Test
+    public void decodeFromPatternTableAndIndexComputesTileBaseAsPatternTablePlusIndexTimesTileBytes(){
+        final int patternTableBase = 0x1000;
+        final int tileIndex = 3;
+        final int expectedTileBase = patternTableBase + tileIndex * TileDecoder.TILE_BYTES;
+        when(mapper.readChr(expectedTileBase)).thenReturn(0xFF); //low plane row 0
+
+        final int[][] pixels = TileDecoder.decode(cartridge, patternTableBase, tileIndex);
+
+        assertArrayEquals(new int[]{1, 1, 1, 1, 1, 1, 1, 1}, pixels[0]);
+        verify(mapper).readChr(expectedTileBase);
     }
 }
