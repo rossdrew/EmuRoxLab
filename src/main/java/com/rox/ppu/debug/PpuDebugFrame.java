@@ -23,8 +23,9 @@ import java.nio.file.Path;
 import java.util.function.Consumer;
 
 /**
- * A live PPU debug window: CHR pattern tables, the current nametable, OAM sprites and a register/
- * timing HUD, grayscale (no {@code NesPalette} until a later phase). A passive observer of whatever
+ * A live PPU debug window: CHR pattern tables, the current nametable, OAM sprites, the actual rendered
+ * background and a register/timing HUD, grayscale (no {@code NesPalette} until a later phase). A
+ * passive observer of whatever
  * {@link PPU}/{@link Cartridge} it's currently {@link #rebind bound} to - it just repaints from their
  * current state on each timer tick, no hooks into the emulation clock/thread needed. Which ROM is
  * running is entirely the caller's concern: a File &gt; Open ROM... menu reports the chosen path to
@@ -67,13 +68,18 @@ public final class PpuDebugFrame extends JFrame {
         final ChrViewerPanel chrViewer = new ChrViewerPanel(cartridge);
         final NametableViewerPanel nametableViewer = new NametableViewerPanel(ppu, cartridge);
         final OamViewerPanel oamViewer = new OamViewerPanel(ppu, cartridge);
+        final BackgroundViewerPanel backgroundViewer = new BackgroundViewerPanel(ppu);
         final RegisterHudPanel registerHud = new RegisterHudPanel(ppu);
 
-        final JPanel content = new JPanel(new GridLayout(2, 2));
-        content.add(titled("CHR pattern tables", chrViewer));
-        content.add(titled("Nametable", nametableViewer));
-        content.add(titled("OAM sprites", oamViewer));
-        content.add(titled("Registers", registerHud));
+        final JPanel imagePanels = new JPanel(new GridLayout(2, 2));
+        imagePanels.add(titled("CHR pattern tables", chrViewer));
+        imagePanels.add(titled("Nametable", nametableViewer));
+        imagePanels.add(titled("OAM sprites", oamViewer));
+        imagePanels.add(titled("Background", backgroundViewer));
+
+        final JPanel content = new JPanel(new BorderLayout());
+        content.add(imagePanels, BorderLayout.CENTER);
+        content.add(titled("Registers", registerHud), BorderLayout.EAST);
         setContentPane(content);
 
         refreshTimer = new Timer(REFRESH_MILLIS, e -> {
@@ -81,6 +87,7 @@ public final class PpuDebugFrame extends JFrame {
             chrViewer.repaint();
             nametableViewer.repaint();
             oamViewer.repaint();
+            backgroundViewer.repaint();
         });
         refreshTimer.start();
 
