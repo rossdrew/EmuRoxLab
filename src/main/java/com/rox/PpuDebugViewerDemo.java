@@ -56,17 +56,19 @@ public final class PpuDebugViewerDemo {
     }
 
     /**
-     * Stops whatever ROM is currently running (if any) and loads/starts {@code romPath} in its place,
-     * off the EDT since both file parsing and {@code NES} construction (which opens an audio line) can
-     * block. Reports failure (bad file, unsupported mapper, ...) back to the window rather than
-     * throwing on this background thread, where nothing would ever see it.
+     * Loads {@code romPath} and, only once that's succeeded, stops whatever ROM was previously running
+     * (if any) and starts the new one in its place - a ROM that fails to parse must leave the previously
+     * working NES running rather than killing it for nothing. Runs off the EDT since both file parsing
+     * and {@code NES} construction (which opens an audio line) can block. Reports failure (bad file,
+     * unsupported mapper, ...) back to the window rather than throwing on this background thread, where
+     * nothing would ever see it.
      */
     private static void loadRom(final Path romPath, final PpuDebugFrame frame, final RunningNes runningNes){
         new Thread(() -> {
             try {
-                runningNes.stop();
                 final Cartridge cartridge = RomLoader.load(romPath);
                 final NES nes = new NES(cartridge);
+                runningNes.stop();
                 runningNes.start(nes);
                 SwingUtilities.invokeLater(() -> frame.rebind(nes.ppu(), cartridge));
             } catch (Exception e){
