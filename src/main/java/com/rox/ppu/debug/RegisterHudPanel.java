@@ -1,6 +1,7 @@
 package com.rox.ppu.debug;
 
 import com.rox.ppu.PPU;
+import com.rox.ppu.PPUControlRegister;
 
 import javax.swing.JPanel;
 import javax.swing.JTextArea;
@@ -10,9 +11,6 @@ import java.awt.Font;
 
 /** Plain-text dump of the PPU's current timing/register state, refreshed by {@link PpuDebugFrame}'s timer. */
 final class RegisterHudPanel extends JPanel {
-    private static final int NMI_ENABLE_BIT = 0x80;
-    private static final int VRAM_INCREMENT_BIT = 0x04;
-    private static final int NAMETABLE_SELECT_MASK = 0x03;
     //fixed character-cell size, not sized from content: without this, JTextArea recomputes its
     //preferred size from the text's longest line on every refresh() - since values like NMI enable's
     //true/false or a digit rolling over to an extra place change that line length constantly, the whole
@@ -39,7 +37,7 @@ final class RegisterHudPanel extends JPanel {
 
     void refresh(){
         beamPosition.repaint();
-        final int control = ppu.controlRegister();
+        final PPUControlRegister control = ppu.controlRegisterDecoded();
         text.setText(String.format(
                 """
                 scanline:  %d
@@ -55,8 +53,7 @@ final class RegisterHudPanel extends JPanel {
                 VRAM addr: $%04X
                 """,
                 ppu.scanline(), ppu.dot(), ppu.vblankFlag(),
-                control, (control & NMI_ENABLE_BIT) != 0, (control & VRAM_INCREMENT_BIT) != 0 ? 32 : 1,
-                control & NAMETABLE_SELECT_MASK,
+                control.rawValue(), control.nmiEnabled(), control.vramIncrement(), control.nametableSelect(),
                 ppu.maskRegister(),
                 ppu.scrollX(), ppu.scrollY(), ppu.oamAddress(), ppu.vramAddress()
         ));

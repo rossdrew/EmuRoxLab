@@ -5,6 +5,8 @@ import com.rox.cartridge.Mirroring;
 import com.rox.clock.ClockWatcher;
 import com.rox.mem.OamDmaBus;
 
+import static com.rox.ByteUtil.BYTE_MASK;
+
 /**
  * Headless NES PPU: correct vblank/NMI timing, full {@code $0000-$3FFF} PPU address space wiring
  * (CHR pattern tables via the cartridge, mirrored nametable RAM, palette RAM), the "loopy" internal
@@ -77,10 +79,6 @@ public class PPU implements ClockWatcher, OamDmaBus {
     private static final int PPUADDR = 0x06;
     private static final int PPUDATA = 0x07;
 
-    private static final int NMI_ENABLE_BIT = 0x80;
-    private static final int VRAM_INCREMENT_BIT = 0x04;
-    private static final int VRAM_INCREMENT_32 = 32;
-    private static final int VRAM_INCREMENT_1 = 1;
     private static final int VBLANK_STATUS_BIT = 0x80;
 
     private static final int OAM_SIZE = 0x100;
@@ -88,7 +86,6 @@ public class PPU implements ClockWatcher, OamDmaBus {
     private static final int VRAM_ADDRESS_MASK = 0x3FFF;
     private static final int LOOPY_REGISTER_MASK = 0x7FFF;
     private static final int ADDRESS_HIGH_BYTE_SHIFT = 8;
-    private static final int BYTE_MASK = 0xFF;
 
     private static final int CHR_END_ADDRESS = 0x2000; //exclusive - $0000-$1FFF
     private static final int PALETTE_START_ADDRESS = 0x3F00; //inclusive - $3F00-$3FFF
@@ -122,12 +119,6 @@ public class PPU implements ClockWatcher, OamDmaBus {
     //background rendering pipeline (nesdev's standard 8-dot tile-fetch cycle + shift registers),
     //verified dot-for-dot against nesdev's PPU_scrolling/PPU_rendering/PPU_palettes wiki pages
     private static final int VISIBLE_SCANLINE_MAX = 239;
-    private static final int BACKGROUND_PATTERN_TABLE_SELECT_BIT = 0x10; //PPUCTRL bit 4
-    private static final int BACKGROUND_PATTERN_TABLE_SIZE = 0x1000;
-    private static final int SHOW_BACKGROUND_LEFT_BIT = 0x02; //PPUMASK bit 1
-    private static final int SHOW_BACKGROUND_BIT = 0x08; //PPUMASK bit 3
-    private static final int SHOW_SPRITES_BIT = 0x10; //PPUMASK bit 4
-    private static final int RENDERING_ENABLED_MASK = SHOW_BACKGROUND_BIT | SHOW_SPRITES_BIT;
 
     private static final int TILE_FETCH_GROUP_DOTS = 8;
     private static final int MAIN_FETCH_REGION_END_DOT = 256; //dots 1-256
@@ -180,13 +171,11 @@ public class PPU implements ClockWatcher, OamDmaBus {
     private int scanline;
 
     private boolean vblankFlag;
-    private boolean nmiEnabled;
     private boolean previousNmiLine;
     private boolean nmiEdgePending;
 
-    private int controlRegister;
-    private int maskRegister;
-    private int vramIncrement = VRAM_INCREMENT_1;
+    private PPUControlRegister controlRegister = new PPUControlRegister(0x0);
+    private PPUMaskRegister maskRegister = new PPUMaskRegister(0x0);
     private int oamAddress;
 
     private boolean writeToggle; //shared $2005/$2006 write toggle
@@ -350,11 +339,7 @@ public class PPU implements ClockWatcher, OamDmaBus {
 
     private int fetchPatternByte(final int planeOffset){
         final int fineY = (currentVramAddress >> FINE_Y_SHIFT) & FINE_Y_MASK;
-        return readMemory(backgroundPatternTableBase() + nextTileId * TILE_BYTES + fineY + planeOffset);
-    }
-
-    private int backgroundPatternTableBase(){
-        return (controlRegister & BACKGROUND_PATTERN_TABLE_SELECT_BIT) != 0 ? BACKGROUND_PATTERN_TABLE_SIZE : 0;
+        return readMemory(controlRegister.backgroundPatternTableBase() + nextTileId * TILE_BYTES + fineY + planeOffset);
     }
 
     /** Folds the latched tile's data into the shift registers' low byte - the high byte drains from the previous tile. */
@@ -424,7 +409,7 @@ public class PPU implements ClockWatcher, OamDmaBus {
     }
 
     private boolean renderingEnabled(){
-        return (maskRegister & RENDERING_ENABLED_MASK) != 0;
+        return maskRegister.renderingEnabled();
     }
 
     /**
@@ -437,8 +422,7 @@ public class PPU implements ClockWatcher, OamDmaBus {
      * readable/writable data.
      */
     private void drawPixel(final int x, final int y){
-        final boolean backgroundVisible = (maskRegister & SHOW_BACKGROUND_BIT) != 0
-                && (x >= 8 || (maskRegister & SHOW_BACKGROUND_LEFT_BIT) != 0);
+        final boolean backgroundVisible = maskRegister.showBackground() && (x >= 8 || maskRegister.showBackgroundLeft());
 
         int paletteRamIndex = 0; //the universal backdrop colour, $3F00
         if (backgroundVisible){
@@ -461,7 +445,7 @@ public class PPU implements ClockWatcher, OamDmaBus {
 
     /** NMI is a level (vblank && enabled) with edge detection, not a one-shot check at vblank start. */
     private void updateNmiLine(){
-        final boolean currentNmiLine = vblankFlag && nmiEnabled;
+        final boolean currentNmiLine = vblankFlag && controlRegister.nmiEnabled();
         if (currentNmiLine && !previousNmiLine){
             nmiEdgePending = true;
         }
@@ -491,7 +475,7 @@ public class PPU implements ClockWatcher, OamDmaBus {
     public void write(final int address, final int value){
         switch (address & REGISTER_ADDRESS_MASK){
             case PPUCTRL -> writeControlRegister(value);
-            case PPUMASK -> maskRegister = value & BYTE_MASK;
+            case PPUMASK -> maskRegister = new PPUMaskRegister(value);
             case OAMADDR -> oamAddress = value & BYTE_MASK;
             case OAMDATA -> writeOamData(value);
             case PPUSCROLL -> writeScrollRegister(value);
@@ -502,23 +486,16 @@ public class PPU implements ClockWatcher, OamDmaBus {
     }
 
     /**
-     * Handle a $2000 write.
-     *
-     * Register: VPHB SINN
-     * V (bit 7): NMI enable
-     * I (bit 2): VRAM address increment per $2007 access (0=1, 1=32)
-     * NN (bits 0-1): nametable select, latched into t's nametable-select bits (10-11) - takes effect
-     * the next time v is reloaded from t (a $2006 second write, or the rendering pipeline's own
-     * horizontal/vertical copies).
-     * Remaining bits (sprite/background pattern table, sprite size, PPU master/slave) captured in
-     * {@link #controlRegister()} but unused - no rendering yet.
+     * Handle a $2000 write - see {@link PPUControlRegister} for the full bit layout. Bit-level decoding
+     * lives there; this method's own remaining concern is the nametable-select bits' side effect on the
+     * loopy {@code t} register (latched into its nametable-select bits, 10-11) - takes effect the next
+     * time {@code v} is reloaded from {@code t} (a $2006 second write, or the rendering pipeline's own
+     * horizontal/vertical copies) - and re-checking the NMI line, since bit 7 can change it.
      */
     private void writeControlRegister(final int value){
-        controlRegister = value & BYTE_MASK;
-        nmiEnabled = (value & NMI_ENABLE_BIT) != 0;
-        vramIncrement = (value & VRAM_INCREMENT_BIT) != 0 ? VRAM_INCREMENT_32 : VRAM_INCREMENT_1;
+        controlRegister = new PPUControlRegister(value);
         temporaryVramAddress = (temporaryVramAddress & NAMETABLE_SELECT_CLEAR_MASK)
-                | ((value & NAMETABLE_SELECT_MASK) << NAMETABLE_SELECT_SHIFT);
+                | (controlRegister.nametableSelect() << NAMETABLE_SELECT_SHIFT);
         updateNmiLine();
     }
 
@@ -600,13 +577,13 @@ public class PPU implements ClockWatcher, OamDmaBus {
             result = readBuffer;
             readBuffer = readMemory(address);
         }
-        currentVramAddress = (currentVramAddress + vramIncrement) & LOOPY_REGISTER_MASK;
+        currentVramAddress = (currentVramAddress + controlRegister.vramIncrement()) & LOOPY_REGISTER_MASK;
         return result;
     }
 
     private void writeDataRegister(final int value){
         writeMemory(currentVramAddress & VRAM_ADDRESS_MASK, value);
-        currentVramAddress = (currentVramAddress + vramIncrement) & LOOPY_REGISTER_MASK;
+        currentVramAddress = (currentVramAddress + controlRegister.vramIncrement()) & LOOPY_REGISTER_MASK;
     }
 
     /** $0000-$1FFF CHR (cartridge pattern tables), $2000-$3EFF nametables (mirrored), $3F00-$3FFF palette. */
@@ -678,11 +655,16 @@ public class PPU implements ClockWatcher, OamDmaBus {
     }
 
     public int controlRegister(){
+        return controlRegister.rawValue();
+    }
+
+    /** The decoded $2000 bits (NMI enable, pattern table selects, sprite size, nametable select, ...) - see {@link PPUControlRegister}. */
+    public PPUControlRegister controlRegisterDecoded(){
         return controlRegister;
     }
 
     public int maskRegister(){
-        return maskRegister;
+        return maskRegister.rawValue();
     }
 
     /** Reconstructs the original $2005 first-write byte value from the coarse and fine X scroll. */

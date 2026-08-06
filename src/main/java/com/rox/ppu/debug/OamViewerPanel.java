@@ -22,9 +22,7 @@ final class OamViewerPanel extends JPanel {
     private static final int TILE_PX = 8;
     private static final int WIDTH_PX = 256;
     private static final int HEIGHT_PX = 240;
-    private static final int SPRITE_SIZE_BIT = 0x20;
-    private static final int SPRITE_PATTERN_TABLE_BIT = 0x08;
-    private static final int PATTERN_TABLE_OFFSET = 0x1000;
+    private static final int PATTERN_TABLE_OFFSET = 0x1000; //tall-sprite tile-index-driven table select, not from PPUCTRL
     private static final int FLIP_HORIZONTAL_BIT = 0x40;
     private static final int FLIP_VERTICAL_BIT = 0x80;
     private static final int SCALE = 2;
@@ -47,7 +45,7 @@ final class OamViewerPanel extends JPanel {
     private BufferedImage render(){
         final PixelGridBufferedImage image = new PixelGridBufferedImage(WIDTH_PX, HEIGHT_PX, BufferedImage.TYPE_INT_RGB);
         final int[] oam = ppu.oamSnapshot();
-        final boolean tallSprites = (ppu.controlRegister() & SPRITE_SIZE_BIT) != 0;
+        final boolean tallSprites = ppu.controlRegisterDecoded().tallSprites();
 
         //draw lowest-priority (highest OAM index) first so lower-index sprites correctly paint over
         //higher-index ones on overlap, matching real hardware's OAM-index sprite priority
@@ -61,8 +59,7 @@ final class OamViewerPanel extends JPanel {
             final boolean flipV = (attributes & FLIP_VERTICAL_BIT) != 0;
 
             if (!tallSprites){
-                final int patternTable = (ppu.controlRegister() & SPRITE_PATTERN_TABLE_BIT) != 0
-                        ? PATTERN_TABLE_OFFSET : 0;
+                final int patternTable = ppu.controlRegisterDecoded().spritePatternTableBase();
                 drawTile(image, x, y, patternTable, tileIndex, flipH, flipV);
             } else {
                 final int patternTable = (tileIndex & 0x01) != 0 ? PATTERN_TABLE_OFFSET : 0;

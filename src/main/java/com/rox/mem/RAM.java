@@ -1,9 +1,8 @@
 package com.rox.mem;
 
-public class RAM implements Memory {
-    private static final int BYTE_MASK = 0xFF;
-    private static final int WORD_MASK = 0xFFFF;
+import static com.rox.ByteUtil.BYTE_MASK;
 
+public class RAM implements Memory {
     private final int[] memory;
 
     public RAM(final int size) {

@@ -36,9 +36,6 @@ final class NametableViewerPanel extends JPanel {
     private static final int TABLE_HEIGHT_PX = TILE_ROWS * TILE_PX;
     private static final int GRID_WIDTH_PX = TABLE_WIDTH_PX * 2;
     private static final int GRID_HEIGHT_PX = TABLE_HEIGHT_PX * 2;
-    private static final int BACKGROUND_PATTERN_TABLE_BIT = 0x10;
-    private static final int BACKGROUND_PATTERN_TABLE_OFFSET = 0x1000;
-    private static final int NAMETABLE_SELECT_MASK = 0x03;
     private static final int PHYSICAL_NAMETABLE_SIZE = 0x400;
     private static final int SCALE = 1;
     private static final Color VIEWPORT_COLOR = Color.GREEN;
@@ -60,9 +57,7 @@ final class NametableViewerPanel extends JPanel {
 
     private BufferedImage render(){
         final int[] nametable = ppu.nametableSnapshot();
-        final int patternTableBase = (ppu.controlRegister() & BACKGROUND_PATTERN_TABLE_BIT) != 0
-                ? BACKGROUND_PATTERN_TABLE_OFFSET
-                : 0;
+        final int patternTableBase = ppu.controlRegisterDecoded().backgroundPatternTableBase();
 
         final PixelGridBufferedImage image = new PixelGridBufferedImage(GRID_WIDTH_PX, GRID_HEIGHT_PX, BufferedImage.TYPE_INT_RGB);
         for (int logicalTable = 0; logicalTable < 4; logicalTable++){
@@ -94,7 +89,7 @@ final class NametableViewerPanel extends JPanel {
     }
 
     private void drawViewportBox(final BufferedImage image){
-        final int logicalTable = ppu.controlRegister() & NAMETABLE_SELECT_MASK;
+        final int logicalTable = ppu.controlRegisterDecoded().nametableSelect();
         final int originX = (logicalTable & 0x01) * TABLE_WIDTH_PX + ppu.scrollX();
         final int originY = ((logicalTable >> 1) & 0x01) * TABLE_HEIGHT_PX + ppu.scrollY();
 
