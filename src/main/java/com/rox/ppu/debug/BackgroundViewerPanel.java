@@ -23,6 +23,11 @@ final class BackgroundViewerPanel extends JPanel {
     private static final int SCALE = 2;
 
     private final PPU ppu;
+    //reused across repaints rather than allocated fresh each time - at a 16ms refresh timer, allocating
+    //a new image and making 61,440 individual setRGB calls on the EDT every tick is wasteful when the
+    //bulk overload can convert the whole frame in one native call instead
+    private final BufferedImage image = new BufferedImage(WIDTH_PX, HEIGHT_PX, BufferedImage.TYPE_INT_RGB);
+    private final int[] rgbPixels = new int[WIDTH_PX * HEIGHT_PX];
 
     BackgroundViewerPanel(final PPU ppu){
         this.ppu = ppu;
@@ -32,19 +37,16 @@ final class BackgroundViewerPanel extends JPanel {
     @Override
     protected void paintComponent(final Graphics g){
         super.paintComponent(g);
-        ScaledImageDrawer.drawCentered(g, render(), getWidth(), getHeight());
+        updateImage();
+        ScaledImageDrawer.drawCentered(g, image, getWidth(), getHeight());
     }
 
-    private BufferedImage render(){
-        final BufferedImage image = new BufferedImage(WIDTH_PX, HEIGHT_PX, BufferedImage.TYPE_INT_RGB);
+    private void updateImage(){
         final int[] framebuffer = ppu.framebuffer();
-        for (int y = 0; y < HEIGHT_PX; y++){
-            for (int x = 0; x < WIDTH_PX; x++){
-                final int paletteIndex = framebuffer[y * WIDTH_PX + x];
-                final int gray = paletteIndex * GRAY_SCALE / PALETTE_INDEX_MAX;
-                image.setRGB(x, y, (gray << 16) | (gray << 8) | gray);
-            }
+        for (int i = 0; i < rgbPixels.length; i++){
+            final int gray = framebuffer[i] * GRAY_SCALE / PALETTE_INDEX_MAX;
+            rgbPixels[i] = (gray << 16) | (gray << 8) | gray;
         }
-        return image;
+        image.setRGB(0, 0, WIDTH_PX, HEIGHT_PX, rgbPixels, 0, WIDTH_PX);
     }
 }
