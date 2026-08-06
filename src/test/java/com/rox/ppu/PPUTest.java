@@ -12,6 +12,7 @@ import static com.rox.ppu.PPU.DOTS_PER_SCANLINE;
 import static com.rox.ppu.PPU.SCANLINES_PER_FRAME;
 import static com.rox.ppu.PPU.TICKS_UNTIL_VBLANK_END;
 import static com.rox.ppu.PPU.TICKS_UNTIL_VBLANK_START;
+import static com.rox.ppu.PPU.VBLANK_END_SCANLINE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -30,6 +31,12 @@ public class PPUTest {
     private static final int NMI_ENABLE = 0x80;
     private static final int VRAM_INCREMENT_32 = 0x04;
     private static final int VBLANK_BIT = 0x80;
+
+    private static final int SHOW_BACKGROUND_LEFT = 0x02;
+    private static final int SHOW_BACKGROUND = 0x08;
+    private static final int SHOW_SPRITES = 0x10;
+    private static final int HORIZONTAL_SCROLL_MASK = 0x041F; //coarse X (bits 0-4) + nametable-X bit (10)
+    private static final int VERTICAL_SCROLL_MASK = 0x7BE0; //fine Y (12-14) + nametable-Y bit (11) + coarse Y (5-9)
 
     /**
      * A hand-rolled {@link Mapper} test double behaving like an 8KB CHR-RAM board with a
@@ -50,6 +57,7 @@ public class PPUTest {
 
     private FakeMapper mapper;
     private PPU ppu;
+    private long ticksIssued; //tracks cumulative ticks so tickTo()/tickThroughScanline() can be called more than once per test
 
     @BeforeEach
     public void setup(){
@@ -695,6 +703,403 @@ public class PPUTest {
         assertEquals(0, ppu.framebuffer()[0], "mutating a returned snapshot must not affect the PPU's own state");
     }
 
+    // --- Background rendering (Phase 3) ---
+
+    @Test
+    public void backgroundPixelsDecodeTileDataAtFineXZero(){
+        writeChrTilePixelRow0(0, 0xF0, 0xCC); //pixel values, left to right: 3,3,1,1,2,2,0,0
+        writeNametableTile(0, 0, 0);
+        writeBackgroundPaletteEntry(0, 0, 0x3F); //backdrop (pixel value 0)
+        writeBackgroundPaletteEntry(0, 1, 0x11);
+        writeBackgroundPaletteEntry(0, 2, 0x22);
+        writeBackgroundPaletteEntry(0, 3, 0x33);
+        writeAddress(0); //reset v/t: the CHR/palette writes above left currentVramAddress pointing elsewhere
+        enableBackgroundRendering();
+
+        tickThroughScanline(1, 0);
+
+        final int[] fb = ppu.framebuffer();
+        assertEquals(0x33, fb[0]);
+        assertEquals(0x33, fb[1]);
+        assertEquals(0x11, fb[2]);
+        assertEquals(0x11, fb[3]);
+        assertEquals(0x22, fb[4]);
+        assertEquals(0x22, fb[5]);
+        assertEquals(0x3F, fb[6], "pixel value 0 falls back to the backdrop colour");
+        assertEquals(0x3F, fb[7]);
+    }
+
+    @Test
+    public void tileBoundaryAtColumnEightShowsTheNextTile(){
+        writeChrTilePixelRow0(0, 0x00, 0x00); //tile 0: pixel value 0 (backdrop) everywhere
+        writeChrTilePixelRow0(1, 0xFF, 0x00); //tile 1: pixel value 1 everywhere
+        writeNametableTile(0, 0, 0);
+        writeNametableTile(1, 0, 1);
+        writeBackgroundPaletteEntry(0, 0, 0x05);
+        writeBackgroundPaletteEntry(0, 1, 0x15);
+        writeAddress(0);
+        enableBackgroundRendering();
+
+        tickThroughScanline(1, 0);
+
+        final int[] fb = ppu.framebuffer();
+        assertEquals(0x05, fb[7], "still tile 0's backdrop pixel");
+        assertEquals(0x15, fb[8], "tile 1's first pixel, not tile 0's or a stale fetch");
+    }
+
+    @Test
+    public void fetchPipelineFetchesTwoTilesAheadNotTheWrongTile(){
+        writeChrTilePixelRow0(0, 0xFF, 0x00); //pixel value 1
+        writeChrTilePixelRow0(1, 0x00, 0xFF); //pixel value 2
+        writeChrTilePixelRow0(2, 0xFF, 0xFF); //pixel value 3
+        writeNametableTile(0, 0, 0);
+        writeNametableTile(1, 0, 1);
+        writeNametableTile(2, 0, 2);
+        writeBackgroundPaletteEntry(0, 1, 0x01);
+        writeBackgroundPaletteEntry(0, 2, 0x02);
+        writeBackgroundPaletteEntry(0, 3, 0x03);
+        writeAddress(0);
+        enableBackgroundRendering();
+
+        tickThroughScanline(1, 0);
+
+        final int[] fb = ppu.framebuffer();
+        for (int x = 0; x < 8; x++){
+            assertEquals(0x01, fb[x], "column 0-7 must show tile 0's own colour, not a tile being pre-fetched");
+        }
+        for (int x = 8; x < 16; x++){
+            assertEquals(0x02, fb[x]);
+        }
+        for (int x = 16; x < 24; x++){
+            assertEquals(0x03, fb[x]);
+        }
+    }
+
+    @Test
+    public void attributeQuadrantsWithinOneAttributeCellSelectDifferentPaletteGroups(){
+        writeChrTilePixelRow0(0, 0xFF, 0x00); //pixel value 1 everywhere
+        for (int row = 0; row < 4; row++){
+            for (int col = 0; col < 4; col++){
+                writeNametableTile(col, row, 0);
+            }
+        }
+        writeAttributeByte(0, 0, 0xE4); //TL=group0, TR=group1, BL=group2, BR=group3 (see javadoc derivation)
+        writeBackgroundPaletteEntry(0, 1, 0xA);
+        writeBackgroundPaletteEntry(1, 1, 0xB);
+        writeBackgroundPaletteEntry(2, 1, 0xC);
+        writeBackgroundPaletteEntry(3, 1, 0xD);
+        writeAddress(0);
+        enableBackgroundRendering();
+
+        tickThroughScanline(1, 16);
+
+        final int[] fb = ppu.framebuffer();
+        for (int x = 0; x < 8; x++){
+            assertEquals(0xA, fb[x], "top-left quadrant (all 8 pixels of its tile) must use group 0");
+        }
+        assertEquals(0xB, fb[16], "top-right quadrant (x=16,y=0) uses group 1");
+        assertEquals(0xC, fb[16 * PPU.FRAMEBUFFER_WIDTH], "bottom-left quadrant (x=0,y=16) uses group 2");
+        assertEquals(0xD, fb[16 * PPU.FRAMEBUFFER_WIDTH + 16], "bottom-right quadrant (x=16,y=16) uses group 3");
+    }
+
+    @Test
+    public void universalBackgroundColourOverridesANonZeroAttributeGroup(){
+        writeChrTilePixelRow0(0, 0x00, 0x00); //pixel value 0 (transparent) everywhere
+        writeNametableTile(0, 0, 0);
+        writeAttributeByte(0, 0, 0x55); //group1 for every quadrant
+        writeBackgroundPaletteEntry(0, 0, 0x09); //the real backdrop, $3F00
+        writeBackgroundPaletteEntry(1, 0, 0x15); //decoy at $3F04 - must never be selected
+        writeBackgroundPaletteEntry(2, 0, 0x16); //decoy at $3F08
+        writeBackgroundPaletteEntry(3, 0, 0x17); //decoy at $3F0C
+        enableBackgroundRendering();
+
+        tickThroughScanline(1, 0);
+
+        assertEquals(0x09, ppu.framebuffer()[0], "a transparent pixel always shows $3F00, regardless of the active palette group");
+    }
+
+    @Test
+    public void disablingBackgroundRenderingShowsTheBackdropEverywhere(){
+        writeChrTilePixelRow0(0, 0xFF, 0xFF); //pixel value 3 - would be clearly visible if shown
+        writeNametableTile(0, 0, 0);
+        writeBackgroundPaletteEntry(0, 0, 0x07);
+        writeBackgroundPaletteEntry(0, 3, 0x2A);
+        ppu.write(PPUMASK, 0); //background rendering left off
+
+        tickThroughScanline(1, 0);
+
+        final int[] fb = ppu.framebuffer();
+        for (int x = 0; x < PPU.FRAMEBUFFER_WIDTH; x++){
+            assertEquals(0x07, fb[x]);
+        }
+    }
+
+    @Test
+    public void leftEightPixelClipHidesTheBackgroundOnlyInThatRegion(){
+        writeChrTilePixelRow0(0, 0xFF, 0xFF); //tile 0: pixel value 3
+        writeChrTilePixelRow0(1, 0xFF, 0xFF); //tile 1: pixel value 3
+        writeNametableTile(0, 0, 0);
+        writeNametableTile(1, 0, 1);
+        writeBackgroundPaletteEntry(0, 0, 0x01);
+        writeBackgroundPaletteEntry(0, 3, 0x2B);
+        writeAddress(0);
+        ppu.write(PPUMASK, SHOW_BACKGROUND); //enabled, but left-8px clip bit left off
+
+        tickThroughScanline(1, 0);
+
+        final int[] fb = ppu.framebuffer();
+        assertEquals(0x01, fb[7], "still clipped to the backdrop");
+        assertEquals(0x2B, fb[8], "past the clip region, the real tile shows");
+    }
+
+    @Test
+    public void fineXScrollShiftsTheTileBoundaryEarlierAcrossTiles(){
+        writeChrTilePixelRow0(0, 0b10000000, 0x00); //tile 0: only pixel 0 is value 1, rest value 0
+        writeChrTilePixelRow0(1, 0x00, 0xFF); //tile 1: pixel value 2 everywhere
+        writeNametableTile(0, 0, 0);
+        writeNametableTile(1, 0, 1);
+        writeBackgroundPaletteEntry(0, 2, 0x2C);
+        writeAddress(0); //reset v/t before staging the scroll below
+        ppu.write(PPUSCROLL, 1); //fineX=1, coarseX=0
+        ppu.write(PPUSCROLL, 0);
+        enableBackgroundRendering();
+
+        tickThroughScanline(1, 0);
+
+        assertEquals(0x2C, ppu.framebuffer()[7],
+                "fineX=1 shifts the tile-0/tile-1 boundary one pixel earlier, so column 7 already shows tile 1");
+    }
+
+    @Test
+    public void coarseXScrollFromDollarTwoZeroZeroFiveSelectsADifferentStartingTile(){
+        writeChrTilePixelRow0(5, 0xFF, 0x00); //tile A: pixel value 1
+        writeChrTilePixelRow0(6, 0x00, 0xFF); //tile B: pixel value 2
+        writeNametableTile(0, 0, 5);
+        writeNametableTile(1, 0, 6);
+        writeBackgroundPaletteEntry(0, 2, 0x0B);
+        writeAddress(0); //reset v/t before staging the scroll below - v itself only picks it up via the pre-render hori-copy
+        ppu.write(PPUSCROLL, 8); //coarseX=1: the viewport's left edge starts at nametable column 1
+        ppu.write(PPUSCROLL, 0);
+        enableBackgroundRendering();
+
+        tickThroughScanline(1, 0);
+
+        assertEquals(0x0B, ppu.framebuffer()[0], "screen column 0 should show tile B (nametable column 1), not tile A");
+    }
+
+    @Test
+    public void coarseXIncrementWrapsAtThirtyOneAndTogglesTheNametableXBit(){
+        writeAddress(31); //v = t = coarseX 31, everything else 0
+        enableBackgroundRendering();
+
+        tickTo(0, 0, 9); //past dot 8's coarse-X increment
+
+        assertEquals(0, ppu.vramAddress() & 0x1F, "coarse X wraps to 0");
+        assertTrue((ppu.vramAddress() & 0x0400) != 0, "the nametable-X-select bit toggles");
+    }
+
+    @Test
+    public void fineYIncrementBelowSevenLeavesCoarseYUntouched(){
+        writeAddress(10 * 32); //coarseY=10, fineY=0
+        enableBackgroundRendering();
+
+        tickThroughScanline(0, 0); //one dot-256 crossing
+
+        assertEquals(1, (ppu.vramAddress() >> 12) & 0x07, "fine Y incremented");
+        assertEquals(10, (ppu.vramAddress() >> 5) & 0x1F, "coarse Y untouched");
+    }
+
+    @Test
+    public void fineYWrapAtCoarseYTwentyNineTogglesTheNametableYBit(){
+        writeAddress(29 * 32); //coarseY=29, fineY=0
+        enableBackgroundRendering();
+
+        tickThroughScanline(0, 7); //8 dot-256 crossings: fineY 0->7, then the 8th wraps coarseY
+
+        assertEquals(0, (ppu.vramAddress() >> 5) & 0x1F, "coarse Y wraps to 0");
+        assertEquals(0, (ppu.vramAddress() >> 12) & 0x07, "fine Y resets to 0");
+        assertTrue((ppu.vramAddress() & 0x0800) != 0, "row 29 is the real last row of tiles: the nametable-Y bit toggles");
+    }
+
+    @Test
+    public void fineYWrapAtCoarseYThirtyOneDoesNotToggleTheNametableYBit(){
+        writeAddress(31 * 32); //coarseY=31 (an out-of-bounds value a game deliberately set), fineY=0
+        enableBackgroundRendering();
+
+        tickThroughScanline(0, 7); //8 dot-256 crossings
+
+        assertEquals(0, (ppu.vramAddress() >> 5) & 0x1F, "coarse Y wraps to 0");
+        assertEquals(0, ppu.vramAddress() & 0x0800, "row 31 was never really on the next nametable, so no toggle");
+    }
+
+    @Test
+    public void fineYWrapAtAMidRangeCoarseYJustIncrementsCoarseY(){
+        //fine Y's top bit (worth 4) is unreachable via a direct $2006 write (real hardware always clears
+        //it there too) - so to reach fineY=7, let it accumulate through 7 real dot-256 increments from a
+        //reachable fineY=0 starting point, exactly like the coarseY 29/31 wrap tests below; the 8th
+        //crossing (scanline 7) is the one that actually wraps
+        writeAddress(10 * 32); //coarseY=10, fineY=0
+        enableBackgroundRendering();
+
+        tickThroughScanline(0, 7);
+
+        assertEquals(11, (ppu.vramAddress() >> 5) & 0x1F, "a non-special coarse Y just increments");
+        assertEquals(0, (ppu.vramAddress() >> 12) & 0x07, "fine Y resets to 0");
+        assertEquals(0, ppu.vramAddress() & 0x0800, "not one of the special wrap rows, so no nametable toggle");
+    }
+
+    @Test
+    public void horizontalCopyAtDotTwoFiveSevenCopiesOnlyCoarseXAndTheNametableXBit(){
+        writeAddress(0x31E0); //v = t: coarseX=0, coarseY=15, fineY=3, nametable select=0
+        ppu.write(PPUCTRL, 1); //t: nametable-X bit set
+        ppu.write(PPUSCROLL, 40); //t: coarseX=5 (fineX=0) - v itself is untouched by $2005/$2000
+        final int tAfterSetup = ppu.temporaryVramAddress();
+        enableBackgroundRendering();
+
+        tickTo(0, 0, 258); //just past dot 257's hori(v)=hori(t) - dot 256's own fine-Y increment also
+        //legitimately fires in this window (see the dedicated fine-Y tests above), so this deliberately
+        //doesn't assert fine Y stays put - only the fields hori-copy itself is documented to touch
+
+        assertEquals(tAfterSetup & HORIZONTAL_SCROLL_MASK, ppu.vramAddress() & HORIZONTAL_SCROLL_MASK,
+                "coarse X and the nametable-X bit are copied from t");
+        assertEquals(15, (ppu.vramAddress() >> 5) & 0x1F, "coarse Y untouched by hori-copy");
+    }
+
+    @Test
+    public void verticalCopyDoesNotHappenOnAnOrdinaryVisibleScanline(){
+        writeAddress(0x31E0); //coarseY=15, nametable-Y bit=0
+        ppu.write(PPUCTRL, 2); //t: nametable-Y bit set - if vert-copy wrongly fired here, v's would flip too
+        ppu.write(PPUSCROLL, 0);
+        ppu.write(PPUSCROLL, 163); //t: coarseY=20 (deliberately different from v's 15), fineY=3
+        enableBackgroundRendering();
+
+        tickThroughScanline(0, 0); //scanline 0's own dot 257 fires hori-copy, but never vert-copy
+
+        //coarseY/nametable-Y are immune to a single non-wrapping dot-256 crossing (only fine Y visibly
+        //moves there - see the fine-Y tests above), so unlike fine Y, these two staying at v's ORIGINAL
+        //values (not jumping to t's deliberately-different ones) is a genuine proof that no
+        //vert(v)=vert(t) copy happened
+        assertEquals(15, (ppu.vramAddress() >> 5) & 0x1F, "coarse Y unchanged");
+        assertEquals(0, ppu.vramAddress() & 0x0800, "nametable-Y bit unchanged");
+    }
+
+    @Test
+    public void verticalCopyDuringPreRenderCopiesFineYCoarseYAndTheNametableYBit(){
+        writeAddress(0x31E0);
+        ppu.write(PPUCTRL, 2);
+        ppu.write(PPUSCROLL, 0);
+        ppu.write(PPUSCROLL, 123); //t: coarseY=15, fineY=3
+        final int tAfterSetup = ppu.temporaryVramAddress();
+        enableBackgroundRendering();
+
+        tickTo(0, VBLANK_END_SCANLINE, 305); //just past pre-render's dot-280-304 vert(v)=vert(t) window
+
+        //the copy unconditionally overwrites the whole vertical field from t, so it doesn't matter that
+        //240 scanlines' worth of natural fine-Y/coarse-Y churn happened to v in between
+        assertEquals(tAfterSetup & VERTICAL_SCROLL_MASK, ppu.vramAddress() & VERTICAL_SCROLL_MASK);
+    }
+
+    @Test
+    public void renderingIsEnabledByEitherShowBackgroundOrShowSpritesNotJustBackground(){
+        //real, non-blank tile data - not just relying on CHR/nametable defaults - so a bug that made
+        //background pixels show up despite bit 3 being off would actually be visible in the assertion
+        //below, rather than trivially matching an all-zero framebuffer either way
+        writeChrTilePixelRow0(0, 0xFF, 0xFF); //pixel value 3
+        writeNametableTile(0, 0, 0);
+        writeBackgroundPaletteEntry(0, 3, 0x2E);
+        writeAddress(0);
+        ppu.write(PPUMASK, SHOW_SPRITES); //background itself is off, but "rendering" is still enabled
+
+        tickThroughScanline(1, 0);
+
+        assertEquals(0, ppu.framebuffer()[0], "background pixels stay backdrop since bit 3 is off, even though the shift registers hold real tile data");
+    }
+
+    @Test
+    public void renderingDisabledEntirelyFreezesTheVRegister(){
+        writeAddress(31); //coarseX=31, ready to wrap on the very first fetch group if the machinery ran
+        ppu.write(PPUMASK, 0); //neither show-background nor show-sprites
+
+        tickTo(0, 0, 9); //past where the coarse-X increment would fire if rendering were enabled
+
+        assertEquals(31, ppu.vramAddress() & 0x1F, "coarse X must not move - the whole v-register pipeline is frozen");
+    }
+
+    @Test
+    public void lastVisibleScanlineTwoThirtyNineStillRenders(){
+        writeChrTileUniform(0, 0xFF, 0xFF); //pixel value 3 - tile 0 covers every nametable cell by default (0)
+        writeBackgroundPaletteEntry(0, 3, 0x2F);
+        writeAddress(0);
+        enableBackgroundRendering();
+
+        tickThroughScanline(1, 239);
+
+        assertEquals(0x2F, ppu.framebuffer()[239 * PPU.FRAMEBUFFER_WIDTH], "scanline 239 is still a visible scanline, not off-by-one excluded");
+    }
+
+    @Test
+    public void patternByteAddressUsesTheCorrectFineYRowNotAnAdjacentOne(){
+        //row 0 and row 1 deliberately different - a fine-Y address miscomputation (e.g. the wrong shift
+        //direction) would fetch the wrong row's bytes instead of just returning coincidentally-matching data
+        writeAddress(0);
+        ppu.write(PPUDATA, 0xFF); //tile 0 row 0 low plane: pixel value 1
+        writeAddress(8);
+        ppu.write(PPUDATA, 0x00); //row 0 high plane
+        writeAddress(1);
+        ppu.write(PPUDATA, 0x00); //tile 0 row 1 low plane
+        writeAddress(9);
+        ppu.write(PPUDATA, 0xFF); //row 1 high plane: pixel value 2
+        writeBackgroundPaletteEntry(0, 1, 0x31);
+        writeBackgroundPaletteEntry(0, 2, 0x32);
+        writeAddress(0);
+        enableBackgroundRendering();
+
+        tickThroughScanline(1, 1);
+
+        assertEquals(0x31, ppu.framebuffer()[0], "row 0's own pixel value");
+        assertEquals(0x32, ppu.framebuffer()[PPU.FRAMEBUFFER_WIDTH], "row 1 must use row 1's CHR bytes, not row 0's");
+    }
+
+    @Test
+    public void attributeAddressUsesTheCorrectCellNotAnAdjacentOne(){
+        //two different 32x32px attribute cells (0,0) and (1,0), each with a tile referencing the same
+        //pattern but a different palette group - an attribute-address miscomputation (e.g. the wrong
+        //shift direction on the coarse X/Y terms) would read the wrong cell's byte
+        writeChrTilePixelRow0(0, 0xFF, 0x00); //pixel value 1
+        writeNametableTile(0, 0, 0); //cell (0,0): tile columns 0-3
+        writeNametableTile(4, 0, 0); //cell (1,0): tile columns 4-7
+        writeAttributeByte(0, 0, 0x00); //cell (0,0): group 0 everywhere
+        writeAttributeByte(1, 0, 0xFF); //cell (1,0): group 3 everywhere
+        writeBackgroundPaletteEntry(0, 1, 0x21);
+        writeBackgroundPaletteEntry(3, 1, 0x23);
+        writeAddress(0);
+        enableBackgroundRendering();
+
+        tickThroughScanline(1, 0);
+
+        assertEquals(0x21, ppu.framebuffer()[0], "cell (0,0)'s own group");
+        assertEquals(0x23, ppu.framebuffer()[32], "cell (1,0) (tile column 4, x=32) must use its own attribute byte, not cell (0,0)'s");
+    }
+
+    @Test
+    public void frameReadyAndFramebufferAreBothCorrectWithRenderingActive(){
+        //every one of tile 0's 8 rows (not just fine-Y 0): row 5's framebuffer pixel below is fed by
+        //fine Y 5's own CHR row, not row 0's
+        writeChrTileUniform(0, 0xFF, 0xFF);
+        writeNametableTile(0, 0, 0);
+        writeBackgroundPaletteEntry(0, 3, 0x2D);
+        writeAddress(0);
+        enableBackgroundRendering();
+
+        tick(TICKS_UNTIL_VBLANK_START);
+
+        assertTrue(ppu.consumeFrameReady());
+        //row 5, not row 0: the very first frame's row 0 has no preceding pre-render prefetch to seed
+        //it (a real, harmless startup artifact - see the cross-scanline continuity reasoning elsewhere
+        //in this file), so pick a row that's guaranteed to already be correctly seeded by this point
+        assertEquals(0x2D, ppu.framebuffer()[5 * PPU.FRAMEBUFFER_WIDTH]);
+    }
+
     private void verifyChrByte(final int address, final int expectedValue){
         writeAddress(address);
         ppu.read(PPUDATA); //prime the read buffer
@@ -704,5 +1109,72 @@ public class PPUTest {
     private void writeAddress(final int address){
         ppu.write(PPUADDR, (address >> 8) & 0xFF);
         ppu.write(PPUADDR, address & 0xFF);
+    }
+
+    /** Writes one 8x8 tile's fine-Y-0 row (both bitplane bytes) via real $2006/$2007 writes - the only row these tests need. */
+    private void writeChrTilePixelRow0(final int tileId, final int lowPlaneByte, final int highPlaneByte){
+        final int tileBase = tileId * 16;
+        writeAddress(tileBase);
+        ppu.write(PPUDATA, lowPlaneByte);
+        writeAddress(tileBase + 8);
+        ppu.write(PPUDATA, highPlaneByte);
+    }
+
+    /** Writes the same pixel row to all 8 fine-Y rows of a tile - for tests that check a scanline whose fine Y isn't 0. */
+    private void writeChrTileUniform(final int tileId, final int lowPlaneByte, final int highPlaneByte){
+        final int tileBase = tileId * 16;
+        for (int fineY = 0; fineY < 8; fineY++){
+            writeAddress(tileBase + fineY);
+            ppu.write(PPUDATA, lowPlaneByte);
+            writeAddress(tileBase + 8 + fineY);
+            ppu.write(PPUDATA, highPlaneByte);
+        }
+    }
+
+    /** Writes a tile ID into logical nametable 0 at (col, row). */
+    private void writeNametableTile(final int col, final int row, final int tileId){
+        writeAddress(0x2000 + row * 32 + col);
+        ppu.write(PPUDATA, tileId);
+    }
+
+    /** Writes an attribute byte for logical nametable 0's (attrCol, attrRow) 32x32px cell (0-7 each). */
+    private void writeAttributeByte(final int attrCol, final int attrRow, final int value){
+        writeAddress(0x23C0 + attrRow * 8 + attrCol);
+        ppu.write(PPUDATA, value);
+    }
+
+    /** Writes one background palette entry: group 0-3, entry 0-3 (entry 0 of every group aliases $3F00, see the universal-backdrop tests). */
+    private void writeBackgroundPaletteEntry(final int group, final int entry, final int colorIndex){
+        writeAddress(0x3F00 + group * 4 + entry);
+        ppu.write(PPUDATA, colorIndex);
+    }
+
+    private void enableBackgroundRendering(){
+        ppu.write(PPUMASK, SHOW_BACKGROUND | SHOW_BACKGROUND_LEFT);
+    }
+
+    /**
+     * Ticks from a fresh (dot 0, scanline 0) start to at-or-just-past the given absolute frame/
+     * scanline/dot - safe to call more than once per test, each call only ticking the remaining delta.
+     * Landing a dot or two past the exact target (ceiling division, same reasoning as
+     * {@code TICKS_UNTIL_VBLANK_START}) is fine everywhere this is used: every call site targets "has
+     * this dot's effect already happened", never an exact mid-scanline instant - the PPU's own dot
+     * granularity is only ever observable in multiples of {@link com.rox.ppu.PPU#DOTS_PER_CPU_CYCLE}
+     * anyway, exactly like a real CPU polling it.
+     */
+    private void tickTo(final int frame, final int scanline, final int dot){
+        final long targetDot = (long) SCANLINES_PER_FRAME * DOTS_PER_SCANLINE * frame
+                + (long) scanline * DOTS_PER_SCANLINE + dot;
+        final long targetTicks = (targetDot + DOTS_PER_CPU_CYCLE - 1) / DOTS_PER_CPU_CYCLE;
+        final long delta = targetTicks - ticksIssued;
+        if (delta > 0){
+            tick((int) delta);
+            ticksIssued = targetTicks;
+        }
+    }
+
+    /** Ticks past the end of the given scanline (dot 341), guaranteeing every one of its pixels (dots 1-256) was drawn. */
+    private void tickThroughScanline(final int frame, final int scanline){
+        tickTo(frame, scanline + 1, 0);
     }
 }
