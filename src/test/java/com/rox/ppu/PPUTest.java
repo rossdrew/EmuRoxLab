@@ -811,6 +811,7 @@ public class PPUTest {
         writeBackgroundPaletteEntry(1, 0, 0x15); //decoy at $3F04 - must never be selected
         writeBackgroundPaletteEntry(2, 0, 0x16); //decoy at $3F08
         writeBackgroundPaletteEntry(3, 0, 0x17); //decoy at $3F0C
+        writeAddress(0); //reset v/t: the palette writes above left currentVramAddress pointing elsewhere
         enableBackgroundRendering();
 
         tickThroughScanline(1, 0);
