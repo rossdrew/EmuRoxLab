@@ -640,6 +640,61 @@ public class PPUTest {
         assertEquals(0, ppu.oamSnapshot()[0], "mutating a returned snapshot must not affect the PPU's own state");
     }
 
+    @Test
+    public void frameReadyFiresAtVblankStart(){
+        tick(TICKS_UNTIL_VBLANK_START);
+
+        assertTrue(ppu.consumeFrameReady());
+    }
+
+    @Test
+    public void frameReadyDoesNotFireBeforeVblankStart(){
+        tick(TICKS_UNTIL_VBLANK_START - 1);
+
+        assertFalse(ppu.consumeFrameReady());
+    }
+
+    @Test
+    public void consumeFrameReadyIsOneShot(){
+        tick(TICKS_UNTIL_VBLANK_START);
+
+        assertTrue(ppu.consumeFrameReady());
+        assertFalse(ppu.consumeFrameReady(), "the same frame must not be reported ready twice");
+    }
+
+    @Test
+    public void frameReadyFiresAgainEveryFrame(){
+        tick(TICKS_UNTIL_VBLANK_START);
+        assertTrue(ppu.consumeFrameReady());
+
+        //ceiling division, same reasoning as TICKS_UNTIL_VBLANK_START/END: 341*262 dots isn't a multiple
+        //of 3, so round up to guarantee the tick whose 3-dot span reaches (or passes) the next vblank start
+        final int dotsPerFrame = SCANLINES_PER_FRAME * DOTS_PER_SCANLINE;
+        tick((dotsPerFrame + DOTS_PER_CPU_CYCLE - 1) / DOTS_PER_CPU_CYCLE);
+
+        assertTrue(ppu.consumeFrameReady(), "the next frame's vblank start should fire a fresh frame-ready signal");
+    }
+
+    @Test
+    public void framebufferStartsAllZero(){
+        for (final int paletteIndex : ppu.framebuffer()){
+            assertEquals(0, paletteIndex);
+        }
+    }
+
+    @Test
+    public void framebufferIsTheDocumentedSize(){
+        assertEquals(PPU.FRAMEBUFFER_WIDTH * PPU.FRAMEBUFFER_HEIGHT, ppu.framebuffer().length);
+    }
+
+    @Test
+    public void framebufferIsADefensiveCopy(){
+        final int[] snapshot = ppu.framebuffer();
+        snapshot[0] = 0xFF;
+
+        assertEquals(0, ppu.framebuffer()[0], "mutating a returned snapshot must not affect the PPU's own state");
+    }
+
     private void verifyChrByte(final int address, final int expectedValue){
         writeAddress(address);
         ppu.read(PPUDATA); //prime the read buffer

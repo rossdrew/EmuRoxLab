@@ -43,6 +43,8 @@ import com.rox.mem.OamDmaBus;
 public class PPU implements ClockWatcher, OamDmaBus {
     public static final int DOTS_PER_SCANLINE = 341;
     public static final int SCANLINES_PER_FRAME = 262;
+    public static final int FRAMEBUFFER_WIDTH = 256;
+    public static final int FRAMEBUFFER_HEIGHT = 240;
     static final int DOTS_PER_CPU_CYCLE = 3;
     static final int VBLANK_START_SCANLINE = 241;
     static final int VBLANK_END_SCANLINE = 261;
@@ -144,6 +146,10 @@ public class PPU implements ClockWatcher, OamDmaBus {
 
     private boolean oamDmaPending;
 
+    /** One raw palette-RAM index (0-63) per pixel, not RGB yet - see {@code NesPalette} in a later phase. */
+    private final int[] framebuffer = new int[FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT];
+    private boolean frameReady;
+
     public PPU(final Cartridge cartridge){
         this.cartridge = cartridge;
     }
@@ -167,9 +173,19 @@ public class PPU implements ClockWatcher, OamDmaBus {
         }
         if (scanline == VBLANK_START_SCANLINE && dot == VBLANK_EDGE_DOT){
             setVblankFlag(true);
+            frameReady = true;
         } else if (scanline == VBLANK_END_SCANLINE && dot == VBLANK_EDGE_DOT){
             setVblankFlag(false);
         }
+    }
+
+    /** True exactly once per frame (set at scanline 241 dot 1) - mirrors {@link #consumeNmiEdge()}'s one-shot pattern. */
+    public boolean consumeFrameReady(){
+        if (frameReady){
+            frameReady = false;
+            return true;
+        }
+        return false;
     }
 
     private void setVblankFlag(final boolean asserted){
@@ -455,5 +471,10 @@ public class PPU implements ClockWatcher, OamDmaBus {
     /** Defensive copy - callers must not be able to mutate OAM behind the PPU's back. */
     public int[] oamSnapshot(){
         return oam.clone();
+    }
+
+    /** Defensive copy - callers must not be able to mutate the framebuffer behind the PPU's back. */
+    public int[] framebuffer(){
+        return framebuffer.clone();
     }
 }
