@@ -24,11 +24,16 @@ public final class PpuDebugViewerDemo {
     }
 
     public static void main(final String[] args) throws Exception {
-        final PpuDebugFrame frame = new PpuDebugFrame();
         final RunningNes runningNes = new RunningNes();
         final CountDownLatch windowClosed = new CountDownLatch(1);
+        //Swing components must only be created/configured/shown from the EDT - constructing (and
+        //pack()-ing) PpuDebugFrame here, then only touching it from invokeAndWait's callback, would
+        //violate that; the holder is just how the reference gets back out to this thread afterward
+        final PpuDebugFrame[] frameHolder = new PpuDebugFrame[1];
 
         SwingUtilities.invokeAndWait(() -> {
+            final PpuDebugFrame frame = new PpuDebugFrame();
+            frameHolder[0] = frame;
             frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
             frame.addWindowListener(new WindowAdapter(){
                 @Override
@@ -40,6 +45,7 @@ public final class PpuDebugViewerDemo {
             frame.setOnOpenRom(romPath -> loadRom(romPath, frame, runningNes));
             frame.setVisible(true);
         });
+        final PpuDebugFrame frame = frameHolder[0];
 
         if (args.length >= 1){
             loadRom(Path.of(args[0]), frame, runningNes);
