@@ -13,9 +13,16 @@ final class RegisterHudPanel extends JPanel {
     private static final int NMI_ENABLE_BIT = 0x80;
     private static final int VRAM_INCREMENT_BIT = 0x04;
     private static final int NAMETABLE_SELECT_MASK = 0x03;
+    //fixed character-cell size, not sized from content: without this, JTextArea recomputes its
+    //preferred size from the text's longest line on every refresh() - since values like NMI enable's
+    //true/false or a digit rolling over to an extra place change that line length constantly, the whole
+    //window would jump/flicker every tick. Wide/tall enough for the longest line this HUD ever prints
+    //("PPUCTRL:   $FF (NMI enable=false, VRAM +32, nametable select=3)", 63 chars) across all 12 lines.
+    private static final int TEXT_COLUMNS = 65;
+    private static final int TEXT_ROWS = 12;
 
     private final PPU ppu;
-    private final JTextArea text = new JTextArea();
+    private final JTextArea text = new JTextArea(TEXT_ROWS, TEXT_COLUMNS);
     private final BeamPositionPanel beamPosition;
 
     RegisterHudPanel(final PPU ppu){
