@@ -70,14 +70,14 @@ public class PPU implements ClockWatcher, OamDmaBus {
     }
 
     private static final int REGISTER_ADDRESS_MASK = 0x07;
-    private static final int PPUCTRL = 0x00;
-    private static final int PPUMASK = 0x01;
-    private static final int PPUSTATUS = 0x02;
-    private static final int OAMADDR = 0x03;
-    private static final int OAMDATA = 0x04;
-    private static final int PPUSCROLL = 0x05;
-    private static final int PPUADDR = 0x06;
-    private static final int PPUDATA = 0x07;
+    private static final int PPUCTRL_REGISTER_ADDRESS = 0x00;
+    private static final int PPUMASK_REGISTER_ADDRESS = 0x01;
+    private static final int PPUSTATUS_REGISTER_ADDRESS = 0x02;
+    private static final int OAMADDR_REGISTER_ADDRESS = 0x03;
+    private static final int OAMDATA_REGISTER_ADDRESS = 0x04;
+    private static final int PPUSCROLL_REGISTER_ADDRESS = 0x05;
+    private static final int PPUADDR_REGISTER_ADDRESS = 0x06;
+    private static final int PPUDATA_REGISTER_ADDRESS = 0x07;
 
     private static final int VBLANK_STATUS_BIT = 0x80;
 
@@ -464,9 +464,9 @@ public class PPU implements ClockWatcher, OamDmaBus {
     @Override
     public int read(final int address){
         return switch (address & REGISTER_ADDRESS_MASK){
-            case PPUSTATUS -> readStatusRegister();
-            case OAMDATA -> oam[oamAddress];
-            case PPUDATA -> readDataRegister();
+            case PPUSTATUS_REGISTER_ADDRESS -> readStatusRegister();
+            case OAMDATA_REGISTER_ADDRESS -> oam[oamAddress];
+            case PPUDATA_REGISTER_ADDRESS -> readDataRegister();
             default -> 0; //write-only registers: real hardware returns open bus, unmodeled here
         };
     }
@@ -474,13 +474,13 @@ public class PPU implements ClockWatcher, OamDmaBus {
     @Override
     public void write(final int address, final int value){
         switch (address & REGISTER_ADDRESS_MASK){
-            case PPUCTRL -> writeControlRegister(value);
-            case PPUMASK -> maskRegister = new PPUMaskRegister(value);
-            case OAMADDR -> oamAddress = value & BYTE_MASK;
-            case OAMDATA -> writeOamData(value);
-            case PPUSCROLL -> writeScrollRegister(value);
-            case PPUADDR -> writeAddressRegister(value);
-            case PPUDATA -> writeDataRegister(value);
+            case PPUCTRL_REGISTER_ADDRESS -> writeControlRegister(value);
+            case PPUMASK_REGISTER_ADDRESS -> maskRegister = new PPUMaskRegister(value);
+            case OAMADDR_REGISTER_ADDRESS -> oamAddress = value & BYTE_MASK;
+            case OAMDATA_REGISTER_ADDRESS -> writeOamData(value);
+            case PPUSCROLL_REGISTER_ADDRESS -> writeScrollRegister(value);
+            case PPUADDR_REGISTER_ADDRESS -> writeAddressRegister(value);
+            case PPUDATA_REGISTER_ADDRESS -> writeDataRegister(value);
             default -> { }
         }
     }
