@@ -170,6 +170,13 @@ public class PPUTest {
     }
 
     @Test
+    public void controlRegisterDecodedReflectsTheLastWrite(){
+        ppu.write(PPUCTRL, NMI_ENABLE);
+
+        assertTrue(ppu.controlRegisterDecoded().nmiEnabled());
+    }
+
+    @Test
     public void maskRegisterIsCapturedButOtherwiseUnused(){
         ppu.write(PPUMASK, 0x1E);
 
