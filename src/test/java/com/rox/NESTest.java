@@ -379,7 +379,7 @@ public class NESTest {
         nes.cpu().reset(); //lands at $9000, the reset self-loop
         nes.ppu().write(0x2000, 0x80); //enable NMI generation on vblank
 
-        //generously bounded poll (real requirement is PPU.TICKS_UNTIL_VBLANK_START, ~27,394 ticks)
+        //generously bounded poll (real requirement is PPU.FrameTiming.TICKS_UNTIL_VBLANK_START, ~27,394 ticks)
         //rather than a hand-derived exact count, so this isn't fragile against timing details
         final int maxTicks = 100_000;
         int ticks = 0;

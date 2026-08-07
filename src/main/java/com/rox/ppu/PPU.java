@@ -45,39 +45,58 @@ import static com.rox.ByteUtil.BYTE_MASK;
  * and the 1-cycle difference doesn't affect correctness, only real-hardware-exact timing.
  */
 public class PPU implements ClockWatcher, OamDmaBus {
-    public static final int DOTS_PER_SCANLINE = 341;
-    public static final int SCANLINES_PER_FRAME = 262;
     public static final int FRAMEBUFFER_WIDTH = 256;
     public static final int FRAMEBUFFER_HEIGHT = 240;
-    static final int DOTS_PER_CPU_CYCLE = 3;
-    static final int VBLANK_START_SCANLINE = 241;
-    static final int VBLANK_END_SCANLINE = 261;
-    static final int VBLANK_EDGE_DOT = 1;
 
-    //341 dots/scanline isn't a multiple of the 3 dots/CPU-cycle rate, so the target dot doesn't
-    //always land on a tick boundary - round up (ceiling division) to the tick whose 3-dot span
-    //contains it. advanceDot() itself checks after every individual dot, not just per tick(), so
-    //this only matters for computing these two "how many ticks until X" constants, not correctness.
-    /** CPU ticks from power-on/reset until vblank first starts - exact, useful for tests. */
-    static final int TICKS_UNTIL_VBLANK_START =
-            ceilingDivide(VBLANK_START_SCANLINE * DOTS_PER_SCANLINE + VBLANK_EDGE_DOT, DOTS_PER_CPU_CYCLE);
-    /** CPU ticks from power-on/reset until vblank first clears (pre-render scanline). */
-    static final int TICKS_UNTIL_VBLANK_END =
-            ceilingDivide(VBLANK_END_SCANLINE * DOTS_PER_SCANLINE + VBLANK_EDGE_DOT, DOTS_PER_CPU_CYCLE);
+    /**
+     * Where things fall on the 341-dot/scanline, 262-scanline/frame grid: scanlines 0-239 are visible,
+     * 240 is post-render (idle), 241-260 are vertical blank, 261 is the pre-render scanline.
+     * {@code DOTS_PER_SCANLINE}/{@code SCANLINES_PER_FRAME} are public since the debug viewer's
+     * {@code BeamPositionPanel} draws against them directly; everything else here is {@code PPU}-internal.
+     */
+    public static final class FrameTiming {
+        public static final int DOTS_PER_SCANLINE = 341;
+        public static final int SCANLINES_PER_FRAME = 262;
+        static final int DOTS_PER_CPU_CYCLE = 3;
+        static final int VBLANK_START_SCANLINE = 241;
+        static final int VBLANK_END_SCANLINE = 261;
+        static final int VBLANK_EDGE_DOT = 1;
+        static final int VISIBLE_SCANLINE_MAX = 239;
 
-    private static int ceilingDivide(final int numerator, final int denominator){
-        return (numerator + denominator - 1) / denominator;
+        //341 dots/scanline isn't a multiple of the 3 dots/CPU-cycle rate, so the target dot doesn't
+        //always land on a tick boundary - round up (ceiling division) to the tick whose 3-dot span
+        //contains it. advanceDot() itself checks after every individual dot, not just per tick(), so
+        //this only matters for computing these two "how many ticks until X" constants, not correctness.
+        /** CPU ticks from power-on/reset until vblank first starts - exact, useful for tests. */
+        static final int TICKS_UNTIL_VBLANK_START =
+                ceilingDivide(VBLANK_START_SCANLINE * DOTS_PER_SCANLINE + VBLANK_EDGE_DOT, DOTS_PER_CPU_CYCLE);
+        /** CPU ticks from power-on/reset until vblank first clears (pre-render scanline). */
+        static final int TICKS_UNTIL_VBLANK_END =
+                ceilingDivide(VBLANK_END_SCANLINE * DOTS_PER_SCANLINE + VBLANK_EDGE_DOT, DOTS_PER_CPU_CYCLE);
+
+        private static int ceilingDivide(final int numerator, final int denominator){
+            return (numerator + denominator - 1) / denominator;
+        }
+
+        private FrameTiming(){
+        }
     }
 
-    private static final int REGISTER_ADDRESS_MASK = 0x07;
-    private static final int PPUCTRL_REGISTER_ADDRESS = 0x00;
-    private static final int PPUMASK_REGISTER_ADDRESS = 0x01;
-    private static final int PPUSTATUS_REGISTER_ADDRESS = 0x02;
-    private static final int OAMADDR_REGISTER_ADDRESS = 0x03;
-    private static final int OAMDATA_REGISTER_ADDRESS = 0x04;
-    private static final int PPUSCROLL_REGISTER_ADDRESS = 0x05;
-    private static final int PPUADDR_REGISTER_ADDRESS = 0x06;
-    private static final int PPUDATA_REGISTER_ADDRESS = 0x07;
+    /** {@code $2000-$2007}'s CPU-bus offsets - registers repeat every 8 bytes through {@code $2000-$3FFF}. */
+    private static final class RegisterAddress {
+        static final int MASK = 0x07;
+        static final int PPUCTRL = 0x00;
+        static final int PPUMASK = 0x01;
+        static final int PPUSTATUS = 0x02;
+        static final int OAMADDR = 0x03;
+        static final int OAMDATA = 0x04;
+        static final int PPUSCROLL = 0x05;
+        static final int PPUADDR = 0x06;
+        static final int PPUDATA = 0x07;
+
+        private RegisterAddress(){
+        }
+    }
 
     private static final int VBLANK_STATUS_BIT = 0x80;
 
@@ -118,8 +137,6 @@ public class PPU implements ClockWatcher, OamDmaBus {
 
     //background rendering pipeline (nesdev's standard 8-dot tile-fetch cycle + shift registers),
     //verified dot-for-dot against nesdev's PPU_scrolling/PPU_rendering/PPU_palettes wiki pages
-    private static final int VISIBLE_SCANLINE_MAX = 239;
-
     private static final int TILE_FETCH_GROUP_DOTS = 8;
     private static final int MAIN_FETCH_REGION_END_DOT = 256; //dots 1-256
     private static final int HORIZONTAL_COPY_DOT = 257;
@@ -210,24 +227,24 @@ public class PPU implements ClockWatcher, OamDmaBus {
     /** CPU-cycle clock: the PPU itself runs at 3x this rate (once per dot, 3 dots per CPU cycle). */
     @Override
     public void tick(){
-        for (int i = 0; i < DOTS_PER_CPU_CYCLE; i++){
+        for (int i = 0; i < FrameTiming.DOTS_PER_CPU_CYCLE; i++){
             advanceDot();
         }
     }
 
     private void advanceDot(){
         dot++;
-        if (dot >= DOTS_PER_SCANLINE){
+        if (dot >= FrameTiming.DOTS_PER_SCANLINE){
             dot = 0;
             scanline++;
-            if (scanline >= SCANLINES_PER_FRAME){
+            if (scanline >= FrameTiming.SCANLINES_PER_FRAME){
                 scanline = 0;
             }
         }
-        if (scanline == VBLANK_START_SCANLINE && dot == VBLANK_EDGE_DOT){
+        if (scanline == FrameTiming.VBLANK_START_SCANLINE && dot == FrameTiming.VBLANK_EDGE_DOT){
             setVblankFlag(true);
             frameReady = true;
-        } else if (scanline == VBLANK_END_SCANLINE && dot == VBLANK_EDGE_DOT){
+        } else if (scanline == FrameTiming.VBLANK_END_SCANLINE && dot == FrameTiming.VBLANK_EDGE_DOT){
             setVblankFlag(false);
         }
         backgroundStep();
@@ -258,7 +275,7 @@ public class PPU implements ClockWatcher, OamDmaBus {
      * fixtures before trusting it, not just by re-reading nesdev's timing diagram more carefully.
      */
     private void backgroundStep(){
-        if (scanline > VISIBLE_SCANLINE_MAX && scanline != VBLANK_END_SCANLINE){
+        if (scanline > FrameTiming.VISIBLE_SCANLINE_MAX && scanline != FrameTiming.VBLANK_END_SCANLINE){
             return;
         }
 
@@ -271,7 +288,7 @@ public class PPU implements ClockWatcher, OamDmaBus {
             }
         }
 
-        if (dot >= 1 && dot <= MAIN_FETCH_REGION_END_DOT && scanline <= VISIBLE_SCANLINE_MAX){
+        if (dot >= 1 && dot <= MAIN_FETCH_REGION_END_DOT && scanline <= FrameTiming.VISIBLE_SCANLINE_MAX){
             drawPixel(dot - 1, scanline);
         }
 
@@ -294,7 +311,7 @@ public class PPU implements ClockWatcher, OamDmaBus {
         if (dot == PREFETCH_RELOAD_DOT){
             reloadShiftRegisters();
         }
-        if (scanline == VBLANK_END_SCANLINE && dot >= VERTICAL_COPY_START_DOT && dot <= VERTICAL_COPY_END_DOT){
+        if (scanline == FrameTiming.VBLANK_END_SCANLINE && dot >= VERTICAL_COPY_START_DOT && dot <= VERTICAL_COPY_END_DOT){
             copyVerticalBits();
         }
     }
@@ -463,24 +480,24 @@ public class PPU implements ClockWatcher, OamDmaBus {
 
     @Override
     public int read(final int address){
-        return switch (address & REGISTER_ADDRESS_MASK){
-            case PPUSTATUS_REGISTER_ADDRESS -> readStatusRegister();
-            case OAMDATA_REGISTER_ADDRESS -> oam[oamAddress];
-            case PPUDATA_REGISTER_ADDRESS -> readDataRegister();
+        return switch (address & RegisterAddress.MASK){
+            case RegisterAddress.PPUSTATUS -> readStatusRegister();
+            case RegisterAddress.OAMDATA -> oam[oamAddress];
+            case RegisterAddress.PPUDATA -> readDataRegister();
             default -> 0; //write-only registers: real hardware returns open bus, unmodeled here
         };
     }
 
     @Override
     public void write(final int address, final int value){
-        switch (address & REGISTER_ADDRESS_MASK){
-            case PPUCTRL_REGISTER_ADDRESS -> writeControlRegister(value);
-            case PPUMASK_REGISTER_ADDRESS -> maskRegister = new PPUMaskRegister(value);
-            case OAMADDR_REGISTER_ADDRESS -> oamAddress = value & BYTE_MASK;
-            case OAMDATA_REGISTER_ADDRESS -> writeOamData(value);
-            case PPUSCROLL_REGISTER_ADDRESS -> writeScrollRegister(value);
-            case PPUADDR_REGISTER_ADDRESS -> writeAddressRegister(value);
-            case PPUDATA_REGISTER_ADDRESS -> writeDataRegister(value);
+        switch (address & RegisterAddress.MASK){
+            case RegisterAddress.PPUCTRL -> writeControlRegister(value);
+            case RegisterAddress.PPUMASK -> maskRegister = new PPUMaskRegister(value);
+            case RegisterAddress.OAMADDR -> oamAddress = value & BYTE_MASK;
+            case RegisterAddress.OAMDATA -> writeOamData(value);
+            case RegisterAddress.PPUSCROLL -> writeScrollRegister(value);
+            case RegisterAddress.PPUADDR -> writeAddressRegister(value);
+            case RegisterAddress.PPUDATA -> writeDataRegister(value);
             default -> { }
         }
     }

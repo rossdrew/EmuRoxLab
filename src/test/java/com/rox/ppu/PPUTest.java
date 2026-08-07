@@ -7,12 +7,12 @@ import com.rox.cartridge.Mirroring;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import static com.rox.ppu.PPU.DOTS_PER_CPU_CYCLE;
-import static com.rox.ppu.PPU.DOTS_PER_SCANLINE;
-import static com.rox.ppu.PPU.SCANLINES_PER_FRAME;
-import static com.rox.ppu.PPU.TICKS_UNTIL_VBLANK_END;
-import static com.rox.ppu.PPU.TICKS_UNTIL_VBLANK_START;
-import static com.rox.ppu.PPU.VBLANK_END_SCANLINE;
+import static com.rox.ppu.PPU.FrameTiming.DOTS_PER_CPU_CYCLE;
+import static com.rox.ppu.PPU.FrameTiming.DOTS_PER_SCANLINE;
+import static com.rox.ppu.PPU.FrameTiming.SCANLINES_PER_FRAME;
+import static com.rox.ppu.PPU.FrameTiming.TICKS_UNTIL_VBLANK_END;
+import static com.rox.ppu.PPU.FrameTiming.TICKS_UNTIL_VBLANK_START;
+import static com.rox.ppu.PPU.FrameTiming.VBLANK_END_SCANLINE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -1160,7 +1160,7 @@ public class PPUTest {
      * Landing a dot or two past the exact target (ceiling division, same reasoning as
      * {@code TICKS_UNTIL_VBLANK_START}) is fine everywhere this is used: every call site targets "has
      * this dot's effect already happened", never an exact mid-scanline instant - the PPU's own dot
-     * granularity is only ever observable in multiples of {@link com.rox.ppu.PPU#DOTS_PER_CPU_CYCLE}
+     * granularity is only ever observable in multiples of {@link com.rox.ppu.PPU.FrameTiming#DOTS_PER_CPU_CYCLE}
      * anyway, exactly like a real CPU polling it.
      */
     private void tickTo(final int frame, final int scanline, final int dot){
