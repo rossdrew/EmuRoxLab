@@ -620,7 +620,7 @@ public class PPU implements ClockWatcher, OamDmaBus {
         } else if (address < PALETTE_START_ADDRESS){
             nametableRam[resolveNametableIndex(address)] = value & BYTE_MASK;
         } else {
-            paletteRam[resolvePaletteIndex(address)] = value & BYTE_MASK;
+            paletteRam[resolvePaletteIndex(address)] = value & PALETTE_COLOR_MASK;
         }
     }
 
