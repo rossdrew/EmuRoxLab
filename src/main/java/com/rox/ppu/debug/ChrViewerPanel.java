@@ -73,8 +73,12 @@ final class ChrViewerPanel extends JPanel {
         final int[] colors = selectedColors();
         final BufferedImage composite = new BufferedImage(COMPOSITE_WIDTH, COMPOSITE_HEIGHT, BufferedImage.TYPE_INT_RGB);
         final Graphics compositeGraphics = composite.getGraphics();
-        compositeGraphics.drawImage(renderTable(0, colors), PADDING, PADDING, null);
-        compositeGraphics.drawImage(renderTable(PATTERN_TABLE_SIZE, colors), PADDING * 2 + TABLE_PX, PADDING, null);
+        try {
+            compositeGraphics.drawImage(renderTable(0, colors), PADDING, PADDING, null);
+            compositeGraphics.drawImage(renderTable(PATTERN_TABLE_SIZE, colors), PADDING * 2 + TABLE_PX, PADDING, null);
+        } finally {
+            compositeGraphics.dispose();
+        }
         return composite;
     }
 
