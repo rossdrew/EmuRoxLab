@@ -1,5 +1,7 @@
 package com.rox.cartridge;
 
+import static com.rox.ByteUtil.BYTE_MASK;
+
 /**
  * iNES mapper 0 (NROM): PRG-ROM is fixed at {@code $8000-$FFFF} with no bank registers - a 16KB ROM
  * is mirrored into both halves of that window, a 32KB ROM fills it directly. Writes to {@code $8000+}
@@ -18,7 +20,6 @@ public final class NromMapper implements Mapper {
     private static final int SINGLE_BANK_SIZE = 0x4000;
     private static final int DOUBLE_BANK_SIZE = SINGLE_BANK_SIZE * 2;
     private static final int CHR_SIZE = 0x2000;
-    private static final int BYTE_MASK = 0xFF;
 
     private final byte[] prgRom;
     private final int[] prgRam = new int[PRG_RAM_SIZE];

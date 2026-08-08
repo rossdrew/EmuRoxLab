@@ -1,5 +1,7 @@
 package com.rox.cartridge;
 
+import static com.rox.ByteUtil.BYTE_MASK;
+
 /**
  * iNES mapper 1 (MMC1). Every write to {@code $8000-$FFFF} feeds one bit (the value's bit 0) into a
  * 5-bit serial shift register, LSB first; on the 5th write, the assembled 5-bit value latches into
@@ -50,7 +52,6 @@ public final class Mmc1Mapper implements Mapper {
     private static final int PRG_BANK_MODE_SWITCH_32KB_HIGH = 1;
     private static final int PRG_BANK_MODE_FIX_FIRST = 2;
     private static final int PRG_BANK_NUMBER_MASK = 0x0F;
-    private static final int BYTE_MASK = 0xFF;
 
     private final byte[] prgRom;
     private final int[] prgRam = new int[PRG_RAM_SIZE];

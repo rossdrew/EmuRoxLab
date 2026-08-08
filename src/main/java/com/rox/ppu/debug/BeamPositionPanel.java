@@ -9,13 +9,13 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 
-import static com.rox.ppu.PPU.DOTS_PER_SCANLINE;
-import static com.rox.ppu.PPU.SCANLINES_PER_FRAME;
+import static com.rox.ppu.PPU.FrameTiming.DOTS_PER_SCANLINE;
+import static com.rox.ppu.PPU.FrameTiming.SCANLINES_PER_FRAME;
 
 /**
  * A single-dot "where is the beam right now" indicator: plots the PPU's current (dot, scanline)
  * position within a native 341x262 coordinate space (the full dot/scanline range, matching
- * {@code PPU.DOTS_PER_SCANLINE}/{@code SCANLINES_PER_FRAME}, redrawn fresh from the current
+ * {@code PPU.FrameTiming.DOTS_PER_SCANLINE}/{@code SCANLINES_PER_FRAME}, redrawn fresh from the current
  * instantaneous state each repaint - no history/sampling needed, unlike a scrolling chart.
  * Background flips white during vblank so the vblank window is visible at a glance.
  */

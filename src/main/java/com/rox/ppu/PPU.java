@@ -5,11 +5,14 @@ import com.rox.cartridge.Mirroring;
 import com.rox.clock.ClockWatcher;
 import com.rox.mem.OamDmaBus;
 
+import static com.rox.ByteUtil.BYTE_MASK;
+
 /**
  * Headless NES PPU: correct vblank/NMI timing, full {@code $0000-$3FFF} PPU address space wiring
  * (CHR pattern tables via the cartridge, mirrored nametable RAM, palette RAM), the "loopy" internal
- * scroll/address registers, and OAM DMA - no pixel rendering, no framebuffer yet (that's a later
- * phase). Registers repeat every 8 bytes through {@code $2000-$3FFF}.
+ * scroll/address registers, OAM DMA, and background rendering to a {@link #framebuffer()} of raw
+ * palette indices (0-63, not RGB yet - see {@code NesPalette} in a later phase). No sprites yet (a
+ * later phase). Registers repeat every 8 bytes through {@code $2000-$3FFF}.
  *
  * Runs at 3 dots per CPU cycle (NTSC), 341 dots/scanline, 262 scanlines/frame. Vblank starts at
  * scanline 241 dot 1 and clears at the start of the pre-render scanline (261, dot 1) - matching real
@@ -27,11 +30,12 @@ import com.rox.mem.OamDmaBus;
  * (staged by {@code $2005}/{@code $2006} until latched into {@code currentVramAddress}) are both
  * conceptually 15 bits laid out as {@code 0yyy NNYY YYYX XXXX} (fine Y, nametable select, coarse Y,
  * coarse X); {@link #fineXScroll} is 3 bits; {@link #writeToggle} is shared by
- * {@code $2005}/{@code $2006}, reset by a {@code $2002} read. This phase only implements the
- * register-level bit manipulation ({@code $2000}
- * nametable-select bits, {@code $2005} coarse/fine split, {@code $2006} address latching) - the
- * rendering-time-only updates (coarse-X increment during fetches, Y increment at dot 256, the
- * dot-257/280-304 horizontal/vertical copies) belong to the not-yet-written rendering pipeline.
+ * {@code $2005}/{@code $2006}, reset by a {@code $2002} read. Besides the register-level bit
+ * manipulation ({@code $2000} nametable-select bits, {@code $2005} coarse/fine split, {@code $2006}
+ * address latching), {@code currentVramAddress} also drives the background rendering pipeline's own
+ * rendering-time-only updates: coarse-X increment during fetches, Y increment at dot 256, and the
+ * dot-257/280-304 horizontal/vertical copies from {@code temporaryVramAddress} - see
+ * {@link #backgroundStep()}.
  *
  * Simplifications: no odd-frame dot skip (341*262 isn't evenly divisible by 3, so the exact CPU-cycle
  * offset of vblank drifts by fractions of a cycle frame to frame - harmless here, only the dot
@@ -41,42 +45,59 @@ import com.rox.mem.OamDmaBus;
  * and the 1-cycle difference doesn't affect correctness, only real-hardware-exact timing.
  */
 public class PPU implements ClockWatcher, OamDmaBus {
-    public static final int DOTS_PER_SCANLINE = 341;
-    public static final int SCANLINES_PER_FRAME = 262;
-    static final int DOTS_PER_CPU_CYCLE = 3;
-    static final int VBLANK_START_SCANLINE = 241;
-    static final int VBLANK_END_SCANLINE = 261;
-    static final int VBLANK_EDGE_DOT = 1;
+    public static final int FRAMEBUFFER_WIDTH = 256;
+    public static final int FRAMEBUFFER_HEIGHT = 240;
 
-    //341 dots/scanline isn't a multiple of the 3 dots/CPU-cycle rate, so the target dot doesn't
-    //always land on a tick boundary - round up (ceiling division) to the tick whose 3-dot span
-    //contains it. advanceDot() itself checks after every individual dot, not just per tick(), so
-    //this only matters for computing these two "how many ticks until X" constants, not correctness.
-    /** CPU ticks from power-on/reset until vblank first starts - exact, useful for tests. */
-    static final int TICKS_UNTIL_VBLANK_START =
-            ceilingDivide(VBLANK_START_SCANLINE * DOTS_PER_SCANLINE + VBLANK_EDGE_DOT, DOTS_PER_CPU_CYCLE);
-    /** CPU ticks from power-on/reset until vblank first clears (pre-render scanline). */
-    static final int TICKS_UNTIL_VBLANK_END =
-            ceilingDivide(VBLANK_END_SCANLINE * DOTS_PER_SCANLINE + VBLANK_EDGE_DOT, DOTS_PER_CPU_CYCLE);
+    /**
+     * Where things fall on the 341-dot/scanline, 262-scanline/frame grid: scanlines 0-239 are visible,
+     * 240 is post-render (idle), 241-260 are vertical blank, 261 is the pre-render scanline.
+     * {@code DOTS_PER_SCANLINE}/{@code SCANLINES_PER_FRAME} are public since the debug viewer's
+     * {@code BeamPositionPanel} draws against them directly; everything else here is {@code PPU}-internal.
+     */
+    public static final class FrameTiming {
+        public static final int DOTS_PER_SCANLINE = 341;
+        public static final int SCANLINES_PER_FRAME = 262;
+        static final int DOTS_PER_CPU_CYCLE = 3;
+        static final int VBLANK_START_SCANLINE = 241;
+        static final int VBLANK_END_SCANLINE = 261;
+        static final int VBLANK_EDGE_DOT = 1;
+        static final int VISIBLE_SCANLINE_MAX = 239;
 
-    private static int ceilingDivide(final int numerator, final int denominator){
-        return (numerator + denominator - 1) / denominator;
+        //341 dots/scanline isn't a multiple of the 3 dots/CPU-cycle rate, so the target dot doesn't
+        //always land on a tick boundary - round up (ceiling division) to the tick whose 3-dot span
+        //contains it. advanceDot() itself checks after every individual dot, not just per tick(), so
+        //this only matters for computing these two "how many ticks until X" constants, not correctness.
+        /** CPU ticks from power-on/reset until vblank first starts - exact, useful for tests. */
+        static final int TICKS_UNTIL_VBLANK_START =
+                ceilingDivide(VBLANK_START_SCANLINE * DOTS_PER_SCANLINE + VBLANK_EDGE_DOT, DOTS_PER_CPU_CYCLE);
+        /** CPU ticks from power-on/reset until vblank first clears (pre-render scanline). */
+        static final int TICKS_UNTIL_VBLANK_END =
+                ceilingDivide(VBLANK_END_SCANLINE * DOTS_PER_SCANLINE + VBLANK_EDGE_DOT, DOTS_PER_CPU_CYCLE);
+
+        private static int ceilingDivide(final int numerator, final int denominator){
+            return (numerator + denominator - 1) / denominator;
+        }
+
+        private FrameTiming(){
+        }
     }
 
-    private static final int REGISTER_ADDRESS_MASK = 0x07;
-    private static final int PPUCTRL = 0x00;
-    private static final int PPUMASK = 0x01;
-    private static final int PPUSTATUS = 0x02;
-    private static final int OAMADDR = 0x03;
-    private static final int OAMDATA = 0x04;
-    private static final int PPUSCROLL = 0x05;
-    private static final int PPUADDR = 0x06;
-    private static final int PPUDATA = 0x07;
+    /** {@code $2000-$2007}'s CPU-bus offsets - registers repeat every 8 bytes through {@code $2000-$3FFF}. */
+    private static final class RegisterAddress {
+        static final int MASK = 0x07;
+        static final int PPUCTRL = 0x00;
+        static final int PPUMASK = 0x01;
+        static final int PPUSTATUS = 0x02;
+        static final int OAMADDR = 0x03;
+        static final int OAMDATA = 0x04;
+        static final int PPUSCROLL = 0x05;
+        static final int PPUADDR = 0x06;
+        static final int PPUDATA = 0x07;
 
-    private static final int NMI_ENABLE_BIT = 0x80;
-    private static final int VRAM_INCREMENT_BIT = 0x04;
-    private static final int VRAM_INCREMENT_32 = 32;
-    private static final int VRAM_INCREMENT_1 = 1;
+        private RegisterAddress(){
+        }
+    }
+
     private static final int VBLANK_STATUS_BIT = 0x80;
 
     private static final int OAM_SIZE = 0x100;
@@ -84,7 +105,6 @@ public class PPU implements ClockWatcher, OamDmaBus {
     private static final int VRAM_ADDRESS_MASK = 0x3FFF;
     private static final int LOOPY_REGISTER_MASK = 0x7FFF;
     private static final int ADDRESS_HIGH_BYTE_SHIFT = 8;
-    private static final int BYTE_MASK = 0xFF;
 
     private static final int CHR_END_ADDRESS = 0x2000; //exclusive - $0000-$1FFF
     private static final int PALETTE_START_ADDRESS = 0x3F00; //inclusive - $3F00-$3FFF
@@ -115,6 +135,47 @@ public class PPU implements ClockWatcher, OamDmaBus {
 
     private static final int OAM_DMA_STALL_CYCLES = 514;
 
+    //background rendering pipeline (nesdev's standard 8-dot tile-fetch cycle + shift registers),
+    //verified dot-for-dot against nesdev's PPU_scrolling/PPU_rendering/PPU_palettes wiki pages
+    private static final int TILE_FETCH_GROUP_DOTS = 8;
+    private static final int MAIN_FETCH_REGION_END_DOT = 256; //dots 1-256
+    private static final int HORIZONTAL_COPY_DOT = 257;
+    private static final int PREFETCH_REGION_START_DOT = 321;
+    private static final int PREFETCH_REGION_END_DOT = 336; //dots 321-336: next scanline's first 2 tiles
+    private static final int PREFETCH_RELOAD_DOT = 337; //reloads the 2nd prefetched tile's data
+    private static final int VERTICAL_COPY_START_DOT = 280;
+    private static final int VERTICAL_COPY_END_DOT = 304; //pre-render only, dots 280-304 inclusive
+
+    private static final int TILE_BYTES = 16; //8-byte low bitplane + 8-byte high bitplane
+    private static final int PATTERN_HIGH_PLANE_OFFSET = 8;
+
+    private static final int SHIFT_REGISTER_MASK = 0xFFFF;
+    private static final int SHIFT_REGISTER_LOW_BYTE_CLEAR_MASK = 0xFF00;
+    private static final int PIXEL_MUX_MSB = 0x8000;
+
+    private static final int NAMETABLE_BASE_ADDRESS = 0x2000;
+    private static final int NAMETABLE_FETCH_ADDRESS_MASK = 0x0FFF;
+    private static final int ATTRIBUTE_BASE_ADDRESS = 0x23C0;
+    private static final int ATTRIBUTE_NAMETABLE_MASK = 0x0C00;
+    private static final int ATTRIBUTE_COARSE_Y_SHIFT_IN_ADDRESS = 4;
+    private static final int ATTRIBUTE_COARSE_Y_ADDRESS_MASK = 0x38;
+    private static final int ATTRIBUTE_COARSE_X_SHIFT_IN_ADDRESS = 2;
+    private static final int ATTRIBUTE_COARSE_X_ADDRESS_MASK = 0x07;
+    private static final int ATTRIBUTE_QUADRANT_BIT = 0x02;
+    private static final int ATTRIBUTE_GROUP_MASK = 0x03;
+
+    private static final int COARSE_X_MAX = 31; //wraps to 0 + toggles the nametable-X bit
+    private static final int NAMETABLE_X_TOGGLE_BIT = 1 << NAMETABLE_SELECT_SHIFT; //bit 10 = 0x0400
+    private static final int NAMETABLE_Y_TOGGLE_BIT = 1 << (NAMETABLE_SELECT_SHIFT + 1); //bit 11 = 0x0800
+    private static final int FINE_Y_FULL_MASK = FINE_Y_MASK << FINE_Y_SHIFT; //0x7000
+    private static final int COARSE_Y_WRAP_WITH_TOGGLE = 29; //last real row of tiles
+    private static final int COARSE_Y_WRAP_WITHOUT_TOGGLE = 31; //attribute-table rows, no nametable toggle
+    private static final int HORIZONTAL_COPY_MASK = COARSE_X_MASK | NAMETABLE_X_TOGGLE_BIT; //0x041F
+    private static final int VERTICAL_COPY_MASK = FINE_Y_FULL_MASK | NAMETABLE_Y_TOGGLE_BIT
+            | (COARSE_Y_MASK << COARSE_Y_SHIFT); //0x7BE0
+
+    private static final int PALETTE_COLOR_MASK = 0x3F; //6-bit NES master-palette index (0-63)
+
     private final Cartridge cartridge;
 
     private final int[] oam = new int[OAM_SIZE];
@@ -127,13 +188,11 @@ public class PPU implements ClockWatcher, OamDmaBus {
     private int scanline;
 
     private boolean vblankFlag;
-    private boolean nmiEnabled;
     private boolean previousNmiLine;
     private boolean nmiEdgePending;
 
-    private int controlRegister;
-    private int maskRegister;
-    private int vramIncrement = VRAM_INCREMENT_1;
+    private PPUControlRegister controlRegister = new PPUControlRegister(0x0);
+    private PPUMaskRegister maskRegister = new PPUMaskRegister(0x0);
     private int oamAddress;
 
     private boolean writeToggle; //shared $2005/$2006 write toggle
@@ -144,6 +203,23 @@ public class PPU implements ClockWatcher, OamDmaBus {
 
     private boolean oamDmaPending;
 
+    /** One raw palette-RAM index (0-63) per pixel, not RGB yet - see {@code NesPalette} in a later phase. */
+    private final int[] framebuffer = new int[FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT];
+    private boolean frameReady;
+
+    //two tiles' worth of pattern/attribute data, shifted left 1 bit per dot; fineXScroll selects
+    //which bit each pixel is drawn from (see drawPixel())
+    private int bgPatternShiftLow;
+    private int bgPatternShiftHigh;
+    private int bgAttributeShiftLow;
+    private int bgAttributeShiftHigh;
+    //latches for the tile currently being fetched (2 tiles ahead of what's being drawn), folded
+    //into the shift registers' low byte by reloadShiftRegisters()
+    private int nextTileId;
+    private int nextTilePaletteGroup; //2 bits (0-3)
+    private int nextPatternLowByte;
+    private int nextPatternHighByte;
+
     public PPU(final Cartridge cartridge){
         this.cartridge = cartridge;
     }
@@ -151,25 +227,232 @@ public class PPU implements ClockWatcher, OamDmaBus {
     /** CPU-cycle clock: the PPU itself runs at 3x this rate (once per dot, 3 dots per CPU cycle). */
     @Override
     public void tick(){
-        for (int i = 0; i < DOTS_PER_CPU_CYCLE; i++){
+        for (int i = 0; i < FrameTiming.DOTS_PER_CPU_CYCLE; i++){
             advanceDot();
         }
     }
 
     private void advanceDot(){
         dot++;
-        if (dot >= DOTS_PER_SCANLINE){
+        if (dot >= FrameTiming.DOTS_PER_SCANLINE){
             dot = 0;
             scanline++;
-            if (scanline >= SCANLINES_PER_FRAME){
+            if (scanline >= FrameTiming.SCANLINES_PER_FRAME){
                 scanline = 0;
             }
         }
-        if (scanline == VBLANK_START_SCANLINE && dot == VBLANK_EDGE_DOT){
+        if (scanline == FrameTiming.VBLANK_START_SCANLINE && dot == FrameTiming.VBLANK_EDGE_DOT){
             setVblankFlag(true);
-        } else if (scanline == VBLANK_END_SCANLINE && dot == VBLANK_EDGE_DOT){
+            frameReady = true;
+        } else if (scanline == FrameTiming.VBLANK_END_SCANLINE && dot == FrameTiming.VBLANK_EDGE_DOT){
             setVblankFlag(false);
         }
+        backgroundStep();
+    }
+
+    /** True exactly once per frame (set at scanline 241 dot 1) - mirrors {@link #consumeNmiEdge()}'s one-shot pattern. */
+    public boolean consumeFrameReady(){
+        if (frameReady){
+            frameReady = false;
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Runs on every dot of every visible (0-239) and pre-render (261) scanline. A pixel is drawn on
+     * every dot 1-256 of a visible scanline regardless of whether rendering is enabled (falling back to
+     * the backdrop colour when it isn't); the fetch/shift/scroll machinery below that only runs when
+     * rendering is enabled - real hardware freezes the v register entirely otherwise.
+     *
+     * <p>The shift registers shift one dot <em>later</em> than the fetch switch's own dot range in each
+     * region - dots 2-257 (not 1-256) and 322-337 (not 321-336) - and that shift happens <em>before</em>
+     * this dot's pixel is drawn, not after: dot 1 draws directly from whatever the previous scanline's
+     * prefetch already left sitting in the registers, with no shift of its own first. Getting either of
+     * those backwards (shifting on the same 1-256/321-336 range the fetch switch uses, or drawing before
+     * shifting) is a real, easy-to-make off-by-one - it shows up as the whole background shifted one
+     * pixel to the right - caught here by simulating the exact algorithm against known CHR/nametable
+     * fixtures before trusting it, not just by re-reading nesdev's timing diagram more carefully.
+     */
+    private void backgroundStep(){
+        if (scanline > FrameTiming.VISIBLE_SCANLINE_MAX && scanline != FrameTiming.VBLANK_END_SCANLINE){
+            return;
+        }
+
+        final boolean renderingEnabled = renderingEnabled();
+        if (renderingEnabled){
+            final boolean inShiftRange = (dot >= 2 && dot <= HORIZONTAL_COPY_DOT)
+                    || (dot > PREFETCH_REGION_START_DOT && dot <= PREFETCH_RELOAD_DOT);
+            if (inShiftRange){
+                shiftBackgroundShiftRegisters();
+            }
+        }
+
+        if (dot >= 1 && dot <= MAIN_FETCH_REGION_END_DOT && scanline <= FrameTiming.VISIBLE_SCANLINE_MAX){
+            drawPixel(dot - 1, scanline);
+        }
+
+        if (!renderingEnabled){
+            return;
+        }
+
+        final boolean inMainFetchRegion = dot >= 1 && dot <= MAIN_FETCH_REGION_END_DOT;
+        final boolean inPrefetchRegion = dot >= PREFETCH_REGION_START_DOT && dot <= PREFETCH_REGION_END_DOT;
+        if (inMainFetchRegion || inPrefetchRegion){
+            fetchStep();
+        }
+        if (dot == MAIN_FETCH_REGION_END_DOT){
+            incrementFineY();
+        }
+        if (dot == HORIZONTAL_COPY_DOT){
+            reloadShiftRegisters();
+            copyHorizontalBits();
+        }
+        if (dot == PREFETCH_RELOAD_DOT){
+            reloadShiftRegisters();
+        }
+        if (scanline == FrameTiming.VBLANK_END_SCANLINE && dot >= VERTICAL_COPY_START_DOT && dot <= VERTICAL_COPY_END_DOT){
+            copyVerticalBits();
+        }
+    }
+
+    /**
+     * The repeating 8-dot tile fetch (NT byte, attribute byte, pattern low, pattern high, coarse-X
+     * increment) - runs during both the main fetch region (dots 1-256) and the next scanline's 2-tile
+     * prefetch region (dots 321-336). Reload is skipped on the very first dot of either region (dot 1,
+     * dot 321): the previous group's data was already folded in by {@link #backgroundStep()}'s explicit
+     * dot-257/dot-337 reloads, so reloading again here would stomp the shift registers' just-shifted low
+     * byte with stale data instead of letting it drain into the high byte - verified against nesdev's own
+     * reload-cadence documentation (ticks 9, 17, ..., 257) before trusting this by-construction reasoning.
+     */
+    private void fetchStep(){
+        switch ((dot - 1) % TILE_FETCH_GROUP_DOTS){
+            case 0 -> {
+                if (dot != 1 && dot != PREFETCH_REGION_START_DOT){
+                    reloadShiftRegisters();
+                }
+                nextTileId = readMemory(NAMETABLE_BASE_ADDRESS | (currentVramAddress & NAMETABLE_FETCH_ADDRESS_MASK));
+            }
+            case 2 -> nextTilePaletteGroup = fetchAttributePaletteGroup();
+            case 4 -> nextPatternLowByte = fetchPatternByte(0);
+            case 6 -> nextPatternHighByte = fetchPatternByte(PATTERN_HIGH_PLANE_OFFSET);
+            case 7 -> incrementCoarseX();
+            default -> { }
+        }
+    }
+
+    /** The attribute byte's 2x2 grid of 2-bit palette-group values, indexed by which quadrant coarse X/Y falls in. */
+    private int fetchAttributePaletteGroup(){
+        final int attributeAddress = ATTRIBUTE_BASE_ADDRESS
+                | (currentVramAddress & ATTRIBUTE_NAMETABLE_MASK)
+                | ((currentVramAddress >> ATTRIBUTE_COARSE_Y_SHIFT_IN_ADDRESS) & ATTRIBUTE_COARSE_Y_ADDRESS_MASK)
+                | ((currentVramAddress >> ATTRIBUTE_COARSE_X_SHIFT_IN_ADDRESS) & ATTRIBUTE_COARSE_X_ADDRESS_MASK);
+        final int attributeByte = readMemory(attributeAddress);
+        final int coarseX = currentVramAddress & COARSE_X_MASK;
+        final int coarseY = (currentVramAddress >> COARSE_Y_SHIFT) & COARSE_Y_MASK;
+        final int quadrantShift = ((coarseY & ATTRIBUTE_QUADRANT_BIT) << 1) | (coarseX & ATTRIBUTE_QUADRANT_BIT);
+        return (attributeByte >> quadrantShift) & ATTRIBUTE_GROUP_MASK;
+    }
+
+    private int fetchPatternByte(final int planeOffset){
+        final int fineY = (currentVramAddress >> FINE_Y_SHIFT) & FINE_Y_MASK;
+        return readMemory(controlRegister.backgroundPatternTableBase() + nextTileId * TILE_BYTES + fineY + planeOffset);
+    }
+
+    /** Folds the latched tile's data into the shift registers' low byte - the high byte drains from the previous tile. */
+    private void reloadShiftRegisters(){
+        bgPatternShiftLow = (bgPatternShiftLow & SHIFT_REGISTER_LOW_BYTE_CLEAR_MASK) | nextPatternLowByte;
+        bgPatternShiftHigh = (bgPatternShiftHigh & SHIFT_REGISTER_LOW_BYTE_CLEAR_MASK) | nextPatternHighByte;
+        //the 2-bit palette group is constant for all 8 pixels of a tile, so it's broadcast across a
+        //whole byte (all-1s or all-0s per bit) rather than genuinely tracking 8 individual bits - a
+        //well-known, behaviourally-identical simplification of real hardware's 1-bit-latch design
+        final int attributeLowFill = (nextTilePaletteGroup & 0x01) != 0 ? BYTE_MASK : 0;
+        final int attributeHighFill = (nextTilePaletteGroup & 0x02) != 0 ? BYTE_MASK : 0;
+        bgAttributeShiftLow = (bgAttributeShiftLow & SHIFT_REGISTER_LOW_BYTE_CLEAR_MASK) | attributeLowFill;
+        bgAttributeShiftHigh = (bgAttributeShiftHigh & SHIFT_REGISTER_LOW_BYTE_CLEAR_MASK) | attributeHighFill;
+    }
+
+    private void shiftBackgroundShiftRegisters(){
+        bgPatternShiftLow = (bgPatternShiftLow << 1) & SHIFT_REGISTER_MASK;
+        bgPatternShiftHigh = (bgPatternShiftHigh << 1) & SHIFT_REGISTER_MASK;
+        bgAttributeShiftLow = (bgAttributeShiftLow << 1) & SHIFT_REGISTER_MASK;
+        bgAttributeShiftHigh = (bgAttributeShiftHigh << 1) & SHIFT_REGISTER_MASK;
+    }
+
+    /** nesdev's standard coarse-X increment: wraps at 31, toggling the horizontal nametable-select bit. */
+    private void incrementCoarseX(){
+        if ((currentVramAddress & COARSE_X_MASK) == COARSE_X_MAX){
+            currentVramAddress = (currentVramAddress & ~COARSE_X_MASK) ^ NAMETABLE_X_TOGGLE_BIT;
+        } else {
+            currentVramAddress = (currentVramAddress + 1) & LOOPY_REGISTER_MASK;
+        }
+    }
+
+    /**
+     * nesdev's standard fine/coarse-Y increment (dot 256 only): fine Y wraps into coarse Y, which
+     * itself wraps at 29 (the real last row of tiles, toggling the vertical nametable-select bit) - but
+     * at 31 (a coarse Y a game deliberately set out of bounds, into the attribute table) wraps to 0
+     * *without* toggling the nametable bit, since that out-of-bounds value was never really "on" the
+     * next nametable to begin with.
+     */
+    private void incrementFineY(){
+        if ((currentVramAddress & FINE_Y_FULL_MASK) != FINE_Y_FULL_MASK){
+            currentVramAddress = (currentVramAddress + (1 << FINE_Y_SHIFT)) & LOOPY_REGISTER_MASK;
+            return;
+        }
+        currentVramAddress &= ~FINE_Y_FULL_MASK;
+        int coarseY = (currentVramAddress >> COARSE_Y_SHIFT) & COARSE_Y_MASK;
+        if (coarseY == COARSE_Y_WRAP_WITH_TOGGLE){
+            coarseY = 0;
+            currentVramAddress ^= NAMETABLE_Y_TOGGLE_BIT;
+        } else if (coarseY == COARSE_Y_WRAP_WITHOUT_TOGGLE){
+            coarseY = 0;
+        } else {
+            coarseY++;
+        }
+        currentVramAddress = ((currentVramAddress & COARSE_Y_CLEAR_MASK) | (coarseY << COARSE_Y_SHIFT)) & LOOPY_REGISTER_MASK;
+    }
+
+    /** hori(v)=hori(t): copies coarse X + the horizontal nametable-select bit, dot 257 only. */
+    private void copyHorizontalBits(){
+        currentVramAddress = ((currentVramAddress & ~HORIZONTAL_COPY_MASK)
+                | (temporaryVramAddress & HORIZONTAL_COPY_MASK)) & LOOPY_REGISTER_MASK;
+    }
+
+    /** vert(v)=vert(t): copies fine Y + coarse Y + the vertical nametable-select bit, pre-render dots 280-304. */
+    private void copyVerticalBits(){
+        currentVramAddress = ((currentVramAddress & ~VERTICAL_COPY_MASK)
+                | (temporaryVramAddress & VERTICAL_COPY_MASK)) & LOOPY_REGISTER_MASK;
+    }
+
+    private boolean renderingEnabled(){
+        return maskRegister.renderingEnabled();
+    }
+
+    /**
+     * Resolves one framebuffer pixel from the current shift-register state, selected by
+     * {@link #fineXScroll}. Falls back to the backdrop colour (palette RAM index 0, i.e. {@code $3F00})
+     * when background rendering is off, the pixel is in the disabled left-8px clip region, or the
+     * decoded pattern value is 0 (transparent) - real hardware's "universal background colour" quirk:
+     * a transparent pixel always shows {@code $3F00} regardless of which attribute palette group was
+     * active, never $3F04/$3F08/$3F0C even though those cells hold distinct, independently
+     * readable/writable data.
+     */
+    private void drawPixel(final int x, final int y){
+        final boolean backgroundVisible = maskRegister.showBackground() && (x >= 8 || maskRegister.showBackgroundLeft());
+
+        int paletteRamIndex = 0; //the universal backdrop colour, $3F00
+        if (backgroundVisible){
+            final int bitMux = PIXEL_MUX_MSB >> fineXScroll;
+            final int patternPixel = (((bgPatternShiftHigh & bitMux) != 0) ? 2 : 0)
+                    | (((bgPatternShiftLow & bitMux) != 0) ? 1 : 0);
+            if (patternPixel != 0){
+                final int paletteGroup = (((bgAttributeShiftHigh & bitMux) != 0) ? 2 : 0)
+                        | (((bgAttributeShiftLow & bitMux) != 0) ? 1 : 0);
+                paletteRamIndex = resolvePaletteIndex(PALETTE_START_ADDRESS + (paletteGroup << 2) + patternPixel);
+            }
+        }
+        framebuffer[y * FRAMEBUFFER_WIDTH + x] = paletteRam[paletteRamIndex] & PALETTE_COLOR_MASK;
     }
 
     private void setVblankFlag(final boolean asserted){
@@ -179,7 +462,7 @@ public class PPU implements ClockWatcher, OamDmaBus {
 
     /** NMI is a level (vblank && enabled) with edge detection, not a one-shot check at vblank start. */
     private void updateNmiLine(){
-        final boolean currentNmiLine = vblankFlag && nmiEnabled;
+        final boolean currentNmiLine = vblankFlag && controlRegister.nmiEnabled();
         if (currentNmiLine && !previousNmiLine){
             nmiEdgePending = true;
         }
@@ -197,46 +480,39 @@ public class PPU implements ClockWatcher, OamDmaBus {
 
     @Override
     public int read(final int address){
-        return switch (address & REGISTER_ADDRESS_MASK){
-            case PPUSTATUS -> readStatusRegister();
-            case OAMDATA -> oam[oamAddress];
-            case PPUDATA -> readDataRegister();
+        return switch (address & RegisterAddress.MASK){
+            case RegisterAddress.PPUSTATUS -> readStatusRegister();
+            case RegisterAddress.OAMDATA -> oam[oamAddress];
+            case RegisterAddress.PPUDATA -> readDataRegister();
             default -> 0; //write-only registers: real hardware returns open bus, unmodeled here
         };
     }
 
     @Override
     public void write(final int address, final int value){
-        switch (address & REGISTER_ADDRESS_MASK){
-            case PPUCTRL -> writeControlRegister(value);
-            case PPUMASK -> maskRegister = value & BYTE_MASK;
-            case OAMADDR -> oamAddress = value & BYTE_MASK;
-            case OAMDATA -> writeOamData(value);
-            case PPUSCROLL -> writeScrollRegister(value);
-            case PPUADDR -> writeAddressRegister(value);
-            case PPUDATA -> writeDataRegister(value);
+        switch (address & RegisterAddress.MASK){
+            case RegisterAddress.PPUCTRL -> writeControlRegister(value);
+            case RegisterAddress.PPUMASK -> maskRegister = new PPUMaskRegister(value);
+            case RegisterAddress.OAMADDR -> oamAddress = value & BYTE_MASK;
+            case RegisterAddress.OAMDATA -> writeOamData(value);
+            case RegisterAddress.PPUSCROLL -> writeScrollRegister(value);
+            case RegisterAddress.PPUADDR -> writeAddressRegister(value);
+            case RegisterAddress.PPUDATA -> writeDataRegister(value);
             default -> { }
         }
     }
 
     /**
-     * Handle a $2000 write.
-     *
-     * Register: VPHB SINN
-     * V (bit 7): NMI enable
-     * I (bit 2): VRAM address increment per $2007 access (0=1, 1=32)
-     * NN (bits 0-1): nametable select, latched into t's nametable-select bits (10-11) - takes effect
-     * the next time v is reloaded from t (a $2006 second write, or the rendering pipeline's own
-     * horizontal/vertical copies).
-     * Remaining bits (sprite/background pattern table, sprite size, PPU master/slave) captured in
-     * {@link #controlRegister()} but unused - no rendering yet.
+     * Handle a $2000 write - see {@link PPUControlRegister} for the full bit layout. Bit-level decoding
+     * lives there; this method's own remaining concern is the nametable-select bits' side effect on the
+     * loopy {@code t} register (latched into its nametable-select bits, 10-11) - takes effect the next
+     * time {@code v} is reloaded from {@code t} (a $2006 second write, or the rendering pipeline's own
+     * horizontal/vertical copies) - and re-checking the NMI line, since bit 7 can change it.
      */
     private void writeControlRegister(final int value){
-        controlRegister = value & BYTE_MASK;
-        nmiEnabled = (value & NMI_ENABLE_BIT) != 0;
-        vramIncrement = (value & VRAM_INCREMENT_BIT) != 0 ? VRAM_INCREMENT_32 : VRAM_INCREMENT_1;
+        controlRegister = new PPUControlRegister(value);
         temporaryVramAddress = (temporaryVramAddress & NAMETABLE_SELECT_CLEAR_MASK)
-                | ((value & NAMETABLE_SELECT_MASK) << NAMETABLE_SELECT_SHIFT);
+                | (controlRegister.nametableSelect() << NAMETABLE_SELECT_SHIFT);
         updateNmiLine();
     }
 
@@ -318,13 +594,13 @@ public class PPU implements ClockWatcher, OamDmaBus {
             result = readBuffer;
             readBuffer = readMemory(address);
         }
-        currentVramAddress = (currentVramAddress + vramIncrement) & LOOPY_REGISTER_MASK;
+        currentVramAddress = (currentVramAddress + controlRegister.vramIncrement()) & LOOPY_REGISTER_MASK;
         return result;
     }
 
     private void writeDataRegister(final int value){
         writeMemory(currentVramAddress & VRAM_ADDRESS_MASK, value);
-        currentVramAddress = (currentVramAddress + vramIncrement) & LOOPY_REGISTER_MASK;
+        currentVramAddress = (currentVramAddress + controlRegister.vramIncrement()) & LOOPY_REGISTER_MASK;
     }
 
     /** $0000-$1FFF CHR (cartridge pattern tables), $2000-$3EFF nametables (mirrored), $3F00-$3FFF palette. */
@@ -396,11 +672,16 @@ public class PPU implements ClockWatcher, OamDmaBus {
     }
 
     public int controlRegister(){
+        return controlRegister.rawValue();
+    }
+
+    /** The decoded $2000 bits (NMI enable, pattern table selects, sprite size, nametable select, ...) - see {@link PPUControlRegister}. */
+    public PPUControlRegister controlRegisterDecoded(){
         return controlRegister;
     }
 
     public int maskRegister(){
-        return maskRegister;
+        return maskRegister.rawValue();
     }
 
     /** Reconstructs the original $2005 first-write byte value from the coarse and fine X scroll. */
@@ -455,5 +736,10 @@ public class PPU implements ClockWatcher, OamDmaBus {
     /** Defensive copy - callers must not be able to mutate OAM behind the PPU's back. */
     public int[] oamSnapshot(){
         return oam.clone();
+    }
+
+    /** Defensive copy - callers must not be able to mutate the framebuffer behind the PPU's back. */
+    public int[] framebuffer(){
+        return framebuffer.clone();
     }
 }
