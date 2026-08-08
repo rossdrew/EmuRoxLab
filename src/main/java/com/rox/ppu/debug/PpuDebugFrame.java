@@ -24,8 +24,8 @@ import java.util.function.Consumer;
 
 /**
  * A live PPU debug window: CHR pattern tables, the current nametable, OAM sprites, the actual rendered
- * background and a register/timing HUD, grayscale (no {@code NesPalette} until a later phase). A
- * passive observer of whatever
+ * background, a palette swatch grid and a register/timing HUD - all in real colour, via
+ * {@code NesPalette}. A passive observer of whatever
  * {@link PPU}/{@link Cartridge} it's currently {@link #rebind bound} to - it just repaints from their
  * current state on each timer tick, no hooks into the emulation clock/thread needed. Which ROM is
  * running is entirely the caller's concern: a File &gt; Open ROM... menu reports the chosen path to
@@ -69,6 +69,7 @@ public final class PpuDebugFrame extends JFrame {
         final NametableViewerPanel nametableViewer = new NametableViewerPanel(ppu, cartridge);
         final OamViewerPanel oamViewer = new OamViewerPanel(ppu, cartridge);
         final BackgroundViewerPanel backgroundViewer = new BackgroundViewerPanel(ppu);
+        final PaletteViewerPanel paletteViewer = new PaletteViewerPanel(ppu);
         final RegisterHudPanel registerHud = new RegisterHudPanel(ppu);
 
         final JPanel imagePanels = new JPanel(new GridLayout(2, 2));
@@ -77,9 +78,13 @@ public final class PpuDebugFrame extends JFrame {
         imagePanels.add(titled("OAM sprites", oamViewer));
         imagePanels.add(titled("Background", backgroundViewer));
 
+        final JPanel sidebar = new JPanel(new BorderLayout());
+        sidebar.add(titled("Registers", registerHud), BorderLayout.CENTER);
+        sidebar.add(titled("Palettes", paletteViewer), BorderLayout.SOUTH);
+
         final JPanel content = new JPanel(new BorderLayout());
         content.add(imagePanels, BorderLayout.CENTER);
-        content.add(titled("Registers", registerHud), BorderLayout.EAST);
+        content.add(sidebar, BorderLayout.EAST);
         setContentPane(content);
 
         refreshTimer = new Timer(REFRESH_MILLIS, e -> {
@@ -88,6 +93,7 @@ public final class PpuDebugFrame extends JFrame {
             nametableViewer.repaint();
             oamViewer.repaint();
             backgroundViewer.repaint();
+            paletteViewer.repaint();
         });
         refreshTimer.start();
 
