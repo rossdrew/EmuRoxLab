@@ -11,8 +11,8 @@ import static com.rox.ByteUtil.BYTE_MASK;
  * Headless NES PPU: correct vblank/NMI timing, full {@code $0000-$3FFF} PPU address space wiring
  * (CHR pattern tables via the cartridge, mirrored nametable RAM, palette RAM), the "loopy" internal
  * scroll/address registers, OAM DMA, and background rendering to a {@link #framebuffer()} of raw
- * palette indices (0-63, not RGB yet - see {@code NesPalette} in a later phase). No sprites yet (a
- * later phase). Registers repeat every 8 bytes through {@code $2000-$3FFF}.
+ * palette indices (0-63) - {@link #rgbFramebuffer()} converts those through {@link NesPalette} for
+ * actual display. No sprites yet (a later phase). Registers repeat every 8 bytes through {@code $2000-$3FFF}.
  *
  * Runs at 3 dots per CPU cycle (NTSC), 341 dots/scanline, 262 scanlines/frame. Vblank starts at
  * scanline 241 dot 1 and clears at the start of the pre-render scanline (261, dot 1) - matching real
@@ -741,5 +741,28 @@ public class PPU implements ClockWatcher, OamDmaBus {
     /** Defensive copy - callers must not be able to mutate the framebuffer behind the PPU's back. */
     public int[] framebuffer(){
         return framebuffer.clone();
+    }
+
+    /** {@link #framebuffer()}'s raw palette indices, converted through {@link NesPalette} to packed {@code 0xRRGGBB} colours. */
+    public int[] rgbFramebuffer(){
+        final int[] rgb = new int[framebuffer.length];
+        for (int i = 0; i < framebuffer.length; i++){
+            rgb[i] = NesPalette.rgb(framebuffer[i]);
+        }
+        return rgb;
+    }
+
+    /**
+     * A logical {@code $3F00-$3F1F} palette-RAM dump (32 entries), with the backdrop-mirror quirk
+     * ({@link #resolvePaletteIndex}) already resolved - unlike the physical {@link #paletteRam} array,
+     * where a mirrored address (e.g. {@code $3F10}) is never itself written, this returns what a real
+     * read of every address in that range would actually show.
+     */
+    public int[] paletteSnapshot(){
+        final int[] snapshot = new int[PALETTE_SIZE];
+        for (int i = 0; i < PALETTE_SIZE; i++){
+            snapshot[i] = paletteRam[resolvePaletteIndex(PALETTE_START_ADDRESS + i)];
+        }
+        return snapshot;
     }
 }
