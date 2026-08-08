@@ -153,6 +153,53 @@ public class PixelGridBufferedImageTest {
         assertEquals(BLACK, image.getRGB(0, 0) & 0xFFFFFF, "the plain overload must not be transparent by default");
     }
 
+    @Test
+    public void paletteColorDrawTileMapsEachTwoBitValueToTheGivenColour(){
+        final PixelGridBufferedImage image = new PixelGridBufferedImage(8, 8, BufferedImage.TYPE_INT_RGB);
+        final int[][] pixels = uniform(2);
+        final int[] paletteColors = {0x111111, 0x222222, 0x333333, 0x444444};
+
+        image.drawTile(pixels, 0, 0, false, false, false, paletteColors);
+
+        assertEquals(0x333333, image.getRGB(0, 0) & 0xFFFFFF, "pixel value 2 should use paletteColors[2]");
+        assertEquals(0x333333, image.getRGB(7, 7) & 0xFFFFFF);
+    }
+
+    @Test
+    public void paletteColorDrawTileHonoursFlipAndOffset(){
+        final PixelGridBufferedImage image = new PixelGridBufferedImage(16, 16, BufferedImage.TYPE_INT_RGB);
+        final int[][] pixels = markerAt(2, 3); //marker value 3, everything else 0
+        final int[] paletteColors = {0x000001, 0x000002, 0x000003, 0xABCDEF};
+
+        image.drawTile(pixels, 4, 4, true, false, false, paletteColors);
+
+        assertEquals(0xABCDEF, image.getRGB(4 + 4, 4 + 2) & 0xFFFFFF, "col 3 flips to column 7-3=4, offset by fromX/fromY");
+        assertEquals(0x000001, image.getRGB(4, 4) & 0xFFFFFF, "untouched cells use paletteColors[0], not black");
+    }
+
+    @Test
+    public void paletteColorDrawTileWithTransparentZeroLeavesExistingContentUntouched(){
+        final PixelGridBufferedImage image = new PixelGridBufferedImage(8, 8, BufferedImage.TYPE_INT_RGB);
+        image.setRGB(0, 0, WHITE);
+        final int[][] pixels = uniform(0);
+        final int[] paletteColors = {0x123456, 0, 0, 0};
+
+        image.drawTile(pixels, 0, 0, false, false, true, paletteColors);
+
+        assertEquals(WHITE, image.getRGB(0, 0) & 0xFFFFFF, "transparent zero must not overwrite what's underneath");
+    }
+
+    @Test
+    public void paletteColorDrawTileClipsAgainstImageBoundsWithoutThrowing(){
+        final PixelGridBufferedImage image = new PixelGridBufferedImage(4, 4, BufferedImage.TYPE_INT_RGB);
+        final int[][] pixels = uniform(1);
+        final int[] paletteColors = {0, 0x555555, 0, 0};
+
+        assertDoesNotThrow(() -> image.drawTile(pixels, 0, 0, false, false, false, paletteColors));
+
+        assertEquals(0x555555, image.getRGB(3, 3) & 0xFFFFFF, "in-bounds corner should still be drawn");
+    }
+
     /** An 8x8 grid, every pixel set to {@code value}. */
     private static int[][] uniform(final int value){
         final int[][] pixels = new int[8][8];

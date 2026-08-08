@@ -39,13 +39,15 @@ pitest {
     //excluded here - they're the pieces of this package that are pure, fully-testable functions;
     //ScaledImageDrawer itself is excluded since all it has left is 2 lines of unavoidable
     //Graphics2D/RenderingHints calls once CenteredScale's geometry math was pulled out of it)
-    //trailing "*" on PpuDebugViewerDemo also catches its anonymous WindowAdapter ($1)
+    //trailing "*" on PpuDebugViewerDemo/ChrViewerPanel also catches their anonymous inner classes
+    //(PpuDebugViewerDemo's WindowAdapter, ChrViewerPanel's canvas JPanel)
     excludedClasses.set(listOf(
             "com.rox.AudioSmokeDemo", "com.rox.RomAudioSmokeDemo", "com.rox.PpuDebugViewerDemo*",
-            "com.rox.ppu.debug.PpuDebugFrame", "com.rox.ppu.debug.ChrViewerPanel",
+            "com.rox.ppu.debug.PpuDebugFrame", "com.rox.ppu.debug.ChrViewerPanel*",
             "com.rox.ppu.debug.NametableViewerPanel", "com.rox.ppu.debug.OamViewerPanel",
             "com.rox.ppu.debug.BackgroundViewerPanel", "com.rox.ppu.debug.RegisterHudPanel",
-            "com.rox.ppu.debug.BeamPositionPanel", "com.rox.ppu.debug.ScaledImageDrawer"
+            "com.rox.ppu.debug.BeamPositionPanel", "com.rox.ppu.debug.ScaledImageDrawer",
+            "com.rox.ppu.debug.PaletteViewerPanel"
     ))
     threads.set(Runtime.getRuntime().availableProcessors())
     outputFormats.set(listOf("HTML", "XML"))
@@ -80,10 +82,11 @@ tasks.jacocoTestReport {
                         "com/rox/AudioSmokeDemo.class", "com/rox/RomAudioSmokeDemo.class",
                         "com/rox/PpuDebugViewerDemo.class", "com/rox/PpuDebugViewerDemo\$1.class",
                         "com/rox/ppu/debug/PpuDebugFrame.class",
-                        "com/rox/ppu/debug/ChrViewerPanel.class", "com/rox/ppu/debug/NametableViewerPanel.class",
+                        "com/rox/ppu/debug/ChrViewerPanel.class", "com/rox/ppu/debug/ChrViewerPanel\$1.class",
+                        "com/rox/ppu/debug/NametableViewerPanel.class",
                         "com/rox/ppu/debug/OamViewerPanel.class", "com/rox/ppu/debug/BackgroundViewerPanel.class",
                         "com/rox/ppu/debug/RegisterHudPanel.class", "com/rox/ppu/debug/BeamPositionPanel.class",
-                        "com/rox/ppu/debug/ScaledImageDrawer.class"
+                        "com/rox/ppu/debug/ScaledImageDrawer.class", "com/rox/ppu/debug/PaletteViewerPanel.class"
                 )
             }
         })

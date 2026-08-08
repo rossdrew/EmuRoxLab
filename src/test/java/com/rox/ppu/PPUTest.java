@@ -710,6 +710,70 @@ public class PPUTest {
         assertEquals(0, ppu.framebuffer()[0], "mutating a returned snapshot must not affect the PPU's own state");
     }
 
+    // --- Palette + colour (Phase 4) ---
+
+    @Test
+    public void rgbFramebufferIsTheDocumentedSize(){
+        assertEquals(PPU.FRAMEBUFFER_WIDTH * PPU.FRAMEBUFFER_HEIGHT, ppu.rgbFramebuffer().length);
+    }
+
+    @Test
+    public void rgbFramebufferConvertsEveryRawIndexThroughNesPalette(){
+        for (final int rgb : ppu.rgbFramebuffer()){
+            assertEquals(NesPalette.rgb(0), rgb, "the framebuffer starts all-zero (backdrop index)");
+        }
+    }
+
+    @Test
+    public void rgbFramebufferTracksTheUnderlyingPaletteIndices(){
+        writeChrTilePixelRow0(0, 0xFF, 0x00); //pixel value 1 everywhere
+        writeNametableTile(0, 0, 0);
+        writeBackgroundPaletteEntry(0, 1, 0x16);
+        writeAddress(0);
+        enableBackgroundRendering();
+
+        tickThroughScanline(1, 0);
+
+        assertEquals(NesPalette.rgb(0x16), ppu.rgbFramebuffer()[0]);
+    }
+
+    @Test
+    public void paletteSnapshotIsTheDocumentedSize(){
+        assertEquals(32, ppu.paletteSnapshot().length);
+    }
+
+    @Test
+    public void paletteSnapshotReflectsDirectlyWrittenEntries(){
+        writeAddress(0x3F01);
+        ppu.write(PPUDATA, 0x11);
+        writeAddress(0x3F1D);
+        ppu.write(PPUDATA, 0x2A);
+
+        final int[] snapshot = ppu.paletteSnapshot();
+        assertEquals(0x11, snapshot[0x01]);
+        assertEquals(0x2A, snapshot[0x1D]);
+    }
+
+    @Test
+    public void paletteSnapshotResolvesTheBackdropMirrorQuirkBothWays(){
+        writeAddress(0x3F00);
+        ppu.write(PPUDATA, 0x0F);
+        writeAddress(0x3F14);
+        ppu.write(PPUDATA, 0x21);
+
+        final int[] snapshot = ppu.paletteSnapshot();
+        assertEquals(0x0F, snapshot[0x10], "$3F10 mirrors $3F00's backdrop colour");
+        assertEquals(0x21, snapshot[0x04], "the mirror holds writing the other way round too");
+    }
+
+    @Test
+    public void paletteSnapshotIsADefensiveCopy(){
+        final int[] snapshot = ppu.paletteSnapshot();
+        snapshot[0] = 0xFF;
+
+        assertEquals(0, ppu.paletteSnapshot()[0], "mutating a returned snapshot must not affect the PPU's own state");
+    }
+
     // --- Background rendering (Phase 3) ---
 
     @Test

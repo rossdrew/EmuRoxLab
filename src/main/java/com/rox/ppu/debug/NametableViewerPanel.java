@@ -2,6 +2,7 @@ package com.rox.ppu.debug;
 
 import com.rox.cartridge.Cartridge;
 import com.rox.cartridge.Mirroring;
+import com.rox.ppu.NesPalette;
 import com.rox.ppu.PPU;
 
 import javax.swing.JPanel;
@@ -13,12 +14,13 @@ import java.awt.image.BufferedImage;
 
 /**
  * Renders all 4 logical nametables ({@code $2000}/{@code $2400}/{@code $2800}/{@code $2C00}) as a 2x2
- * grid of 32x30 tile grids (256x240 raw px each - the screen's own resolution), grayscale, decoded
+ * grid of 32x30 tile grids (256x240 raw px each - the screen's own resolution), in real colour, decoded
  * through whichever background pattern table {@code $2000} bit 4 currently selects. Quadrants that
  * alias the same physical 1KB bank (per the cartridge's {@link Mirroring} mode) render identical
- * content - that's correct, not a bug: on real hardware they *are* the same RAM. Attribute-table
- * palette groups are ignored entirely - no colour exists yet (a later phase), every tile is decoded as
- * raw 0-3 pixel values mapped to gray shades.
+ * content - that's correct, not a bug: on real hardware they *are* the same RAM. Each tile's own
+ * attribute-table palette group (a 2-bit value covering a 4x4-tile cell, same nesdev-standard quadrant
+ * selection {@code PPU}'s own background pipeline uses) picks its 4 colours, resolved through
+ * {@code NesPalette}.
  *
  * A green box marks the 256x240 section the game currently intends to display: {@code $2000}'s base
  * nametable plus the staged ({@code t}-register) scroll position. Not yet the live rendering-time
@@ -37,6 +39,12 @@ final class NametableViewerPanel extends JPanel {
     private static final int GRID_WIDTH_PX = TABLE_WIDTH_PX * 2;
     private static final int GRID_HEIGHT_PX = TABLE_HEIGHT_PX * 2;
     private static final int PHYSICAL_NAMETABLE_SIZE = 0x400;
+    private static final int ATTRIBUTE_TABLE_OFFSET = 0x3C0;
+    private static final int ATTRIBUTE_GROUP_SIZE = 4; //4x4 tiles share one attribute byte
+    private static final int ATTRIBUTE_TABLE_STRIDE = 8; //8 attribute bytes per row (32 tile columns / 4)
+    private static final int ATTRIBUTE_QUADRANT_BIT = 0x02;
+    private static final int ATTRIBUTE_GROUP_MASK = 0x03;
+    private static final int COLORS_PER_PALETTE = 4;
     private static final int SCALE = 1;
     private static final Color VIEWPORT_COLOR = Color.GREEN;
 
@@ -57,11 +65,12 @@ final class NametableViewerPanel extends JPanel {
 
     private BufferedImage render(){
         final int[] nametable = ppu.nametableSnapshot();
+        final int[] paletteSnapshot = ppu.paletteSnapshot();
         final int patternTableBase = ppu.controlRegisterDecoded().backgroundPatternTableBase();
 
         final PixelGridBufferedImage image = new PixelGridBufferedImage(GRID_WIDTH_PX, GRID_HEIGHT_PX, BufferedImage.TYPE_INT_RGB);
         for (int logicalTable = 0; logicalTable < 4; logicalTable++){
-            drawTable(image, nametable, patternTableBase, logicalTable);
+            drawTable(image, nametable, paletteSnapshot, patternTableBase, logicalTable);
         }
         drawViewportBox(image);
         return image;
@@ -69,6 +78,7 @@ final class NametableViewerPanel extends JPanel {
 
     private void drawTable(final PixelGridBufferedImage image,
                            final int[] nametable,
+                           final int[] paletteSnapshot,
                            final int patternTableBase,
                            final int logicalTable){
         final int physicalTableOffset = ppu.resolvePhysicalNametable(logicalTable) * PHYSICAL_NAMETABLE_SIZE;
@@ -79,13 +89,30 @@ final class NametableViewerPanel extends JPanel {
             for (int col = 0; col < TILE_COLUMNS; col++){
                 final int tileIndex = nametable[physicalTableOffset + row * TILE_COLUMNS + col];
                 final int[][] pixels = TileDecoder.decode(cartridge, patternTableBase, tileIndex);
+                final int[] tileColors = resolveBackgroundColors(nametable, paletteSnapshot, physicalTableOffset, col, row);
 
                 final int originX = quadrantOriginX + col * TILE_PX;
                 final int originY = quadrantOriginY + row * TILE_PX;
 
-                image.drawTile(pixels, originX, originY);
+                image.drawTile(pixels, originX, originY, false, false, false, tileColors);
             }
         }
+    }
+
+    /** This tile's real attribute-table palette group (same nesdev-standard quadrant selection as {@code PPU}'s own background pipeline), resolved through {@code NesPalette}. */
+    private static int[] resolveBackgroundColors(final int[] nametable, final int[] paletteSnapshot,
+                                                  final int physicalTableOffset, final int col, final int row){
+        final int attributeByte = nametable[physicalTableOffset + ATTRIBUTE_TABLE_OFFSET
+                + (row / ATTRIBUTE_GROUP_SIZE) * ATTRIBUTE_TABLE_STRIDE + (col / ATTRIBUTE_GROUP_SIZE)];
+        final int quadrantShift = ((row & ATTRIBUTE_QUADRANT_BIT) << 1) | (col & ATTRIBUTE_QUADRANT_BIT);
+        final int group = (attributeByte >> quadrantShift) & ATTRIBUTE_GROUP_MASK;
+
+        final int base = group * COLORS_PER_PALETTE;
+        final int[] colors = new int[COLORS_PER_PALETTE];
+        for (int i = 0; i < COLORS_PER_PALETTE; i++){
+            colors[i] = NesPalette.rgb(paletteSnapshot[base + i]);
+        }
+        return colors;
     }
 
     private void drawViewportBox(final BufferedImage image){

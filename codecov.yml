@@ -27,3 +27,4 @@ ignore:
   - "src/main/java/com/rox/ppu/debug/RegisterHudPanel.java"
   - "src/main/java/com/rox/ppu/debug/BeamPositionPanel.java"
   - "src/main/java/com/rox/ppu/debug/ScaledImageDrawer.java"
+  - "src/main/java/com/rox/ppu/debug/PaletteViewerPanel.java"
