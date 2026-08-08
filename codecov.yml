@@ -11,3 +11,19 @@ coverage:
         #AudioOutput's public constructor) and narrow defensive interrupt-retry catch blocks are
         #inherently hard to exercise in CI/from a unit test - accepted, not chased with contrived tests
         threshold: 5%
+
+#mirrors build.gradle.kts's pitest/jacoco excludedClasses/classDirectories lists: manual "run it and
+#look" Swing demo entry points and the debug-viewer panels they paint with, deliberately not held to
+#the unit-test coverage bar - see that file's own comment for why
+ignore:
+  - "src/main/java/com/rox/AudioSmokeDemo.java"
+  - "src/main/java/com/rox/RomAudioSmokeDemo.java"
+  - "src/main/java/com/rox/PpuDebugViewerDemo.java"
+  - "src/main/java/com/rox/ppu/debug/PpuDebugFrame.java"
+  - "src/main/java/com/rox/ppu/debug/ChrViewerPanel.java"
+  - "src/main/java/com/rox/ppu/debug/NametableViewerPanel.java"
+  - "src/main/java/com/rox/ppu/debug/OamViewerPanel.java"
+  - "src/main/java/com/rox/ppu/debug/BackgroundViewerPanel.java"
+  - "src/main/java/com/rox/ppu/debug/RegisterHudPanel.java"
+  - "src/main/java/com/rox/ppu/debug/BeamPositionPanel.java"
+  - "src/main/java/com/rox/ppu/debug/ScaledImageDrawer.java"
