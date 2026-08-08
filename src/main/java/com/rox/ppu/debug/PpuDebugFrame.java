@@ -65,7 +65,7 @@ public final class PpuDebugFrame extends JFrame {
             refreshTimer.stop();
         }
 
-        final ChrViewerPanel chrViewer = new ChrViewerPanel(cartridge);
+        final ChrViewerPanel chrViewer = new ChrViewerPanel(ppu, cartridge);
         final NametableViewerPanel nametableViewer = new NametableViewerPanel(ppu, cartridge);
         final OamViewerPanel oamViewer = new OamViewerPanel(ppu, cartridge);
         final BackgroundViewerPanel backgroundViewer = new BackgroundViewerPanel(ppu);
