@@ -203,7 +203,7 @@ public class PPU implements ClockWatcher, OamDmaBus {
 
     private boolean oamDmaPending;
 
-    /** One raw palette-RAM index (0-63) per pixel, not RGB yet - see {@code NesPalette} in a later phase. */
+    /** One raw palette-RAM index (0-63) per pixel - {@link #rgbFramebuffer()} converts these to real colour. */
     private final int[] framebuffer = new int[FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT];
     private boolean frameReady;
 
