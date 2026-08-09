@@ -4,6 +4,7 @@ import com.rox.cartridge.Cartridge;
 import com.rox.ppu.PPU;
 
 import javax.swing.BorderFactory;
+import javax.swing.JComboBox;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -78,9 +79,23 @@ public final class PpuDebugFrame extends JFrame {
         imagePanels.add(titled("OAM sprites", oamViewer));
         imagePanels.add(titled("Background", backgroundViewer));
 
+        //Registers and Palettes stacked would make the sidebar taller than the image-panel grid it sits
+        //beside, forcing the whole window past typical screen height - shown one at a time instead via
+        //this dropdown, CardLayout-switched, sized to match ChrViewerPanel's palette selector.
+        final String registersCard = "Registers";
+        final String palettesCard = "Palettes";
+        final JComboBox<String> sidebarViewSelector = new JComboBox<>(new String[]{palettesCard, registersCard});
+        sidebarViewSelector.setFont(sidebarViewSelector.getFont().deriveFont(ChrViewerPanel.SELECTOR_FONT_SIZE));
+
+        final JPanel sidebarCards = new JPanel(new CardLayout());
+        sidebarCards.add(titled("Palettes", paletteViewer), palettesCard);
+        sidebarCards.add(titled("Registers", registerHud), registersCard);
+        sidebarViewSelector.addActionListener(e ->
+                ((CardLayout) sidebarCards.getLayout()).show(sidebarCards, (String) sidebarViewSelector.getSelectedItem()));
+
         final JPanel sidebar = new JPanel(new BorderLayout());
-        sidebar.add(titled("Registers", registerHud), BorderLayout.CENTER);
-        sidebar.add(titled("Palettes", paletteViewer), BorderLayout.SOUTH);
+        sidebar.add(sidebarViewSelector, BorderLayout.NORTH);
+        sidebar.add(sidebarCards, BorderLayout.CENTER);
 
         final JPanel content = new JPanel(new BorderLayout());
         content.add(imagePanels, BorderLayout.CENTER);

@@ -8,6 +8,7 @@ import javax.swing.JComboBox;
 import javax.swing.JPanel;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.image.BufferedImage;
 
@@ -20,6 +21,11 @@ import java.awt.image.BufferedImage;
  * background palette 0.
  */
 final class ChrViewerPanel extends JPanel {
+    //matches the outsized scale of the rest of this window - Swing's default combo box font is
+    //unreadably small next to panels/HUD text rendered at that scale. Package-visible so
+    //PpuDebugFrame's own view-selector dropdown can match it.
+    static final float SELECTOR_FONT_SIZE = 32f;
+
     private static final int TILES_PER_ROW = 16;
     private static final int TILE_PX = 8;
     private static final int TABLE_PX = TILES_PER_ROW * TILE_PX;
@@ -30,7 +36,8 @@ final class ChrViewerPanel extends JPanel {
     private static final int COMPOSITE_WIDTH = TABLE_PX * 2 + PADDING * 3;
     private static final int COMPOSITE_HEIGHT = TABLE_PX + PADDING * 2;
     private static final int COLORS_PER_PALETTE = 4;
-    private static final String[] PALETTE_NAMES = {
+    //package-visible so PaletteViewerPanel's own selector lists the same 8 palettes, in the same order
+    static final String[] PALETTE_NAMES = {
             "Background 0", "Background 1", "Background 2", "Background 3",
             "Sprite 0", "Sprite 1", "Sprite 2", "Sprite 3",
     };
@@ -50,6 +57,7 @@ final class ChrViewerPanel extends JPanel {
         this.ppu = ppu;
         this.cartridge = cartridge;
         canvas.setPreferredSize(new Dimension(TABLE_PX * SCALE * 2 + PADDING * 3, TABLE_PX * SCALE + PADDING * 2));
+        paletteSelector.setFont(paletteSelector.getFont().deriveFont(SELECTOR_FONT_SIZE));
         setLayout(new BorderLayout());
         add(paletteSelector, BorderLayout.NORTH);
         add(canvas, BorderLayout.CENTER);
