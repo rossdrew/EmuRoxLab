@@ -10,17 +10,21 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.GridLayout;
-import java.awt.Graphics;
-import java.awt.image.BufferedImage;
 
 /**
  * All 8 of the PPU's palettes ({@code $3F00-$3F1F}) at once, one row per palette (background palettes
  * 0-3, then sprite palettes 0-3 - the same 8 names as {@link ChrViewerPanel}'s selector), each row
  * labelled to its left and gapped from its neighbours for readability. A header row along the top
- * numbers the 4 swatch columns, aligned with the swatches beneath it. Colours are resolved live from
- * {@link PPU#paletteSnapshot()} through {@code NesPalette}. Swatch 0 of every row is that palette's
- * shared "colour 0" entry - real hardware's backdrop-mirror quirk means it's the same for all 8
- * palettes, never independently set (see {@link PPU#paletteSnapshot()}'s own documentation).
+ * numbers the 4 swatch columns, aligned with the swatches beneath it - both the header and every row
+ * lay their 4 columns out with a plain {@link GridLayout} that always fills 100% of its available
+ * width, rather than one of them centering a scaled image within its own space, so the columns can't
+ * drift out of alignment regardless of how much extra width/height the sidebar ends up giving this
+ * panel. Colours are resolved live from {@link PPU#paletteSnapshot()} through {@code NesPalette} via
+ * {@link #refresh()}, called once per frame by {@link PpuDebugFrame}'s timer. Swatch 0 of each Sprite
+ * row mirrors swatch 0 of its corresponding Background row (Sprite 1's colour 0 is Background 1's, not
+ * Background 0's) - real hardware's backdrop-mirror quirk pairs each sprite palette with its
+ * same-numbered background palette, not all 8 with a single shared entry (see
+ * {@link PPU#paletteSnapshot()}'s own documentation).
  */
 final class PaletteViewerPanel extends JPanel {
     private static final int COLORS_PER_PALETTE = 4;
@@ -31,6 +35,7 @@ final class PaletteViewerPanel extends JPanel {
 
     private final PPU ppu;
     private final int labelColumnPx;
+    private final PaletteRow[] rows = new PaletteRow[ChrViewerPanel.PALETTE_NAMES.length];
 
     PaletteViewerPanel(final PPU ppu){
         this.ppu = ppu;
@@ -39,11 +44,22 @@ final class PaletteViewerPanel extends JPanel {
         setLayout(new BorderLayout());
         add(header(), BorderLayout.NORTH);
 
-        final JPanel rows = new JPanel(new GridLayout(ChrViewerPanel.PALETTE_NAMES.length, 1, 0, ROW_GAP_PX));
-        for (int paletteIndex = 0; paletteIndex < ChrViewerPanel.PALETTE_NAMES.length; paletteIndex++){
-            rows.add(new PaletteRow(ChrViewerPanel.PALETTE_NAMES[paletteIndex], paletteIndex));
+        final JPanel rowsPanel = new JPanel(new GridLayout(rows.length, 1, 0, ROW_GAP_PX));
+        for (int paletteIndex = 0; paletteIndex < rows.length; paletteIndex++){
+            rows[paletteIndex] = new PaletteRow(ChrViewerPanel.PALETTE_NAMES[paletteIndex]);
+            rowsPanel.add(rows[paletteIndex]);
         }
-        add(rows, BorderLayout.CENTER);
+        add(rowsPanel, BorderLayout.CENTER);
+
+        refresh();
+    }
+
+    /** Pulls the PPU's current palette RAM into every row's swatches - called once per frame, not on every repaint, since colours only change when the game writes new ones. */
+    void refresh(){
+        final int[] paletteSnapshot = ppu.paletteSnapshot();
+        for (int paletteIndex = 0; paletteIndex < rows.length; paletteIndex++){
+            rows[paletteIndex].refresh(paletteSnapshot, paletteIndex * COLORS_PER_PALETTE);
+        }
     }
 
     /** Width (in px) of the widest palette name at {@link #LABEL_FONT_SIZE} - keeps every row's label column, and the header's spacer above them, the same width so the swatch columns line up. */
@@ -77,39 +93,33 @@ final class PaletteViewerPanel extends JPanel {
         return header;
     }
 
-    private BufferedImage render(final int paletteIndex){
-        final int[] paletteSnapshot = ppu.paletteSnapshot();
-        final int base = paletteIndex * COLORS_PER_PALETTE;
-        final BufferedImage image = new BufferedImage(SWATCHES_WIDTH_PX, SWATCH_PX, BufferedImage.TYPE_INT_RGB);
-        final Graphics g2 = image.getGraphics();
-        for (int color = 0; color < COLORS_PER_PALETTE; color++){
-            final int rgb = NesPalette.rgb(paletteSnapshot[base + color]);
-            g2.setColor(new Color(rgb));
-            g2.fillRect(color * SWATCH_PX, 0, SWATCH_PX, SWATCH_PX);
-        }
-        g2.dispose();
-        return image;
-    }
-
     /** One palette's name label plus its 4-swatch strip, side by side. */
     private final class PaletteRow extends JPanel {
-        PaletteRow(final String name, final int paletteIndex){
+        private final JPanel[] swatches = new JPanel[COLORS_PER_PALETTE];
+
+        PaletteRow(final String name){
             final JLabel label = new JLabel(name);
             label.setFont(label.getFont().deriveFont(LABEL_FONT_SIZE));
             label.setPreferredSize(new Dimension(labelColumnPx, label.getPreferredSize().height));
 
-            final JPanel swatches = new JPanel(){
-                @Override
-                protected void paintComponent(final Graphics g){
-                    super.paintComponent(g);
-                    ScaledImageDrawer.drawCentered(g, render(paletteIndex), getWidth(), getHeight());
-                }
-            };
-            swatches.setPreferredSize(new Dimension(SWATCHES_WIDTH_PX, SWATCH_PX));
+            final JPanel swatchesPanel = new JPanel(new GridLayout(1, COLORS_PER_PALETTE));
+            swatchesPanel.setPreferredSize(new Dimension(SWATCHES_WIDTH_PX, SWATCH_PX));
+            for (int color = 0; color < COLORS_PER_PALETTE; color++){
+                final JPanel swatch = new JPanel();
+                swatch.setOpaque(true);
+                swatches[color] = swatch;
+                swatchesPanel.add(swatch);
+            }
 
             setLayout(new BorderLayout());
             add(label, BorderLayout.WEST);
-            add(swatches, BorderLayout.CENTER);
+            add(swatchesPanel, BorderLayout.CENTER);
+        }
+
+        void refresh(final int[] paletteSnapshot, final int base){
+            for (int color = 0; color < COLORS_PER_PALETTE; color++){
+                swatches[color].setBackground(new Color(NesPalette.rgb(paletteSnapshot[base + color])));
+            }
         }
     }
 }

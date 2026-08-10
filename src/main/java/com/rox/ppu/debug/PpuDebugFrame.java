@@ -108,7 +108,7 @@ public final class PpuDebugFrame extends JFrame {
             nametableViewer.repaint();
             oamViewer.repaint();
             backgroundViewer.repaint();
-            paletteViewer.repaint();
+            paletteViewer.refresh();
         });
         refreshTimer.start();
 
