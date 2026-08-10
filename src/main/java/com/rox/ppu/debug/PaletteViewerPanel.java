@@ -20,9 +20,11 @@ import java.awt.GridLayout;
  * width, rather than one of them centering a scaled image within its own space, so the columns can't
  * drift out of alignment regardless of how much extra width/height the sidebar ends up giving this
  * panel. Colours are resolved live from {@link PPU#paletteSnapshot()} through {@code NesPalette} via
- * {@link #refresh()}, called once per frame by {@link PpuDebugFrame}'s timer. Swatch 0 of every row is
- * that palette's shared "colour 0" entry - real hardware's backdrop-mirror quirk means it's the same
- * for all 8 palettes, never independently set (see {@link PPU#paletteSnapshot()}'s own documentation).
+ * {@link #refresh()}, called once per frame by {@link PpuDebugFrame}'s timer. Swatch 0 of each Sprite
+ * row mirrors swatch 0 of its corresponding Background row (Sprite 1's colour 0 is Background 1's, not
+ * Background 0's) - real hardware's backdrop-mirror quirk pairs each sprite palette with its
+ * same-numbered background palette, not all 8 with a single shared entry (see
+ * {@link PPU#paletteSnapshot()}'s own documentation).
  */
 final class PaletteViewerPanel extends JPanel {
     private static final int COLORS_PER_PALETTE = 4;
