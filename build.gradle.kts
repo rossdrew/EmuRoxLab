@@ -43,11 +43,12 @@ pitest {
     //(PpuDebugViewerDemo's WindowAdapter, ChrViewerPanel's canvas JPanel)
     excludedClasses.set(listOf(
             "com.rox.AudioSmokeDemo", "com.rox.RomAudioSmokeDemo", "com.rox.PpuDebugViewerDemo*",
+            "com.rox.RomVideoSmokeDemo",
             "com.rox.ppu.debug.PpuDebugFrame", "com.rox.ppu.debug.ChrViewerPanel*",
             "com.rox.ppu.debug.NametableViewerPanel", "com.rox.ppu.debug.OamViewerPanel",
             "com.rox.ppu.debug.ScreenViewerPanel", "com.rox.ppu.debug.RegisterHudPanel",
             "com.rox.ppu.debug.BeamPositionPanel", "com.rox.ppu.debug.ScaledImageDrawer",
-            "com.rox.ppu.debug.PaletteViewerPanel"
+            "com.rox.ppu.debug.PaletteViewerPanel", "com.rox.video.SwingVideoOutput*"
     ))
     threads.set(Runtime.getRuntime().availableProcessors())
     outputFormats.set(listOf("HTML", "XML"))
@@ -81,12 +82,14 @@ tasks.jacocoTestReport {
                 exclude(
                         "com/rox/AudioSmokeDemo.class", "com/rox/RomAudioSmokeDemo.class",
                         "com/rox/PpuDebugViewerDemo.class", "com/rox/PpuDebugViewerDemo\$1.class",
+                        "com/rox/RomVideoSmokeDemo.class",
                         "com/rox/ppu/debug/PpuDebugFrame.class",
                         "com/rox/ppu/debug/ChrViewerPanel.class", "com/rox/ppu/debug/ChrViewerPanel\$1.class",
                         "com/rox/ppu/debug/NametableViewerPanel.class",
                         "com/rox/ppu/debug/OamViewerPanel.class", "com/rox/ppu/debug/ScreenViewerPanel.class",
                         "com/rox/ppu/debug/RegisterHudPanel.class", "com/rox/ppu/debug/BeamPositionPanel.class",
-                        "com/rox/ppu/debug/ScaledImageDrawer.class", "com/rox/ppu/debug/PaletteViewerPanel.class"
+                        "com/rox/ppu/debug/ScaledImageDrawer.class", "com/rox/ppu/debug/PaletteViewerPanel.class",
+                        "com/rox/video/SwingVideoOutput.class", "com/rox/video/SwingVideoOutput\$1.class"
                 )
             }
         })

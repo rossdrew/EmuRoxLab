@@ -19,6 +19,8 @@ ignore:
   - "src/main/java/com/rox/AudioSmokeDemo.java"
   - "src/main/java/com/rox/RomAudioSmokeDemo.java"
   - "src/main/java/com/rox/PpuDebugViewerDemo.java"
+  - "src/main/java/com/rox/RomVideoSmokeDemo.java"
+  - "src/main/java/com/rox/video/SwingVideoOutput.java"
   - "src/main/java/com/rox/ppu/debug/PpuDebugFrame.java"
   - "src/main/java/com/rox/ppu/debug/ChrViewerPanel.java"
   - "src/main/java/com/rox/ppu/debug/NametableViewerPanel.java"

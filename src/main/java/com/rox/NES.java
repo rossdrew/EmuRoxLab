@@ -12,6 +12,7 @@ import com.rox.mem.*;
 import com.rox.ppu.PPU;
 import com.rox.time.SystemTimeSource;
 import com.rox.time.ThreadSleeper;
+import com.rox.video.VideoOutput;
 
 import javax.sound.sampled.LineUnavailableException;
 import java.util.concurrent.CountDownLatch;
@@ -35,15 +36,29 @@ public class NES {
     private volatile boolean stopRequested;
 
     public NES(final Cartridge cartridge) throws LineUnavailableException {
-        this(new SpeakerAudioOutput(), cartridge);
+        this(new SpeakerAudioOutput(), VideoOutput.NO_OP, cartridge);
+    }
+
+    /** Like {@link #NES(Cartridge)}, but presenting frames to {@code videoOutput} as they complete. */
+    public NES(final VideoOutput videoOutput, final Cartridge cartridge) throws LineUnavailableException {
+        this(new SpeakerAudioOutput(), videoOutput, cartridge);
     }
 
     NES(final AudioOutput audioOutput, final Cartridge cartridge){
-        this(audioOutput, cartridge, new FPSClock(CPU_HZ, 60, new SystemTimeSource(), new ThreadSleeper()));
+        this(audioOutput, VideoOutput.NO_OP, cartridge);
+    }
+
+    NES(final AudioOutput audioOutput, final VideoOutput videoOutput, final Cartridge cartridge){
+        this(audioOutput, videoOutput, cartridge, new FPSClock(CPU_HZ, 60, new SystemTimeSource(), new ThreadSleeper()));
     }
 
     /** Test-only entry point for injecting a fake {@link Clock} - see {@code NESTest}'s race-reproducing double. */
     NES(final AudioOutput audioOutput, final Cartridge cartridge, final Clock clock){
+        this(audioOutput, VideoOutput.NO_OP, cartridge, clock);
+    }
+
+    /** Test-only entry point for injecting both a fake {@link Clock} and a mocked {@link VideoOutput}. */
+    NES(final AudioOutput audioOutput, final VideoOutput videoOutput, final Cartridge cartridge, final Clock clock){
         final MemoryBus ramBus = new MemoryBus8Bit(new RAM(0x10000));
         //DMC's own sample-address generator (see DMCChannel) only ever produces addresses in
         //$8000-$FFFF (base $C000+, wrapping no lower than $8000) - always within cartridge range,
@@ -73,6 +88,11 @@ public class NES {
             }
         });
         clock.addListener(() -> resampler.accept(apu.outputSample()).ifPresent(audioOutput::write));
+        clock.addListener(() -> {
+            if (ppu.consumeFrameReady()){
+                videoOutput.present(ppu.rgbFramebuffer());
+            }
+        });
     }
 
     public void powerOn(){
