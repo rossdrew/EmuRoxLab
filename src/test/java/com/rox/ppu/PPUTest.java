@@ -1199,6 +1199,32 @@ public class PPUTest {
     }
 
     @Test
+    public void spriteUsesItsOwnAttributePaletteGroupNotAlwaysGroupZero(){
+        pushAllSpritesOffscreen();
+        writeChrTileUniform(0, 0xFF, 0x00); //pixel value 1 everywhere
+        writeSpritePaletteEntry(2, 1, 0x1B);
+        writeSprite(0, 0, 0, 0x02, 0); //attribute 0x02: palette group 2
+        enableSpriteRendering();
+
+        tickThroughScanline(1, 0);
+
+        assertEquals(0x1B, ppu.framebuffer()[0], "attribute bits 0-1 must select palette group 2, not group 0");
+    }
+
+    @Test
+    public void spriteStillRendersOnTheLastVisibleScanlineTwoThirtyNine(){
+        pushAllSpritesOffscreen();
+        writeChrTileUniform(0, 0xFF, 0x00);
+        writeSpritePaletteEntry(0, 1, 0x11);
+        writeSprite(0, 239, 0, 0x00, 0);
+        enableSpriteRendering();
+
+        tickThroughScanline(1, 239);
+
+        assertEquals(0x11, ppu.framebuffer()[239 * PPU.FRAMEBUFFER_WIDTH], "scanline 239 is still a visible scanline, not off-by-one excluded");
+    }
+
+    @Test
     public void spriteOnlyAppearsForItsOwnEightRowRange(){
         pushAllSpritesOffscreen();
         writeChrTileUniform(0, 0xFF, 0x00); //pixel value 1 everywhere
@@ -1368,17 +1394,37 @@ public class PPUTest {
     }
 
     @Test
+    public void unflippedSpriteKeepsThePixelPatternAsFetched(){
+        pushAllSpritesOffscreen();
+        //a 2-bit-wide pattern, not a single bit: distinguishes a genuine flip from a no-op mutation of
+        //the flip check (a single-bit pattern can't, since reversing one isolated bit and leaving it
+        //alone are only distinguishable by *where* the bit ends up, which this still checks, but a wider
+        //pattern also rules out a broken bit-reversal that happens to round-trip a lone bit correctly)
+        writeChrTilePixelRow0(0, 0b11000000, 0x00); //offsets 0-1: pixel value 1, offsets 2-7: pixel value 0
+        writeSpritePaletteEntry(0, 1, 0x11);
+        writeSprite(0, 0, 0, 0x00, 0); //no flip
+        enableSpriteRendering();
+
+        tickThroughScanline(1, 0);
+
+        assertEquals(0x11, ppu.framebuffer()[0]);
+        assertEquals(0x11, ppu.framebuffer()[1]);
+        assertEquals(0, ppu.framebuffer()[7], "unflipped: offset 7 must stay transparent");
+    }
+
+    @Test
     public void horizontalFlipReversesThePixelOrder(){
         pushAllSpritesOffscreen();
-        writeChrTilePixelRow0(0, 0b10000000, 0x00); //only the leftmost pixel (offset 0) is pixel value 1
-        writeSpritePaletteEntry(0, 1, 0x33);
+        writeChrTilePixelRow0(0, 0b11000000, 0x00); //offsets 0-1: pixel value 1, offsets 2-7: pixel value 0
+        writeSpritePaletteEntry(0, 1, 0x11);
         writeSprite(0, 0, 0, SPRITE_FLIP_HORIZONTAL, 0);
         enableSpriteRendering();
 
         tickThroughScanline(1, 0);
 
-        assertEquals(0, ppu.framebuffer()[0], "offset 0 must be transparent once flipped");
-        assertEquals(0x33, ppu.framebuffer()[7], "offset 7 must now show what was originally offset 0's pixel");
+        assertEquals(0, ppu.framebuffer()[0], "flipped: offset 0 must now be transparent");
+        assertEquals(0x11, ppu.framebuffer()[6], "flipped: offset 6 must now show what was originally offset 1's pixel");
+        assertEquals(0x11, ppu.framebuffer()[7], "flipped: offset 7 must now show what was originally offset 0's pixel");
     }
 
     @Test
