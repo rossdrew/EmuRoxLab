@@ -1341,6 +1341,27 @@ public class PPUTest {
     }
 
     @Test
+    public void spriteZeroHitFlagStaysClearAtColumnTwoFiftyFive(){
+        pushAllSpritesOffscreen();
+        //background is transparent everywhere except tile column 31 (pixels 248-255), which is opaque only
+        //at its own rightmost pixel (x=255) - isolates the x=255 exclusion so an *earlier* opaque overlap
+        //(e.g. x=248) can't set the flag before the dot we actually care about is ever reached
+        writeChrTileUniform(0, 0x00, 0x00); //background tile 0 (the nametable default): transparent
+        writeChrTileUniform(2, 0b00000001, 0x00); //background tile 2: opaque only at its offset 7
+        writeChrTileUniform(1, 0xFF, 0x00); //sprite tile: pixel value 1 everywhere
+        writeNametableTile(31, 0, 2); //tile column 31 covers background pixels 248-255
+        writeBackgroundPaletteEntry(0, 1, 0x01);
+        writeSpritePaletteEntry(0, 1, 0x02);
+        writeSprite(0, 0, 1, 0x00, 248); //sprite's last column (offset 7) lands exactly on x=255; Y=0 -> first row is 1
+        writeAddress(0);
+        enableBackgroundAndSpriteRendering();
+
+        tickThroughScanline(1, 1);
+
+        assertEquals(0, ppu.read(PPUSTATUS) & SPRITE_ZERO_HIT_BIT, "real hardware never sets sprite-0-hit at x=255");
+    }
+
+    @Test
     public void spriteZeroHitFlagDoesNotSetWithoutBothBackgroundAndSpritesEnabled(){
         pushAllSpritesOffscreen();
         writeChrTileUniform(1, 0xFF, 0x00); //sprite tile: pixel value 1 everywhere
@@ -1404,6 +1425,23 @@ public class PPUTest {
         tickThroughScanline(1, 1);
 
         assertEquals(0, ppu.read(PPUSTATUS) & SPRITE_OVERFLOW_BIT);
+    }
+
+    @Test
+    public void spriteOverflowFlagClearsAtThePreRenderScanline(){
+        pushAllSpritesOffscreen();
+        writeChrTileUniform(0, 0xFF, 0x00);
+        writeSpritePaletteEntry(0, 1, 0x11);
+        for (int i = 0; i < 9; i++){
+            writeSprite(i, 0, 0, 0x00, i * 8); //9 sprites, same row, non-overlapping columns; Y=0 -> first row is 1
+        }
+        enableSpriteRendering();
+
+        tickThroughScanline(1, 1);
+        assertEquals(SPRITE_OVERFLOW_BIT, ppu.read(PPUSTATUS) & SPRITE_OVERFLOW_BIT, "overflow flag must be set right after a 9th in-range sprite is evaluated");
+
+        tickTo(1, VBLANK_END_SCANLINE, 2); //just past the pre-render scanline's dot-1 flag clear
+        assertEquals(0, ppu.read(PPUSTATUS) & SPRITE_OVERFLOW_BIT, "the pre-render scanline must clear the overflow flag for the next frame");
     }
 
     @Test
