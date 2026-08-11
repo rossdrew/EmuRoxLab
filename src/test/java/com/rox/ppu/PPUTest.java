@@ -1188,14 +1188,27 @@ public class PPUTest {
         pushAllSpritesOffscreen();
         writeChrTileUniform(0, 0xFF, 0x00); //pixel value 1 everywhere
         writeSpritePaletteEntry(0, 1, 0x27);
-        writeSprite(0, 20, 0, 0x00, 10);
+        writeSprite(0, 20, 0, 0x00, 10); //OAM Y is "top row minus one" - this sprite's first row is 21
         enableSpriteRendering();
 
-        tickThroughScanline(1, 20);
+        tickThroughScanline(1, 21);
 
-        assertEquals(0x27, ppu.framebuffer()[20 * PPU.FRAMEBUFFER_WIDTH + 10]);
-        assertEquals(0, ppu.framebuffer()[20 * PPU.FRAMEBUFFER_WIDTH + 9], "one column left of the sprite must stay backdrop");
-        assertEquals(0, ppu.framebuffer()[20 * PPU.FRAMEBUFFER_WIDTH + 18], "one column past the sprite's 8px width must stay backdrop");
+        assertEquals(0x27, ppu.framebuffer()[21 * PPU.FRAMEBUFFER_WIDTH + 10]);
+        assertEquals(0, ppu.framebuffer()[21 * PPU.FRAMEBUFFER_WIDTH + 9], "one column left of the sprite must stay backdrop");
+        assertEquals(0, ppu.framebuffer()[21 * PPU.FRAMEBUFFER_WIDTH + 18], "one column past the sprite's 8px width must stay backdrop");
+    }
+
+    @Test
+    public void spriteNeverAppearsOnScanlineZero(){
+        pushAllSpritesOffscreen();
+        writeChrTileUniform(0, 0xFF, 0x00); //pixel value 1 everywhere
+        writeSpritePaletteEntry(0, 1, 0x11);
+        writeSprite(0, 0, 0, 0x00, 0); //Y=0 is the minimum possible OAM Y
+        enableSpriteRendering();
+
+        tickThroughScanline(1, 0);
+
+        assertEquals(0, ppu.framebuffer()[0], "real hardware never displays a sprite on the first line of the picture, regardless of Y");
     }
 
     @Test
@@ -1203,12 +1216,12 @@ public class PPUTest {
         pushAllSpritesOffscreen();
         writeChrTileUniform(0, 0xFF, 0x00); //pixel value 1 everywhere
         writeSpritePaletteEntry(2, 1, 0x1B);
-        writeSprite(0, 0, 0, 0x02, 0); //attribute 0x02: palette group 2
+        writeSprite(0, 0, 0, 0x02, 0); //attribute 0x02: palette group 2; Y=0 -> first row is 1
         enableSpriteRendering();
 
-        tickThroughScanline(1, 0);
+        tickThroughScanline(1, 1);
 
-        assertEquals(0x1B, ppu.framebuffer()[0], "attribute bits 0-1 must select palette group 2, not group 0");
+        assertEquals(0x1B, ppu.framebuffer()[PPU.FRAMEBUFFER_WIDTH], "attribute bits 0-1 must select palette group 2, not group 0");
     }
 
     @Test
@@ -1216,7 +1229,7 @@ public class PPUTest {
         pushAllSpritesOffscreen();
         writeChrTileUniform(0, 0xFF, 0x00);
         writeSpritePaletteEntry(0, 1, 0x11);
-        writeSprite(0, 239, 0, 0x00, 0);
+        writeSprite(0, 238, 0, 0x00, 0); //Y=238 -> first (only, for this test) visible row is 239
         enableSpriteRendering();
 
         tickThroughScanline(1, 239);
@@ -1229,17 +1242,17 @@ public class PPUTest {
         pushAllSpritesOffscreen();
         writeChrTileUniform(0, 0xFF, 0x00); //pixel value 1 everywhere
         writeSpritePaletteEntry(0, 1, 0x27);
-        writeSprite(0, 20, 0, 0x00, 10);
+        writeSprite(0, 20, 0, 0x00, 10); //OAM Y is "top row minus one" - visible rows are 21-28
         enableSpriteRendering();
 
-        tickThroughScanline(1, 19);
-        assertEquals(0, ppu.framebuffer()[19 * PPU.FRAMEBUFFER_WIDTH + 10], "row above the sprite's Y must stay backdrop");
-
-        tickThroughScanline(1, 27);
-        assertEquals(0x27, ppu.framebuffer()[27 * PPU.FRAMEBUFFER_WIDTH + 10], "row 27 is the sprite's 8th (last) row");
+        tickThroughScanline(1, 20);
+        assertEquals(0, ppu.framebuffer()[20 * PPU.FRAMEBUFFER_WIDTH + 10], "row above the sprite's first row must stay backdrop");
 
         tickThroughScanline(1, 28);
-        assertEquals(0, ppu.framebuffer()[28 * PPU.FRAMEBUFFER_WIDTH + 10], "row 28 is past the sprite's 8 rows");
+        assertEquals(0x27, ppu.framebuffer()[28 * PPU.FRAMEBUFFER_WIDTH + 10], "row 28 is the sprite's 8th (last) row");
+
+        tickThroughScanline(1, 29);
+        assertEquals(0, ppu.framebuffer()[29 * PPU.FRAMEBUFFER_WIDTH + 10], "row 29 is past the sprite's 8 rows");
     }
 
     @Test
@@ -1250,13 +1263,13 @@ public class PPUTest {
         writeNametableTile(0, 0, 0);
         writeBackgroundPaletteEntry(0, 3, 0x11);
         writeSpritePaletteEntry(0, 1, 0x22);
-        writeSprite(0, 0, 1, 0x00, 0); //attribute 0x00: front priority
+        writeSprite(0, 0, 1, 0x00, 0); //attribute 0x00: front priority; Y=0 -> first row is 1
         writeAddress(0);
         enableBackgroundAndSpriteRendering();
 
-        tickThroughScanline(1, 0);
+        tickThroughScanline(1, 1);
 
-        assertEquals(0x22, ppu.framebuffer()[0], "a front-priority sprite must win over an opaque background pixel");
+        assertEquals(0x22, ppu.framebuffer()[PPU.FRAMEBUFFER_WIDTH], "a front-priority sprite must win over an opaque background pixel");
     }
 
     @Test
@@ -1267,13 +1280,13 @@ public class PPUTest {
         writeNametableTile(0, 0, 0);
         writeBackgroundPaletteEntry(0, 3, 0x11);
         writeSpritePaletteEntry(0, 1, 0x22);
-        writeSprite(0, 0, 1, SPRITE_PRIORITY_BEHIND_BACKGROUND, 0);
+        writeSprite(0, 0, 1, SPRITE_PRIORITY_BEHIND_BACKGROUND, 0); //Y=0 -> first row is 1
         writeAddress(0);
         enableBackgroundAndSpriteRendering();
 
-        tickThroughScanline(1, 0);
+        tickThroughScanline(1, 1);
 
-        assertEquals(0x11, ppu.framebuffer()[0], "a behind-priority sprite must lose to an opaque background pixel");
+        assertEquals(0x11, ppu.framebuffer()[PPU.FRAMEBUFFER_WIDTH], "a behind-priority sprite must lose to an opaque background pixel");
     }
 
     @Test
@@ -1283,13 +1296,13 @@ public class PPUTest {
         writeChrTileUniform(1, 0xFF, 0x00); //sprite tile: pixel value 1 everywhere
         writeNametableTile(0, 0, 0);
         writeSpritePaletteEntry(0, 1, 0x22);
-        writeSprite(0, 0, 1, SPRITE_PRIORITY_BEHIND_BACKGROUND, 0);
+        writeSprite(0, 0, 1, SPRITE_PRIORITY_BEHIND_BACKGROUND, 0); //Y=0 -> first row is 1
         writeAddress(0);
         enableBackgroundAndSpriteRendering();
 
-        tickThroughScanline(1, 0);
+        tickThroughScanline(1, 1);
 
-        assertEquals(0x22, ppu.framebuffer()[0], "the behind-priority bit only loses to an *opaque* background pixel");
+        assertEquals(0x22, ppu.framebuffer()[PPU.FRAMEBUFFER_WIDTH], "the behind-priority bit only loses to an *opaque* background pixel");
     }
 
     @Test
@@ -1300,11 +1313,11 @@ public class PPUTest {
         writeNametableTile(0, 0, 0);
         writeBackgroundPaletteEntry(0, 3, 0x01);
         writeSpritePaletteEntry(0, 1, 0x02);
-        writeSprite(0, 0, 1, 0x00, 0);
+        writeSprite(0, 0, 1, 0x00, 0); //Y=0 -> first row is 1
         writeAddress(0);
         enableBackgroundAndSpriteRendering();
 
-        tickThroughScanline(1, 0);
+        tickThroughScanline(1, 1);
 
         assertEquals(SPRITE_ZERO_HIT_BIT, ppu.read(PPUSTATUS) & SPRITE_ZERO_HIT_BIT);
     }
@@ -1318,11 +1331,11 @@ public class PPUTest {
         writeBackgroundPaletteEntry(0, 3, 0x01);
         writeSpritePaletteEntry(0, 1, 0x02);
         writeSprite(0, 200, 1, 0x00, 0); //OAM sprite 0 kept well out of range this scanline
-        writeSprite(1, 0, 1, 0x00, 0); //the overlapping sprite is index 1, not index 0
+        writeSprite(1, 0, 1, 0x00, 0); //the overlapping sprite is index 1, not index 0; Y=0 -> first row is 1
         writeAddress(0);
         enableBackgroundAndSpriteRendering();
 
-        tickThroughScanline(1, 0);
+        tickThroughScanline(1, 1);
 
         assertEquals(0, ppu.read(PPUSTATUS) & SPRITE_ZERO_HIT_BIT, "only OAM index 0 can set the sprite-0-hit flag");
     }
@@ -1332,10 +1345,10 @@ public class PPUTest {
         pushAllSpritesOffscreen();
         writeChrTileUniform(1, 0xFF, 0x00); //sprite tile: pixel value 1 everywhere
         writeSpritePaletteEntry(0, 1, 0x02);
-        writeSprite(0, 0, 1, 0x00, 0);
+        writeSprite(0, 0, 1, 0x00, 0); //Y=0 -> first row is 1
         enableSpriteRendering(); //background rendering deliberately left off
 
-        tickThroughScanline(1, 0);
+        tickThroughScanline(1, 1);
 
         assertEquals(0, ppu.read(PPUSTATUS) & SPRITE_ZERO_HIT_BIT);
     }
@@ -1348,11 +1361,11 @@ public class PPUTest {
         writeNametableTile(0, 0, 0);
         writeBackgroundPaletteEntry(0, 3, 0x01);
         writeSpritePaletteEntry(0, 1, 0x02);
-        writeSprite(0, 0, 1, 0x00, 0);
+        writeSprite(0, 0, 1, 0x00, 0); //Y=0 -> first row is 1
         writeAddress(0);
         enableBackgroundAndSpriteRendering();
 
-        tickThroughScanline(1, 0);
+        tickThroughScanline(1, 1);
         assertEquals(SPRITE_ZERO_HIT_BIT, ppu.read(PPUSTATUS) & SPRITE_ZERO_HIT_BIT, "hit flag must be set right after the overlap renders");
 
         tickTo(1, VBLANK_END_SCANLINE, 2); //just past the pre-render scanline's dot-1 flag clear
@@ -1365,16 +1378,16 @@ public class PPUTest {
         writeChrTileUniform(0, 0xFF, 0x00); //pixel value 1 everywhere
         writeSpritePaletteEntry(0, 1, 0x11);
         for (int i = 0; i < 9; i++){
-            writeSprite(i, 0, 0, 0x00, i * 8); //9 sprites, same row, non-overlapping columns
+            writeSprite(i, 0, 0, 0x00, i * 8); //9 sprites, same row, non-overlapping columns; Y=0 -> first row is 1
         }
         enableSpriteRendering();
 
-        tickThroughScanline(1, 0);
+        tickThroughScanline(1, 1);
 
         for (int i = 0; i < 8; i++){
-            assertEquals(0x11, ppu.framebuffer()[i * 8], "sprite " + i + " is within the 8-sprite-per-scanline limit");
+            assertEquals(0x11, ppu.framebuffer()[PPU.FRAMEBUFFER_WIDTH + i * 8], "sprite " + i + " is within the 8-sprite-per-scanline limit");
         }
-        assertEquals(0, ppu.framebuffer()[8 * 8], "the 9th in-range sprite (OAM-index order) must not render");
+        assertEquals(0, ppu.framebuffer()[PPU.FRAMEBUFFER_WIDTH + 8 * 8], "the 9th in-range sprite (OAM-index order) must not render");
         assertEquals(SPRITE_OVERFLOW_BIT, ppu.read(PPUSTATUS) & SPRITE_OVERFLOW_BIT, "a 9th in-range sprite must set the overflow flag");
     }
 
@@ -1384,11 +1397,11 @@ public class PPUTest {
         writeChrTileUniform(0, 0xFF, 0x00);
         writeSpritePaletteEntry(0, 1, 0x11);
         for (int i = 0; i < 8; i++){
-            writeSprite(i, 0, 0, 0x00, i * 8);
+            writeSprite(i, 0, 0, 0x00, i * 8); //Y=0 -> first row is 1
         }
         enableSpriteRendering();
 
-        tickThroughScanline(1, 0);
+        tickThroughScanline(1, 1);
 
         assertEquals(0, ppu.read(PPUSTATUS) & SPRITE_OVERFLOW_BIT);
     }
@@ -1402,14 +1415,14 @@ public class PPUTest {
         //pattern also rules out a broken bit-reversal that happens to round-trip a lone bit correctly)
         writeChrTilePixelRow0(0, 0b11000000, 0x00); //offsets 0-1: pixel value 1, offsets 2-7: pixel value 0
         writeSpritePaletteEntry(0, 1, 0x11);
-        writeSprite(0, 0, 0, 0x00, 0); //no flip
+        writeSprite(0, 0, 0, 0x00, 0); //no flip; Y=0 -> first row is 1
         enableSpriteRendering();
 
-        tickThroughScanline(1, 0);
+        tickThroughScanline(1, 1);
 
-        assertEquals(0x11, ppu.framebuffer()[0]);
-        assertEquals(0x11, ppu.framebuffer()[1]);
-        assertEquals(0, ppu.framebuffer()[7], "unflipped: offset 7 must stay transparent");
+        assertEquals(0x11, ppu.framebuffer()[PPU.FRAMEBUFFER_WIDTH]);
+        assertEquals(0x11, ppu.framebuffer()[PPU.FRAMEBUFFER_WIDTH + 1]);
+        assertEquals(0, ppu.framebuffer()[PPU.FRAMEBUFFER_WIDTH + 7], "unflipped: offset 7 must stay transparent");
     }
 
     @Test
@@ -1417,14 +1430,14 @@ public class PPUTest {
         pushAllSpritesOffscreen();
         writeChrTilePixelRow0(0, 0b11000000, 0x00); //offsets 0-1: pixel value 1, offsets 2-7: pixel value 0
         writeSpritePaletteEntry(0, 1, 0x11);
-        writeSprite(0, 0, 0, SPRITE_FLIP_HORIZONTAL, 0);
+        writeSprite(0, 0, 0, SPRITE_FLIP_HORIZONTAL, 0); //Y=0 -> first row is 1
         enableSpriteRendering();
 
-        tickThroughScanline(1, 0);
+        tickThroughScanline(1, 1);
 
-        assertEquals(0, ppu.framebuffer()[0], "flipped: offset 0 must now be transparent");
-        assertEquals(0x11, ppu.framebuffer()[6], "flipped: offset 6 must now show what was originally offset 1's pixel");
-        assertEquals(0x11, ppu.framebuffer()[7], "flipped: offset 7 must now show what was originally offset 0's pixel");
+        assertEquals(0, ppu.framebuffer()[PPU.FRAMEBUFFER_WIDTH], "flipped: offset 0 must now be transparent");
+        assertEquals(0x11, ppu.framebuffer()[PPU.FRAMEBUFFER_WIDTH + 6], "flipped: offset 6 must now show what was originally offset 1's pixel");
+        assertEquals(0x11, ppu.framebuffer()[PPU.FRAMEBUFFER_WIDTH + 7], "flipped: offset 7 must now show what was originally offset 0's pixel");
     }
 
     @Test
@@ -1440,14 +1453,14 @@ public class PPUTest {
         ppu.write(PPUDATA, 0xFF); //row 7 high plane: pixel value 2
         writeSpritePaletteEntry(0, 1, 0x11);
         writeSpritePaletteEntry(0, 2, 0x12);
-        writeSprite(0, 0, 0, SPRITE_FLIP_VERTICAL, 0);
+        writeSprite(0, 0, 0, SPRITE_FLIP_VERTICAL, 0); //Y=0 -> visible rows 1-8
+
         enableSpriteRendering();
+        tickThroughScanline(1, 1);
+        assertEquals(0x12, ppu.framebuffer()[PPU.FRAMEBUFFER_WIDTH], "on-screen row 1 (sprite's top row) must show the tile's row 7 data, flipped");
 
-        tickThroughScanline(1, 0);
-        assertEquals(0x12, ppu.framebuffer()[0], "on-screen row 0 must show the tile's row 7 data, flipped");
-
-        tickThroughScanline(1, 7);
-        assertEquals(0x11, ppu.framebuffer()[7 * PPU.FRAMEBUFFER_WIDTH], "on-screen row 7 must show the tile's row 0 data, flipped");
+        tickThroughScanline(1, 8);
+        assertEquals(0x11, ppu.framebuffer()[8 * PPU.FRAMEBUFFER_WIDTH], "on-screen row 8 (sprite's last row) must show the tile's row 0 data, flipped");
     }
 
     @Test
@@ -1458,14 +1471,14 @@ public class PPUTest {
         writeChrTileUniform(5, 0x00, 0xFF); //bottom tile (odd index 5): pixel value 2
         writeSpritePaletteEntry(0, 1, 0x13);
         writeSpritePaletteEntry(0, 2, 0x14);
-        writeSprite(0, 0, 4, 0x00, 0); //tile index 4: top=4, bottom=5
+        writeSprite(0, 0, 4, 0x00, 0); //tile index 4: top=4, bottom=5; Y=0 -> visible rows 1-16
 
         enableSpriteRendering();
-        tickThroughScanline(1, 0);
-        assertEquals(0x13, ppu.framebuffer()[0], "rows 0-7 (top half) must use the even tile");
+        tickThroughScanline(1, 1);
+        assertEquals(0x13, ppu.framebuffer()[PPU.FRAMEBUFFER_WIDTH], "rows 1-8 (top half) must use the even tile");
 
-        tickThroughScanline(1, 8);
-        assertEquals(0x14, ppu.framebuffer()[8 * PPU.FRAMEBUFFER_WIDTH], "rows 8-15 (bottom half) must use the odd tile");
+        tickThroughScanline(1, 9);
+        assertEquals(0x14, ppu.framebuffer()[9 * PPU.FRAMEBUFFER_WIDTH], "rows 9-16 (bottom half) must use the odd tile");
     }
 
     @Test
@@ -1477,12 +1490,12 @@ public class PPUTest {
         writeAddress(0x1000 + 4 * 16 + 8);
         ppu.write(PPUDATA, 0x00);
         writeSpritePaletteEntry(0, 1, 0x15);
-        writeSprite(0, 0, 5, 0x00, 0); //tile index 5 (odd) -> $1000 half; top=4, bottom=5
+        writeSprite(0, 0, 5, 0x00, 0); //tile index 5 (odd) -> $1000 half; top=4, bottom=5; Y=0 -> first row is 1
 
         enableSpriteRendering();
-        tickThroughScanline(1, 0);
+        tickThroughScanline(1, 1);
 
-        assertEquals(0x15, ppu.framebuffer()[0], "the tile index's own low bit, not PPUCTRL bit 3, selects the pattern table in tall mode");
+        assertEquals(0x15, ppu.framebuffer()[PPU.FRAMEBUFFER_WIDTH], "the tile index's own low bit, not PPUCTRL bit 3, selects the pattern table in tall mode");
     }
 
     @Test
@@ -1494,12 +1507,12 @@ public class PPUTest {
         writeAddress(0x1000 + 8);
         ppu.write(PPUDATA, 0x00);
         writeSpritePaletteEntry(0, 1, 0x16);
-        writeSprite(0, 0, 0, 0x00, 0);
+        writeSprite(0, 0, 0, 0x00, 0); //Y=0 -> first row is 1
 
         enableSpriteRendering();
-        tickThroughScanline(1, 0);
+        tickThroughScanline(1, 1);
 
-        assertEquals(0x16, ppu.framebuffer()[0]);
+        assertEquals(0x16, ppu.framebuffer()[PPU.FRAMEBUFFER_WIDTH]);
     }
 
     @Test
@@ -1507,12 +1520,12 @@ public class PPUTest {
         pushAllSpritesOffscreen();
         writeChrTileUniform(0, 0xFF, 0x00);
         writeSpritePaletteEntry(0, 1, 0x17);
-        writeSprite(0, 0, 0, 0x00, 3); //x=3, inside the left-8px clip region
+        writeSprite(0, 0, 0, 0x00, 3); //x=3, inside the left-8px clip region; Y=0 -> first row is 1
         ppu.write(PPUMASK, SHOW_SPRITES); //SHOW_SPRITES_LEFT deliberately not set
 
-        tickThroughScanline(1, 0);
+        tickThroughScanline(1, 1);
 
-        assertEquals(0, ppu.framebuffer()[3], "the left-8px clip must hide sprites there when their show-left bit is off");
+        assertEquals(0, ppu.framebuffer()[PPU.FRAMEBUFFER_WIDTH + 3], "the left-8px clip must hide sprites there when their show-left bit is off");
     }
 
     @Test
@@ -1534,13 +1547,13 @@ public class PPUTest {
         writeChrTileUniform(0, 0xFF, 0x00); //sprite tile: pixel value 1 everywhere
         writeSpritePaletteEntry(0, 1, 0x18);
         writeSpritePaletteEntry(1, 1, 0x19);
-        writeSprite(0, 0, 0, 0x00, 0); //palette group 0
+        writeSprite(0, 0, 0, 0x00, 0); //palette group 0; Y=0 -> first row is 1
         writeSprite(1, 0, 0, 0x01, 0); //same X/Y, palette group 1 - would show a different colour if it won
         enableSpriteRendering();
 
-        tickThroughScanline(1, 0);
+        tickThroughScanline(1, 1);
 
-        assertEquals(0x18, ppu.framebuffer()[0], "the lower OAM index must win when two sprites overlap the same pixel");
+        assertEquals(0x18, ppu.framebuffer()[PPU.FRAMEBUFFER_WIDTH], "the lower OAM index must win when two sprites overlap the same pixel");
     }
 
     private void verifyChrByte(final int address, final int expectedValue){

@@ -510,6 +510,14 @@ public class PPU implements ClockWatcher, OamDmaBus {
      * sprite-0-hit detection. Sets {@link #spriteOverflow} (sticky until the pre-render scanline clears
      * it) when more than 8 sprites are in range; see the class javadoc for why this doesn't reproduce
      * real hardware's buggy overflow detection.
+     *
+     * <p>OAM byte 0 stores the sprite's top scanline <em>minus one</em> (real hardware's documented
+     * "Y position" quirk - see nesdev's {@code PPU_OAM} page) - a sprite with {@code Y=N} is visible on
+     * scanlines {@code N+1..N+height}, never on scanline 0 no matter what {@code Y} is. That {@code -1}
+     * is folded into {@code row} below, and falls out naturally for the pre-render scanline's target of
+     * 0: {@code row} is then always negative, so no sprite is ever found in range - correctly matching
+     * real hardware's own "sprites are never displayed on the first line" behaviour without needing a
+     * separate check.
      */
     private void evaluateSpritesForNextScanline(){
         final int targetScanline = scanline == FrameTiming.VBLANK_END_SCANLINE ? 0 : scanline + 1;
@@ -519,7 +527,7 @@ public class PPU implements ClockWatcher, OamDmaBus {
         boolean overflow = false;
         for (int i = 0; i < OAM_SPRITE_COUNT; i++){
             final int base = i * OAM_BYTES_PER_SPRITE;
-            final int row = targetScanline - oam[base];
+            final int row = targetScanline - oam[base] - 1;
             if (row < 0 || row >= spriteHeight){
                 continue;
             }
@@ -563,7 +571,7 @@ public class PPU implements ClockWatcher, OamDmaBus {
             final boolean flipV = (attributes & SPRITE_FLIP_VERTICAL_BIT) != 0;
             final boolean flipH = (attributes & SPRITE_FLIP_HORIZONTAL_BIT) != 0;
 
-            int row = targetScanline - spriteY;
+            int row = targetScanline - spriteY - 1; //OAM Y quirk - see evaluateSpritesForNextScanline()
             if (flipV){
                 row = spriteHeight - 1 - row;
             }
