@@ -27,6 +27,12 @@ public class PPUMaskRegisterTest {
     }
 
     @Test
+    public void showSpritesLeftReflectsBitTwo(){
+        assertTrue(new PPUMaskRegister(0x04).showSpritesLeft());
+        assertFalse(new PPUMaskRegister(0x00).showSpritesLeft());
+    }
+
+    @Test
     public void renderingEnabledIsFalseWhenBothBackgroundAndSpritesAreOff(){
         assertFalse(new PPUMaskRegister(0x00).renderingEnabled());
     }

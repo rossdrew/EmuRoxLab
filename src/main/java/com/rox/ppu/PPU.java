@@ -1,18 +1,20 @@
 package com.rox.ppu;
 
+import com.rox.ByteUtil;
 import com.rox.cartridge.Cartridge;
 import com.rox.cartridge.Mirroring;
 import com.rox.clock.ClockWatcher;
 import com.rox.mem.OamDmaBus;
 
+import static com.rox.ByteUtil.*;
 import static com.rox.ByteUtil.BYTE_MASK;
 
 /**
  * Headless NES PPU: correct vblank/NMI timing, full {@code $0000-$3FFF} PPU address space wiring
  * (CHR pattern tables via the cartridge, mirrored nametable RAM, palette RAM), the "loopy" internal
- * scroll/address registers, OAM DMA, and background rendering to a {@link #framebuffer()} of raw
- * palette indices (0-63) - {@link #rgbFramebuffer()} converts those through {@link NesPalette} for
- * actual display. No sprites yet (a later phase). Registers repeat every 8 bytes through {@code $2000-$3FFF}.
+ * scroll/address registers, OAM DMA, and background + sprite rendering to a {@link #framebuffer()} of
+ * raw palette indices (0-63) - {@link #rgbFramebuffer()} converts those through {@link NesPalette} for
+ * actual display. Registers repeat every 8 bytes through {@code $2000-$3FFF}.
  *
  * Runs at 3 dots per CPU cycle (NTSC), 341 dots/scanline, 262 scanlines/frame. Vblank starts at
  * scanline 241 dot 1 and clears at the start of the pre-render scanline (261, dot 1) - matching real
@@ -43,6 +45,16 @@ import static com.rox.ByteUtil.BYTE_MASK;
  * {@link Mirroring}). OAM DMA always stalls the CPU a fixed 514 cycles, not real hardware's 513 (even
  * start cycle) or 514 (odd) - no total-cycle counter exists anywhere in the CPU to detect that parity,
  * and the 1-cycle difference doesn't affect correctness, only real-hardware-exact timing.
+ *
+ * Sprite pipeline simplifications: real hardware spreads secondary-OAM evaluation and sprite pattern
+ * fetching across dots 65-256 and 257-320 respectively; both are collapsed here into a single step (at
+ * dots 65 and 257) since nothing outside the PPU can observe mid-evaluation/mid-fetch state - the
+ * resulting secondary OAM and fetched pattern bytes are byte-for-byte identical to real hardware's by
+ * the time the next scanline starts. Sprite overflow uses a simple "found more than 8 sprites in range"
+ * count, not real hardware's well-known buggy diagonal-read overflow detection (see nesdev's "Sprite
+ * overflow bug") - only the obscure false-positive/false-negative edge cases differ, not correct
+ * rendering. OAMADDR's glitchy behaviour during evaluation (real hardware corrupts low OAM entries if
+ * OAMADDR isn't 0 at the start of a scanline) isn't modeled.
  */
 public class PPU implements ClockWatcher, OamDmaBus {
     public static final int FRAMEBUFFER_WIDTH = 256;
@@ -176,6 +188,25 @@ public class PPU implements ClockWatcher, OamDmaBus {
 
     private static final int PALETTE_COLOR_MASK = 0x3F; //6-bit NES master-palette index (0-63)
 
+    //sprite rendering pipeline (nesdev's standard OAM evaluation + pattern fetch + priority mux) - see
+    //the class javadoc's "Sprite pipeline simplifications" paragraph for how this collapses real
+    //hardware's multi-dot evaluation/fetch windows into single steps.
+    private static final int OAM_SPRITE_COUNT = 64;
+    private static final int OAM_BYTES_PER_SPRITE = 4;
+    private static final int MAX_SPRITES_PER_SCANLINE = 8;
+    private static final int SPRITE_HEIGHT_SHORT = 8;
+    private static final int SPRITE_HEIGHT_TALL = 16;
+    private static final int SPRITE_EVALUATION_DOT = 65;
+    private static final int TALL_SPRITE_PATTERN_TABLE_SIZE = 0x1000;
+    private static final int SPRITE_PALETTE_MASK = 0x03;
+    private static final int SPRITE_PRIORITY_BEHIND_BACKGROUND_BIT = 0x20;
+    private static final int SPRITE_FLIP_HORIZONTAL_BIT = 0x40;
+    private static final int SPRITE_FLIP_VERTICAL_BIT = 0x80;
+    private static final int SPRITE_PALETTE_RAM_OFFSET = 0x10; //$3F10-$3F1F vs background's $3F00-$3F0F
+    private static final int SPRITE_ZERO_HIT_EXCLUDED_X = 255; //real hardware never sets the hit flag here
+    private static final int SPRITE_ZERO_HIT_STATUS_BIT = 0x40;
+    private static final int SPRITE_OVERFLOW_STATUS_BIT = 0x20;
+
     private final Cartridge cartridge;
 
     private final int[] oam = new int[OAM_SIZE];
@@ -220,6 +251,24 @@ public class PPU implements ClockWatcher, OamDmaBus {
     private int nextPatternLowByte;
     private int nextPatternHighByte;
 
+    //secondary OAM for the upcoming scanline (up to 8 sprites x 4 bytes), rebuilt every scanline by
+    //evaluateSpritesForNextScanline()
+    private final int[] secondaryOam = new int[MAX_SPRITES_PER_SCANLINE * OAM_BYTES_PER_SPRITE];
+    private int secondaryOamCount;
+    private int secondaryOamSpriteZeroSlot = -1; //-1 if OAM sprite 0 isn't in range this scanline
+    private boolean spriteOverflow;
+    private boolean spriteZeroHitFlag;
+
+    //per-slot rendering state fetchSpritesForNextScanline() loaded for the *current* scanline's active
+    //sprites - pattern bytes already have horizontal flip applied, so drawPixel() never needs to know
+    //about flip at all
+    private final int[] spritePatternLowByte = new int[MAX_SPRITES_PER_SCANLINE];
+    private final int[] spritePatternHighByte = new int[MAX_SPRITES_PER_SCANLINE];
+    private final int[] spriteAttributes = new int[MAX_SPRITES_PER_SCANLINE];
+    private final int[] spriteXPosition = new int[MAX_SPRITES_PER_SCANLINE];
+    private final boolean[] spriteIsZero = new boolean[MAX_SPRITES_PER_SCANLINE];
+    private int activeSpriteCount;
+
     public PPU(final Cartridge cartridge){
         this.cartridge = cartridge;
     }
@@ -246,8 +295,11 @@ public class PPU implements ClockWatcher, OamDmaBus {
             frameReady = true;
         } else if (scanline == FrameTiming.VBLANK_END_SCANLINE && dot == FrameTiming.VBLANK_EDGE_DOT){
             setVblankFlag(false);
+            spriteOverflow = false;
+            spriteZeroHitFlag = false;
         }
         backgroundStep();
+        spriteStep();
     }
 
     /** True exactly once per frame (set at scanline 241 dot 1) - mirrors {@link #consumeNmiEdge()}'s one-shot pattern. */
@@ -430,26 +482,190 @@ public class PPU implements ClockWatcher, OamDmaBus {
     }
 
     /**
-     * Resolves one framebuffer pixel from the current shift-register state, selected by
-     * {@link #fineXScroll}. Falls back to the backdrop colour (palette RAM index 0, i.e. {@code $3F00})
-     * when background rendering is off, the pixel is in the disabled left-8px clip region, or the
-     * decoded pattern value is 0 (transparent) - real hardware's "universal background colour" quirk:
-     * a transparent pixel always shows {@code $3F00} regardless of which attribute palette group was
-     * active, never $3F04/$3F08/$3F0C even though those cells hold distinct, independently
-     * readable/writable data.
+     * Runs on every dot of every visible (0-239) and pre-render (261) scanline, mirroring
+     * {@link #backgroundStep()}'s scanline range. Builds secondary OAM for the scanline about to start
+     * at dot 65 (real hardware: dots 65-256) and fetches that scanline's sprite pattern bytes at dot 257
+     * (real hardware: dots 257-320) - see the class javadoc's sprite-pipeline simplification note for why
+     * collapsing each multi-dot window into a single dot is behaviourally identical.
+     */
+    private void spriteStep(){
+        if (scanline > FrameTiming.VISIBLE_SCANLINE_MAX && scanline != FrameTiming.VBLANK_END_SCANLINE){
+            return;
+        }
+        if (!renderingEnabled()){
+            return;
+        }
+        if (dot == SPRITE_EVALUATION_DOT){
+            evaluateSpritesForNextScanline();
+        }
+        if (dot == HORIZONTAL_COPY_DOT){ //dot 257, same dot as background's hori(v)=hori(t) copy
+            fetchSpritesForNextScanline();
+        }
+    }
+
+    /**
+     * Builds secondary OAM (up to 8 sprites) for the scanline about to start, scanning primary OAM in
+     * index order so slot 0 of secondary OAM (if occupied) is always the highest-priority sprite in
+     * range - OAM index 0 specifically is also tracked (via {@link #secondaryOamSpriteZeroSlot}) for
+     * sprite-0-hit detection. Sets {@link #spriteOverflow} (sticky until the pre-render scanline clears
+     * it) when more than 8 sprites are in range; see the class javadoc for why this doesn't reproduce
+     * real hardware's buggy overflow detection.
+     *
+     * <p>OAM byte 0 stores the sprite's top scanline <em>minus one</em> (real hardware's documented
+     * "Y position" quirk - see nesdev's {@code PPU_OAM} page) - a sprite with {@code Y=N} is visible on
+     * scanlines {@code N+1..N+height}, never on scanline 0 no matter what {@code Y} is. That {@code -1}
+     * is folded into {@code row} below, and falls out naturally for the pre-render scanline's target of
+     * 0: {@code row} is then always negative, so no sprite is ever found in range - correctly matching
+     * real hardware's own "sprites are never displayed on the first line" behaviour without needing a
+     * separate check.
+     */
+    private void evaluateSpritesForNextScanline(){
+        final int targetScanline = scanline == FrameTiming.VBLANK_END_SCANLINE ? 0 : scanline + 1;
+        final int spriteHeight = controlRegister.tallSprites() ? SPRITE_HEIGHT_TALL : SPRITE_HEIGHT_SHORT;
+        int found = 0;
+        int spriteZeroSlot = -1;
+        boolean overflow = false;
+        for (int i = 0; i < OAM_SPRITE_COUNT; i++){
+            final int base = i * OAM_BYTES_PER_SPRITE;
+            final int row = targetScanline - oam[base] - 1;
+            if (row < 0 || row >= spriteHeight){
+                continue;
+            }
+            if (found < MAX_SPRITES_PER_SCANLINE){
+                final int destBase = found * OAM_BYTES_PER_SPRITE;
+                secondaryOam[destBase] = oam[base];
+                secondaryOam[destBase + 1] = oam[base + 1];
+                secondaryOam[destBase + 2] = oam[base + 2];
+                secondaryOam[destBase + 3] = oam[base + 3];
+                if (i == 0){
+                    spriteZeroSlot = found;
+                }
+                found++;
+            } else {
+                overflow = true;
+            }
+        }
+        secondaryOamCount = found;
+        secondaryOamSpriteZeroSlot = spriteZeroSlot;
+        if (overflow){
+            spriteOverflow = true;
+        }
+    }
+
+    /**
+     * Fetches pattern-table bytes for every sprite {@link #evaluateSpritesForNextScanline()} just found,
+     * for the scanline about to start. Handles 8x8 vs 8x16 sizing ({@code $2000} bit 5; for 8x16, the
+     * tile index's own low bit selects the pattern table and its high bits pick which of the pair of
+     * tiles) and vertical/horizontal flip - horizontal flip is resolved here, once, by reversing the
+     * fetched byte's bit order, rather than being checked per pixel at draw time.
+     */
+    private void fetchSpritesForNextScanline(){
+        final int targetScanline = scanline == FrameTiming.VBLANK_END_SCANLINE ? 0 : scanline + 1;
+        final boolean tallSpritesEnabled = controlRegister.tallSprites();
+        final int spriteHeight = tallSpritesEnabled ? SPRITE_HEIGHT_TALL : SPRITE_HEIGHT_SHORT;
+        for (int slot = 0; slot < secondaryOamCount; slot++){
+            final int base = slot * OAM_BYTES_PER_SPRITE;
+            final int spriteY = secondaryOam[base];
+            final int tileIndex = secondaryOam[base + 1];
+            final int attributes = secondaryOam[base + 2];
+            final boolean flipV = (attributes & SPRITE_FLIP_VERTICAL_BIT) != 0;
+            final boolean flipH = (attributes & SPRITE_FLIP_HORIZONTAL_BIT) != 0;
+
+            int row = targetScanline - spriteY - 1; //OAM Y quirk - see evaluateSpritesForNextScanline()
+            if (flipV){
+                row = spriteHeight - 1 - row;
+            }
+            final int patternTableBase;
+            final int patternTileIndex;
+            if (tallSpritesEnabled){
+                patternTableBase = isBitSet(0, tileIndex) ? TALL_SPRITE_PATTERN_TABLE_SIZE : 0;
+                final int topTile = tileIndex & 0xFE;
+                if (row >= SPRITE_HEIGHT_SHORT){
+                    patternTileIndex = withBitSet(topTile, 0);
+                    row -= SPRITE_HEIGHT_SHORT;
+                } else {
+                    patternTileIndex = topTile;
+                }
+            } else {
+                patternTableBase = controlRegister.spritePatternTableBase();
+                patternTileIndex = tileIndex;
+            }
+
+            int lowByte = readMemory(patternTableBase + patternTileIndex * TILE_BYTES + row);
+            int highByte = readMemory(patternTableBase + patternTileIndex * TILE_BYTES + row + PATTERN_HIGH_PLANE_OFFSET);
+            if (flipH){
+                lowByte = reverseBits(lowByte);
+                highByte = reverseBits(highByte);
+            }
+
+            spritePatternLowByte[slot] = lowByte;
+            spritePatternHighByte[slot] = highByte;
+            spriteAttributes[slot] = attributes;
+            spriteXPosition[slot] = secondaryOam[base + 3];
+            spriteIsZero[slot] = slot == secondaryOamSpriteZeroSlot;
+        }
+        activeSpriteCount = secondaryOamCount;
+    }
+
+    /** Reverses an 8-bit value's bit order - implements horizontal sprite flip on a fetched pattern byte. */
+    private static int reverseBits(final int value){
+        int result = 0;
+        int remaining = value;
+        for (int bit = 0; bit < 8; bit++){
+            result = (result << 1) | (remaining & 0x01);
+            remaining >>= 1;
+        }
+        return result;
+    }
+
+    /**
+     * Resolves one framebuffer pixel by compositing the background shift-register state (selected by
+     * {@link #fineXScroll}, as in Phase 3/4) with up to 8 active sprites for this scanline, in OAM-index
+     * priority order - the first opaque sprite found wins, both for the final colour (subject to that
+     * sprite's own front/back priority bit against an opaque background pixel) and for sprite-0-hit
+     * detection, since OAM index 0 (if in range) is always secondary-OAM slot 0. Falls back to the
+     * backdrop colour ({@code $3F00}) when nothing is opaque - real hardware's "universal background
+     * colour" quirk, same as background-only rendering already relied on.
      */
     private void drawPixel(final int x, final int y){
         final boolean backgroundVisible = maskRegister.showBackground() && (x >= 8 || maskRegister.showBackgroundLeft());
 
         int paletteRamIndex = 0; //the universal backdrop colour, $3F00
+        int bgPixelValue = 0;
         if (backgroundVisible){
             final int bitMux = PIXEL_MUX_MSB >> fineXScroll;
-            final int patternPixel = (((bgPatternShiftHigh & bitMux) != 0) ? 2 : 0)
+            bgPixelValue = (((bgPatternShiftHigh & bitMux) != 0) ? 2 : 0)
                     | (((bgPatternShiftLow & bitMux) != 0) ? 1 : 0);
-            if (patternPixel != 0){
+            if (bgPixelValue != 0){
                 final int paletteGroup = (((bgAttributeShiftHigh & bitMux) != 0) ? 2 : 0)
                         | (((bgAttributeShiftLow & bitMux) != 0) ? 1 : 0);
-                paletteRamIndex = resolvePaletteIndex(PALETTE_START_ADDRESS + (paletteGroup << 2) + patternPixel);
+                paletteRamIndex = resolvePaletteIndex(PALETTE_START_ADDRESS + (paletteGroup << 2) + bgPixelValue);
+            }
+        }
+
+        final boolean spritesVisible = maskRegister.showSprites() && (x >= 8 || maskRegister.showSpritesLeft());
+        if (spritesVisible){
+            for (int slot = 0; slot < activeSpriteCount; slot++){
+                final int offset = x - spriteXPosition[slot];
+                if (offset < 0 || offset > 7){
+                    continue;
+                }
+                final int spriteBitMux = 0x80 >> offset;
+                final int spritePixelValue = (((spritePatternHighByte[slot] & spriteBitMux) != 0) ? 2 : 0)
+                        | (((spritePatternLowByte[slot] & spriteBitMux) != 0) ? 1 : 0);
+                if (spritePixelValue == 0){
+                    continue;
+                }
+                if (spriteIsZero[slot] && bgPixelValue != 0 && x != SPRITE_ZERO_HIT_EXCLUDED_X){
+                    spriteZeroHitFlag = true;
+                }
+                final boolean behindBackground = (spriteAttributes[slot] & SPRITE_PRIORITY_BEHIND_BACKGROUND_BIT) != 0;
+                if (bgPixelValue == 0 || !behindBackground){
+                    final int paletteGroup = spriteAttributes[slot] & SPRITE_PALETTE_MASK;
+                    paletteRamIndex = resolvePaletteIndex(PALETTE_START_ADDRESS + SPRITE_PALETTE_RAM_OFFSET
+                            + (paletteGroup << 2) + spritePixelValue);
+                }
+                break; //OAM-index priority: the first opaque sprite found wins, both for colour and hit detection
             }
         }
         framebuffer[y * FRAMEBUFFER_WIDTH + x] = paletteRam[paletteRamIndex] & PALETTE_COLOR_MASK;
@@ -517,8 +733,10 @@ public class PPU implements ClockWatcher, OamDmaBus {
     }
 
     /**
-     * Handle a $2002 read: vblank flag in bit 7 (sprite-0-hit/overflow bits always 0, unmodeled).
-     * Clears the vblank flag and resets the write-latch shared by $2005/$2006.
+     * Handle a $2002 read: vblank flag in bit 7, sprite-0-hit in bit 6, sprite overflow in bit 5.
+     * Clears the vblank flag and resets the write-latch shared by $2005/$2006 - sprite-0-hit and
+     * overflow are *not* cleared by this read, only by the pre-render scanline's dot 1 (see
+     * {@link #advanceDot()}), matching real hardware.
      *
      * Deliberately does *not* call {@link #updateNmiLine()}: doing so here can only ever matter on a
      * falling transition (this read only ever clears vblankFlag, never sets it), which never sets
@@ -527,7 +745,9 @@ public class PPU implements ClockWatcher, OamDmaBus {
      * {@code previousNmiLine} by then regardless. Confirmed by simulation, not just by inspection.
      */
     private int readStatusRegister(){
-        final int result = vblankFlag ? VBLANK_STATUS_BIT : 0;
+        int result = vblankFlag ? VBLANK_STATUS_BIT : 0;
+        result |= spriteZeroHitFlag ? SPRITE_ZERO_HIT_STATUS_BIT : 0;
+        result |= spriteOverflow ? SPRITE_OVERFLOW_STATUS_BIT : 0;
         vblankFlag = false;
         writeToggle = false;
         return result;

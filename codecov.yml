@@ -23,7 +23,7 @@ ignore:
   - "src/main/java/com/rox/ppu/debug/ChrViewerPanel.java"
   - "src/main/java/com/rox/ppu/debug/NametableViewerPanel.java"
   - "src/main/java/com/rox/ppu/debug/OamViewerPanel.java"
-  - "src/main/java/com/rox/ppu/debug/BackgroundViewerPanel.java"
+  - "src/main/java/com/rox/ppu/debug/ScreenViewerPanel.java"
   - "src/main/java/com/rox/ppu/debug/RegisterHudPanel.java"
   - "src/main/java/com/rox/ppu/debug/BeamPositionPanel.java"
   - "src/main/java/com/rox/ppu/debug/ScaledImageDrawer.java"

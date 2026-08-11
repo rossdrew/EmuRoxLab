@@ -25,7 +25,7 @@ import java.util.function.Consumer;
 
 /**
  * A live PPU debug window: CHR pattern tables, the current nametable, OAM sprites, the actual rendered
- * background, a palette swatch grid and a register/timing HUD - all in real colour, via
+ * screen (background and sprites composited), a palette swatch grid and a register/timing HUD - all in real colour, via
  * {@code NesPalette}. A passive observer of whatever
  * {@link PPU}/{@link Cartridge} it's currently {@link #rebind bound} to - it just repaints from their
  * current state on each timer tick, no hooks into the emulation clock/thread needed. Which ROM is
@@ -69,7 +69,7 @@ public final class PpuDebugFrame extends JFrame {
         final ChrViewerPanel chrViewer = new ChrViewerPanel(ppu, cartridge);
         final NametableViewerPanel nametableViewer = new NametableViewerPanel(ppu, cartridge);
         final OamViewerPanel oamViewer = new OamViewerPanel(ppu, cartridge);
-        final BackgroundViewerPanel backgroundViewer = new BackgroundViewerPanel(ppu);
+        final ScreenViewerPanel screenViewer = new ScreenViewerPanel(ppu);
         final PaletteViewerPanel paletteViewer = new PaletteViewerPanel(ppu);
         final RegisterHudPanel registerHud = new RegisterHudPanel(ppu);
 
@@ -77,7 +77,7 @@ public final class PpuDebugFrame extends JFrame {
         imagePanels.add(titled("CHR pattern tables", chrViewer));
         imagePanels.add(titled("Nametable", nametableViewer));
         imagePanels.add(titled("OAM sprites", oamViewer));
-        imagePanels.add(titled("Background", backgroundViewer));
+        imagePanels.add(titled("Screen", screenViewer));
 
         //Registers and Palettes stacked would make the sidebar taller than the image-panel grid it sits
         //beside, forcing the whole window past typical screen height - shown one at a time instead via
@@ -107,7 +107,7 @@ public final class PpuDebugFrame extends JFrame {
             chrViewer.repaint();
             nametableViewer.repaint();
             oamViewer.repaint();
-            backgroundViewer.repaint();
+            screenViewer.repaint();
             paletteViewer.refresh();
         });
         refreshTimer.start();
