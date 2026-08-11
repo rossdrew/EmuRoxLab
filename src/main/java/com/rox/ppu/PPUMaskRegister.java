@@ -12,6 +12,7 @@ import static com.rox.ByteUtil.*;
  */
 public class PPUMaskRegister {
     private static final int SHOW_BACKGROUND_LEFT_BIT = 0x02; //PPUMASK bit 1
+    private static final int SHOW_SPRITES_LEFT_BIT = 0x04;    //PPUMASK bit 2
     private static final int SHOW_BACKGROUND_BIT = 0x08;      //PPUMASK bit 3
     private static final int SHOW_SPRITES_BIT = 0x10;         //PPUMASK bit 4
 
@@ -29,6 +30,10 @@ public class PPUMaskRegister {
 
     public boolean showBackgroundLeft(){
         return (value & SHOW_BACKGROUND_LEFT_BIT) != 0;
+    }
+
+    public boolean showSpritesLeft(){
+        return (value & SHOW_SPRITES_LEFT_BIT) != 0;
     }
 
     public boolean showSprites(){
