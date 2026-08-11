@@ -1,10 +1,12 @@
 package com.rox.ppu;
 
+import com.rox.ByteUtil;
 import com.rox.cartridge.Cartridge;
 import com.rox.cartridge.Mirroring;
 import com.rox.clock.ClockWatcher;
 import com.rox.mem.OamDmaBus;
 
+import static com.rox.ByteUtil.*;
 import static com.rox.ByteUtil.BYTE_MASK;
 
 /**
@@ -551,8 +553,8 @@ public class PPU implements ClockWatcher, OamDmaBus {
      */
     private void fetchSpritesForNextScanline(){
         final int targetScanline = scanline == FrameTiming.VBLANK_END_SCANLINE ? 0 : scanline + 1;
-        final boolean tallSprites = controlRegister.tallSprites();
-        final int spriteHeight = tallSprites ? SPRITE_HEIGHT_TALL : SPRITE_HEIGHT_SHORT;
+        final boolean tallSpritesEnabled = controlRegister.tallSprites();
+        final int spriteHeight = tallSpritesEnabled ? SPRITE_HEIGHT_TALL : SPRITE_HEIGHT_SHORT;
         for (int slot = 0; slot < secondaryOamCount; slot++){
             final int base = slot * OAM_BYTES_PER_SPRITE;
             final int spriteY = secondaryOam[base];
@@ -567,11 +569,11 @@ public class PPU implements ClockWatcher, OamDmaBus {
             }
             final int patternTableBase;
             final int patternTileIndex;
-            if (tallSprites){
-                patternTableBase = (tileIndex & 0x01) != 0 ? TALL_SPRITE_PATTERN_TABLE_SIZE : 0;
+            if (tallSpritesEnabled){
+                patternTableBase = isBitSet(0, tileIndex) ? TALL_SPRITE_PATTERN_TABLE_SIZE : 0;
                 final int topTile = tileIndex & 0xFE;
                 if (row >= SPRITE_HEIGHT_SHORT){
-                    patternTileIndex = topTile | 0x01;
+                    patternTileIndex = withBitSet(topTile, 0);
                     row -= SPRITE_HEIGHT_SHORT;
                 } else {
                     patternTileIndex = topTile;
