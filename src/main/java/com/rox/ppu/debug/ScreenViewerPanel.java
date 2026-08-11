@@ -8,13 +8,14 @@ import java.awt.Graphics;
 import java.awt.image.BufferedImage;
 
 /**
- * Renders the PPU's actual rendered background - {@link PPU#rgbFramebuffer()} - at its native 256x240
+ * Renders the PPU's actual rendered screen - {@link PPU#rgbFramebuffer()} - at its native 256x240
  * resolution, in real colour (each raw palette index resolved through {@code NesPalette}). Unlike the
- * CHR/nametable panels (which decode tiles directly from CHR/nametable RAM, ignoring scroll position),
- * this shows exactly what the background rendering pipeline produced - the real scroll position,
- * attribute palette groups and per-pixel shift-register timing all already applied.
+ * CHR/nametable/OAM panels (which decode tiles/sprites directly from CHR/nametable/OAM RAM, ignoring
+ * scroll position and cross-layer priority), this shows exactly what the rendering pipeline produced -
+ * background and sprites already composited (front/back priority, sprite-0 hit, the real scroll
+ * position, attribute palette groups and per-pixel shift-register timing all already applied).
  */
-final class BackgroundViewerPanel extends JPanel {
+final class ScreenViewerPanel extends JPanel {
     private static final int WIDTH_PX = PPU.FRAMEBUFFER_WIDTH;
     private static final int HEIGHT_PX = PPU.FRAMEBUFFER_HEIGHT;
     private static final int SCALE = 2;
@@ -25,7 +26,7 @@ final class BackgroundViewerPanel extends JPanel {
     //frame (already a fresh array from ppu.rgbFramebuffer()) in one native call instead
     private final BufferedImage image = new BufferedImage(WIDTH_PX, HEIGHT_PX, BufferedImage.TYPE_INT_RGB);
 
-    BackgroundViewerPanel(final PPU ppu){
+    ScreenViewerPanel(final PPU ppu){
         this.ppu = ppu;
         setPreferredSize(new Dimension(WIDTH_PX * SCALE, HEIGHT_PX * SCALE));
     }
