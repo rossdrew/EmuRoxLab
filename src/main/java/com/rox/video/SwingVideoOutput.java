@@ -48,25 +48,32 @@ public final class SwingVideoOutput implements VideoOutput {
     private final AtomicReference<int[]> pendingFrame = new AtomicReference<>();
     private final AtomicBoolean renderPending = new AtomicBoolean(false);
 
+    /** The X button does nothing - see {@link #SwingVideoOutput(Runnable)} to opt into closing meaning something. */
     public SwingVideoOutput(){
+        this(() -> { });
+    }
+
+    /**
+     * @param onClose called when the window is closed (the X button) - the caller's cue to stop
+     * whatever is feeding it frames. Registered before the window is ever shown, not afterward via a
+     * separate setter: a listener added post-construction could miss a close that happens in the gap
+     * between the window becoming visible and the caller getting around to registering one.
+     */
+    public SwingVideoOutput(final Runnable onClose){
         canvas.setPreferredSize(new Dimension(WIDTH_PX * SCALE, HEIGHT_PX * SCALE));
         frame.getContentPane().add(canvas);
         frame.pack();
-        //the X button does nothing by default until a caller opts in via setOnClose() - closing the
-        //window is meaningless on its own (it doesn't stop the emulation feeding it frames), so this
-        //avoids the confusing default of HIDE_ON_CLOSE, which hides the window without disposing it
+        //DO_NOTHING_ON_CLOSE + the listener below (rather than the confusing default of HIDE_ON_CLOSE,
+        //which would hide the window without disposing it) - onClose is the caller's decision, not this
+        //class's, about what closing the window should actually do
         frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-        frame.setVisible(true);
-    }
-
-    /** Registers a listener for the window being closed (the X button) - the caller's cue to stop whatever is feeding it frames. */
-    public void setOnClose(final Runnable onClose){
         frame.addWindowListener(new WindowAdapter(){
             @Override
             public void windowClosing(final WindowEvent e){
                 onClose.run();
             }
         });
+        frame.setVisible(true);
     }
 
     @Override

@@ -33,12 +33,11 @@ public final class RomVideoSmokeDemo {
         final int runSeconds = args.length >= 2 ? Integer.parseInt(args[1]) : DEFAULT_RUN_SECONDS;
 
         final Cartridge cartridge = RomLoader.load(romPath);
+        final CountDownLatch windowClosed = new CountDownLatch(1);
         //Swing components must only be constructed on the EDT - see PpuDebugViewerDemo's own comment
         final SwingVideoOutput[] videoOutputHolder = new SwingVideoOutput[1];
-        SwingUtilities.invokeAndWait(() -> videoOutputHolder[0] = new SwingVideoOutput());
+        SwingUtilities.invokeAndWait(() -> videoOutputHolder[0] = new SwingVideoOutput(windowClosed::countDown));
         final SwingVideoOutput videoOutput = videoOutputHolder[0];
-        final CountDownLatch windowClosed = new CountDownLatch(1);
-        videoOutput.setOnClose(windowClosed::countDown);
 
         //outer try/finally so the window is always closed, even if NES construction itself throws
         //(e.g. no audio line available) - a visible, undisposed JFrame keeps a non-daemon EDT thread
