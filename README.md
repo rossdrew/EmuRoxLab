@@ -49,14 +49,15 @@ In future, I want to explore next levels of AI development integration:
 5. An APU (Audio Processing Unit) implementation capable of playing pulse, triangle, noise and dmc channels
    1. A smoke test class capable of playing audio 
 6. `.nes` ROM loading (NROM and MMC1 mappers), so actual game ROMs can be run instead of just hand-assembled test programs
-7. A PPU with correct vblank/NMI timing, full CHR-ROM/CHR-RAM/nametable-mirroring/palette memory wiring and OAM DMA.
-   1. A simple debug UI for visualising the structures from memory and playing sound from running ROMs
-   ![Current UI](https://github.com/rossdrew/EmuRoxLab/blob/main/resource/ui.png)
+7. A full PPU.  Debug screen showing CHR pattern tables, constructed Nametable, OAM sprites and an OAM layout pre sprite clipping.  We also have the ability show to the final screen.
 
 ## Next up
 1. Reviewing the whole design for optimisations
 2. More mapper support (UxROM, CNROM, MMC3, ...) - NROM and MMC1 only for now
-3. PPU background/sprite rendering to a framebuffer, then a visualization of the actual running screen
+3. Controller input
+4. More advanced debugging screens
+   5. Better layout of memory states and screen construction stages
+   6. Visualisation of sound waves
 Y. Integrating this back into EmuRox
 
 ## Known Issues
