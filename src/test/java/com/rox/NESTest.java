@@ -4,11 +4,13 @@ import com.rox.apu.APU;
 import com.rox.audio.AudioOutput;
 import com.rox.cartridge.Cartridge;
 import com.rox.cartridge.RomLoader;
+import com.rox.video.VideoOutput;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
@@ -93,6 +95,32 @@ public class NESTest {
     @Test
     public void constructsWithCpuAndApuWiredOntoTheSharedClock(){
         new NES(mock(AudioOutput.class), blankCartridge());
+    }
+
+    @Test
+    public void constructsWithVideoOutputWiredOntoTheSharedClockWithoutThrowing(){
+        new NES(mock(AudioOutput.class), mock(VideoOutput.class), blankCartridge());
+    }
+
+    /**
+     * Wiring-level only, mirroring {@link #vblankNmiReachesTheCpusRealNmiLine()}'s style: drives the
+     * real clock (single-stepped via {@code tick()}, not real-time-throttled {@code run()}) until a
+     * frame genuinely completes, then checks the videoOutput listener fired - not what the frame
+     * actually looks like (that's {@code PPUTest}'s job for {@code rgbFramebuffer()} itself).
+     */
+    @Test
+    public void frameReadyPresentsTheFramebufferToVideoOutput(){
+        final VideoOutput videoOutput = mock(VideoOutput.class);
+        final NES nes = new NES(mock(AudioOutput.class), videoOutput, blankCartridge());
+
+        //generously bounded poll (real requirement is PPU.FrameTiming.TICKS_UNTIL_VBLANK_START, ~27,394
+        //ticks) rather than a hand-derived exact count, so this isn't fragile against timing details
+        final int maxTicks = 100_000;
+        for (int i = 0; i < maxTicks; i++){
+            nes.clock().tick();
+        }
+
+        verify(videoOutput, atLeastOnce()).present(any());
     }
 
     @Test
