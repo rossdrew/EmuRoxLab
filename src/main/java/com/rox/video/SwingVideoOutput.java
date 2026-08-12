@@ -39,6 +39,7 @@ public final class SwingVideoOutput implements VideoOutput {
         canvas.setPreferredSize(new Dimension(WIDTH_PX * SCALE, HEIGHT_PX * SCALE));
         frame.getContentPane().add(canvas);
         frame.pack();
+        frame.setResizable(false); //setPreferredSize is only a packing hint - without this the user can freely resize away from the fixed scale
         frame.setVisible(true);
     }
 
