@@ -8,6 +8,8 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * The actual "screen" a player would watch, as opposed to the {@code com.rox.ppu.debug} package's
@@ -34,6 +36,12 @@ public final class SwingVideoOutput implements VideoOutput {
         }
     };
     private final JFrame frame = new JFrame("EmuRoxLab");
+    //present() is called once per emulated frame (~60/sec) from the clock thread, far faster than a
+    //loaded EDT can necessarily keep up with - rather than queuing one invokeLater (and one retained
+    //rgbFrame array) per call, which would grow unboundedly under any EDT backpressure, only the
+    //latest frame is kept and at most one render task is ever pending at a time
+    private final AtomicReference<int[]> pendingFrame = new AtomicReference<>();
+    private final AtomicBoolean renderPending = new AtomicBoolean(false);
 
     public SwingVideoOutput(){
         canvas.setPreferredSize(new Dimension(WIDTH_PX * SCALE, HEIGHT_PX * SCALE));
@@ -45,10 +53,16 @@ public final class SwingVideoOutput implements VideoOutput {
 
     @Override
     public void present(final int[] rgbFrame){
-        SwingUtilities.invokeLater(() -> {
-            image.setRGB(0, 0, WIDTH_PX, HEIGHT_PX, rgbFrame, 0, WIDTH_PX);
-            canvas.repaint();
-        });
+        pendingFrame.set(rgbFrame);
+        if (renderPending.compareAndSet(false, true)){
+            SwingUtilities.invokeLater(this::renderPendingFrame);
+        }
+    }
+
+    private void renderPendingFrame(){
+        renderPending.set(false);
+        image.setRGB(0, 0, WIDTH_PX, HEIGHT_PX, pendingFrame.get(), 0, WIDTH_PX);
+        canvas.repaint();
     }
 
     /** Closes the window - the caller's responsibility, same as when to stop the emulation itself. */
