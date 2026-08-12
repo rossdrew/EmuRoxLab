@@ -34,28 +34,35 @@ public final class RomVideoSmokeDemo {
         final SwingVideoOutput[] videoOutputHolder = new SwingVideoOutput[1];
         SwingUtilities.invokeAndWait(() -> videoOutputHolder[0] = new SwingVideoOutput());
         final SwingVideoOutput videoOutput = videoOutputHolder[0];
-        final NES nes = new NES(videoOutput, cartridge);
 
-        System.out.println("Showing " + romPath + " for " + runSeconds + " seconds...");
-        final Thread nesThread = new Thread(nes::powerOn);
-        nesThread.start();
+        //outer try/finally so the window is always closed, even if NES construction itself throws
+        //(e.g. no audio line available) - a visible, undisposed JFrame keeps a non-daemon EDT thread
+        //alive, so skipping close() here would hang the JVM on exit instead of surfacing the error
         try {
-            Thread.sleep(runSeconds * 1000L);
-        } finally {
-            nes.powerOff();
-            //retry until nesThread has genuinely terminated - a single interrupted join() would
-            //otherwise return early without actually waiting, leaving the emulation thread running
-            boolean interrupted = false;
-            while (nesThread.isAlive()){
-                try {
-                    nesThread.join();
-                } catch (InterruptedException e){
-                    interrupted = true;
+            final NES nes = new NES(videoOutput, cartridge);
+
+            System.out.println("Showing " + romPath + " for " + runSeconds + " seconds...");
+            final Thread nesThread = new Thread(nes::powerOn);
+            nesThread.start();
+            try {
+                Thread.sleep(runSeconds * 1000L);
+            } finally {
+                nes.powerOff();
+                //retry until nesThread has genuinely terminated - a single interrupted join() would
+                //otherwise return early without actually waiting, leaving the emulation thread running
+                boolean interrupted = false;
+                while (nesThread.isAlive()){
+                    try {
+                        nesThread.join();
+                    } catch (InterruptedException e){
+                        interrupted = true;
+                    }
+                }
+                if (interrupted){
+                    Thread.currentThread().interrupt();
                 }
             }
-            if (interrupted){
-                Thread.currentThread().interrupt();
-            }
+        } finally {
             videoOutput.close();
         }
         System.out.println("Done.");
