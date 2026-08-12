@@ -7,6 +7,8 @@ import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -50,7 +52,21 @@ public final class SwingVideoOutput implements VideoOutput {
         canvas.setPreferredSize(new Dimension(WIDTH_PX * SCALE, HEIGHT_PX * SCALE));
         frame.getContentPane().add(canvas);
         frame.pack();
+        //the X button does nothing by default until a caller opts in via setOnClose() - closing the
+        //window is meaningless on its own (it doesn't stop the emulation feeding it frames), so this
+        //avoids the confusing default of HIDE_ON_CLOSE, which hides the window without disposing it
+        frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         frame.setVisible(true);
+    }
+
+    /** Registers a listener for the window being closed (the X button) - the caller's cue to stop whatever is feeding it frames. */
+    public void setOnClose(final Runnable onClose){
+        frame.addWindowListener(new WindowAdapter(){
+            @Override
+            public void windowClosing(final WindowEvent e){
+                onClose.run();
+            }
+        });
     }
 
     @Override

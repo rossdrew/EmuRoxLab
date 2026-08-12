@@ -6,10 +6,13 @@ import com.rox.video.SwingVideoOutput;
 
 import javax.swing.SwingUtilities;
 import java.nio.file.Path;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Manual visual smoke test: loads a real {@code .nes} ROM file and shows its video output in a real
- * window for a fixed duration - not a unit test, run it directly and look.
+ * window for up to a fixed duration, or until the window is closed, whichever comes first - not a
+ * unit test, run it directly and look.
  *
  * <pre>./gradlew compileJava &amp;&amp; java -cp build/classes/java/main com.rox.RomVideoSmokeDemo path/to/rom.nes [seconds]</pre>
  */
@@ -34,6 +37,8 @@ public final class RomVideoSmokeDemo {
         final SwingVideoOutput[] videoOutputHolder = new SwingVideoOutput[1];
         SwingUtilities.invokeAndWait(() -> videoOutputHolder[0] = new SwingVideoOutput());
         final SwingVideoOutput videoOutput = videoOutputHolder[0];
+        final CountDownLatch windowClosed = new CountDownLatch(1);
+        videoOutput.setOnClose(windowClosed::countDown);
 
         //outer try/finally so the window is always closed, even if NES construction itself throws
         //(e.g. no audio line available) - a visible, undisposed JFrame keeps a non-daemon EDT thread
@@ -41,16 +46,18 @@ public final class RomVideoSmokeDemo {
         try {
             final NES nes = new NES(videoOutput, cartridge);
 
-            System.out.println("Showing " + romPath + " for " + runSeconds + " seconds...");
+            System.out.println("Showing " + romPath + " for up to " + runSeconds + " seconds (close the window to stop early)...");
             final Thread nesThread = new Thread(nes::powerOn);
             nesThread.start();
+            boolean interrupted = false;
             try {
-                Thread.sleep(runSeconds * 1000L);
+                windowClosed.await(runSeconds, TimeUnit.SECONDS);
+            } catch (InterruptedException e){
+                interrupted = true;
             } finally {
                 nes.powerOff();
                 //retry until nesThread has genuinely terminated - a single interrupted join() would
                 //otherwise return early without actually waiting, leaving the emulation thread running
-                boolean interrupted = false;
                 while (nesThread.isAlive()){
                     try {
                         nesThread.join();
@@ -58,9 +65,9 @@ public final class RomVideoSmokeDemo {
                         interrupted = true;
                     }
                 }
-                if (interrupted){
-                    Thread.currentThread().interrupt();
-                }
+            }
+            if (interrupted){
+                Thread.currentThread().interrupt();
             }
         } finally {
             videoOutput.close();
