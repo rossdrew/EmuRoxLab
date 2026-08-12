@@ -13,12 +13,14 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * The actual "screen" a player would watch, as opposed to the {@code com.rox.ppu.debug} package's
- * inspection panels - a plain {@link JFrame} blitting each presented frame at a fixed integer scale,
- * nearest-neighbour interpolated (crisp pixel art, not blurred). {@link #present} is called from the
- * emulation's clock thread (see {@code NES}'s video-output clock listener), never the EDT, so every
- * Swing interaction there is marshalled via {@link SwingUtilities#invokeLater} rather than touched
- * directly - only construction is the caller's responsibility to run on the EDT (matching this
- * package's sibling {@code PpuDebugFrame}'s own convention), since it happens once, not per frame.
+ * inspection panels - a plain, freely resizable {@link JFrame} blitting each presented frame at the
+ * largest size that both fits the window and preserves the NES's 256x240 aspect ratio ({@link
+ * CenteredScale}), letterboxed/pillarboxed (centered, not stretched) rather than distorted,
+ * nearest-neighbour interpolated (crisp pixel art, not blurred). {@link #present} is
+ * called from the emulation's clock thread (see {@code NES}'s video-output clock listener), never the
+ * EDT, so every Swing interaction there is marshalled via {@link SwingUtilities#invokeLater} rather
+ * than touched directly - only construction is the caller's responsibility to run on the EDT (matching
+ * this package's sibling {@code PpuDebugFrame}'s own convention), since it happens once, not per frame.
  */
 public final class SwingVideoOutput implements VideoOutput {
     private static final int WIDTH_PX = 256;
@@ -30,9 +32,10 @@ public final class SwingVideoOutput implements VideoOutput {
         @Override
         protected void paintComponent(final Graphics g){
             super.paintComponent(g);
+            final int[] rect = CenteredScale.fit(WIDTH_PX, HEIGHT_PX, getWidth(), getHeight());
             final Graphics2D g2 = (Graphics2D) g;
             g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-            g2.drawImage(image, 0, 0, getWidth(), getHeight(), null);
+            g2.drawImage(image, rect[0], rect[1], rect[2], rect[3], null);
         }
     };
     private final JFrame frame = new JFrame("EmuRoxLab");
@@ -47,7 +50,6 @@ public final class SwingVideoOutput implements VideoOutput {
         canvas.setPreferredSize(new Dimension(WIDTH_PX * SCALE, HEIGHT_PX * SCALE));
         frame.getContentPane().add(canvas);
         frame.pack();
-        frame.setResizable(false); //setPreferredSize is only a packing hint - without this the user can freely resize away from the fixed scale
         frame.setVisible(true);
     }
 
