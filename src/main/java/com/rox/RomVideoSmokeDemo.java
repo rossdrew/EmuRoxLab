@@ -39,10 +39,29 @@ public final class RomVideoSmokeDemo {
 
         final Cartridge cartridge = RomLoader.load(romPath);
         final CountDownLatch windowClosed = new CountDownLatch(1);
-        //Swing components must only be constructed on the EDT - see PpuDebugViewerDemo's own comment
+        //Swing components must only be constructed on the EDT - see PpuDebugViewerDemo's own comment.
+        //invokeLater + our own retried-on-interrupt latch, not invokeAndWait, since invokeAndWait's own
+        //InterruptedException doesn't cancel the already-posted EDT task - the window could still get
+        //constructed asynchronously afterward with nothing left to close it, leaking a visible JFrame
         final SwingVideoOutput[] videoOutputHolder = new SwingVideoOutput[1];
-        SwingUtilities.invokeAndWait(() -> videoOutputHolder[0] = new SwingVideoOutput(windowClosed::countDown));
+        final CountDownLatch videoOutputConstructed = new CountDownLatch(1);
+        SwingUtilities.invokeLater(() -> {
+            videoOutputHolder[0] = new SwingVideoOutput(windowClosed::countDown);
+            videoOutputConstructed.countDown();
+        });
+        boolean constructionInterrupted = false;
+        while (true){
+            try {
+                videoOutputConstructed.await();
+                break;
+            } catch (InterruptedException e){
+                constructionInterrupted = true;
+            }
+        }
         final SwingVideoOutput videoOutput = videoOutputHolder[0];
+        if (constructionInterrupted){
+            Thread.currentThread().interrupt();
+        }
 
         //outer try/finally so the window is always closed, even if NES construction itself throws
         //(e.g. no audio line available) - a visible, undisposed JFrame keeps a non-daemon EDT thread
