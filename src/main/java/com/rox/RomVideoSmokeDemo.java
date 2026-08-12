@@ -31,6 +31,11 @@ public final class RomVideoSmokeDemo {
 
         final Path romPath = Path.of(args[0]);
         final int runSeconds = args.length >= 2 ? Integer.parseInt(args[1]) : DEFAULT_RUN_SECONDS;
+        if (runSeconds < 0){
+            System.err.println("Seconds must be non-negative");
+            System.exit(1);
+            return;
+        }
 
         final Cartridge cartridge = RomLoader.load(romPath);
         final CountDownLatch windowClosed = new CountDownLatch(1);
