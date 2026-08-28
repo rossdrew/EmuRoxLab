@@ -8,6 +8,7 @@ import com.rox.cartridge.Cartridge;
 import com.rox.clock.Clock;
 import com.rox.clock.FPSClock;
 import com.rox.cpu.mos6502.MOS6502;
+import com.rox.input.ControllerConfiguration;
 import com.rox.mem.*;
 import com.rox.ppu.PPU;
 import com.rox.time.SystemTimeSource;
@@ -36,20 +37,29 @@ public class NES {
     private volatile boolean stopRequested;
 
     public NES(final Cartridge cartridge) throws LineUnavailableException {
-        this(new SpeakerAudioOutput(), VideoOutput.NO_OP, cartridge);
+        this(new SpeakerAudioOutput(), VideoOutput.NO_OP, ControllerConfiguration.NONE, cartridge);
     }
 
     /** Like {@link #NES(Cartridge)}, but presenting frames to {@code videoOutput} as they complete. */
     public NES(final VideoOutput videoOutput, final Cartridge cartridge) throws LineUnavailableException {
-        this(new SpeakerAudioOutput(), videoOutput, cartridge);
+        this(new SpeakerAudioOutput(), videoOutput, ControllerConfiguration.NONE, cartridge);
+    }
+
+    /** Like {@link #NES(VideoOutput, Cartridge)}, but driven by {@code controllers} rather than {@link ControllerConfiguration#NONE}. */
+    public NES(final VideoOutput videoOutput, final ControllerConfiguration controllers, final Cartridge cartridge) throws LineUnavailableException {
+        this(new SpeakerAudioOutput(), videoOutput, controllers, cartridge);
     }
 
     NES(final AudioOutput audioOutput, final Cartridge cartridge){
-        this(audioOutput, VideoOutput.NO_OP, cartridge);
+        this(audioOutput, VideoOutput.NO_OP, ControllerConfiguration.NONE, cartridge);
     }
 
     NES(final AudioOutput audioOutput, final VideoOutput videoOutput, final Cartridge cartridge){
-        this(audioOutput, videoOutput, cartridge, new FPSClock(CPU_HZ, 60, new SystemTimeSource(), new ThreadSleeper()));
+        this(audioOutput, videoOutput, ControllerConfiguration.NONE, cartridge);
+    }
+
+    NES(final AudioOutput audioOutput, final VideoOutput videoOutput, final ControllerConfiguration controllers, final Cartridge cartridge){
+        this(audioOutput, videoOutput, controllers, cartridge, new FPSClock(CPU_HZ, 60, new SystemTimeSource(), new ThreadSleeper()));
     }
 
     /** Test-only entry point for injecting a fake {@link Clock} - see {@code NESTest}'s race-reproducing double. */
@@ -59,6 +69,12 @@ public class NES {
 
     /** Test-only entry point for injecting both a fake {@link Clock} and a mocked {@link VideoOutput}. */
     NES(final AudioOutput audioOutput, final VideoOutput videoOutput, final Cartridge cartridge, final Clock clock){
+        this(audioOutput, videoOutput, ControllerConfiguration.NONE, cartridge, clock);
+    }
+
+    /** Test-only entry point for injecting a fake {@link Clock} alongside a real {@link ControllerConfiguration}. */
+    NES(final AudioOutput audioOutput, final VideoOutput videoOutput, final ControllerConfiguration controllers,
+        final Cartridge cartridge, final Clock clock){
         final MemoryBus ramBus = new MemoryBus8Bit(new RAM(0x10000));
         //DMC's own sample-address generator (see DMCChannel) only ever produces addresses in
         //$8000-$FFFF (base $C000+, wrapping no lower than $8000) - always within cartridge range,
@@ -66,7 +82,7 @@ public class NES {
         //NESMemoryBus (which would need apu itself to construct, a circular dependency)
         this.apu = new APU(cartridge);
         this.ppu = new PPU(cartridge);
-        this.memoryBus = new Latched8BitMemoryBus(new NESMemoryBus(ramBus, apu, cartridge, ppu));
+        this.memoryBus = new Latched8BitMemoryBus(new NESMemoryBus(ramBus, apu, cartridge, ppu, controllers));
         this.cpu = new MOS6502(memoryBus);
         this.clock = clock;
         this.audioOutput = audioOutput;
