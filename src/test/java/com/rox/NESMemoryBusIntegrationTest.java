@@ -7,6 +7,7 @@ import com.rox.cpu.mos6502.MOS6502Environment;
 import com.rox.cpu.mos6502.MOS6502OpCode;
 import com.rox.cpu.mos6502.assembler.AssembledProgram;
 import com.rox.cpu.mos6502.assembler.Assembler;
+import com.rox.input.ControllerConfiguration;
 import com.rox.mem.Latched8BitMemoryBus;
 import com.rox.mem.Memory;
 import com.rox.mem.MemoryBus;
@@ -64,7 +65,7 @@ public class NESMemoryBusIntegrationTest {
             @Override
             public void write(final int address, final int value) { }
         };
-        final MemoryBus nesMemoryBus = new NESMemoryBus(new MemoryBus8Bit(ram), noOpDeviceBus, cartridge, new PPU(cartridge));
+        final MemoryBus nesMemoryBus = new NESMemoryBus(new MemoryBus8Bit(ram), noOpDeviceBus, cartridge, new PPU(cartridge), ControllerConfiguration.NONE);
         final MOS6502 cpu = new MOS6502(new Latched8BitMemoryBus(nesMemoryBus));
         cpu.setPC(program.startAddress());
 

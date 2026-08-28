@@ -1,6 +1,9 @@
 package com.rox.mem;
 
 import com.rox.Arbitraries;
+import com.rox.input.Button;
+import com.rox.input.Controller;
+import com.rox.input.ControllerConfiguration;
 import net.jqwik.api.*;
 import net.jqwik.api.lifecycle.BeforeTry;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,7 +38,16 @@ public class NESMemoryBusTest extends Arbitraries {
         io = mock(MemoryBus.class);
         cartridge = mock(MemoryBus.class);
         ppu = mock(OamDmaBus.class);
-        memoryBus = new NESMemoryBus(ramBus, io, cartridge, ppu);
+        //player1/player2 both press A - enough to distinguish "port latched correctly" from "port
+        //never latched" (which would read back a stale 0) without needing mutable fakes here
+        final Controller player1 = button -> button == Button.A;
+        final Controller player2 = button -> button == Button.A;
+        memoryBus = new NESMemoryBus(ramBus, io, cartridge, ppu, ControllerConfiguration.twoPlayers(player1, player2));
+    }
+
+    private void strobeLatch(){
+        memoryBus.write(CONTROLLER_1_ADDRESS, 0x01);
+        memoryBus.write(CONTROLLER_1_ADDRESS, 0x00);
     }
 
     @Provide
@@ -61,21 +73,26 @@ public class NESMemoryBusTest extends Arbitraries {
     @Provide
     Arbitrary<Integer> inIORange() {
         //excludes $4016: unlike the rest of the I/O range (including $4017, the APU's frame counter
-        //on write), the joypad strobe never reaches the device bus - see writeController1StrobeIsANoOp
+        //on write), the joypad strobe drives the controller ports rather than reaching the device bus
+        //- see writeController1StrobeAlsoStrobesController2Port
         return integers().between(IO_START_ADDRESS, IO_END_ADDRESS)
                 .filter(address -> address != CONTROLLER_1_ADDRESS);
     }
 
     @Provide
     Arbitrary<Integer> inIORangeExcludingStatusRegister() {
+        //also excludes $4016/$4017: both are now routed to a ControllerPort rather than stubbed to a
+        //blind 0, so their read value depends on controller/latch state, not just address
         return integers().between(IO_START_ADDRESS, IO_END_ADDRESS)
-                .filter(address -> address != STATUS_REGISTER_ADDRESS);
+                .filter(address -> address != STATUS_REGISTER_ADDRESS
+                        && address != CONTROLLER_1_ADDRESS && address != CONTROLLER_2_ADDRESS);
     }
 
     @Provide
     Arbitrary<Integer> inIORangeExcludingOamDma() {
-        //also excludes $4016 for the same reason as inIORange() above - the joypad strobe is a no-op,
-        //not a write that reaches the device bus, so this test's "always routed to io" claim can't cover it
+        //also excludes $4016 for the same reason as inIORange() above - the joypad strobe drives the
+        //controller ports, not a write that reaches the device bus, so this test's "always routed to
+        //io" claim can't cover it
         return integers().between(IO_START_ADDRESS, IO_END_ADDRESS)
                 .filter(address -> address != OAM_DMA_ADDRESS && address != CONTROLLER_1_ADDRESS);
     }
@@ -201,28 +218,33 @@ public class NESMemoryBusTest extends Arbitraries {
     }
 
     @Test
-    public void readController1ReportsNoButtonsPressedWithoutTouchingAnyBus(){
-        assertEquals(0, memoryBus.read(CONTROLLER_1_ADDRESS));
+    public void readController1RoutesToControllerPort1WithoutTouchingAnyBus(){
+        strobeLatch();
+
+        assertEquals(1, memoryBus.read(CONTROLLER_1_ADDRESS)); //player1's A, pressed - see setup()
         verifyNoInteractions(ramBus);
         verifyNoInteractions(io);
         verifyNoInteractions(cartridge);
         verifyNoInteractions(ppu);
     }
 
+    /** Unlike every other I/O-range write, the joypad strobe has no meaning to the APU (or anything else) - it drives both controller ports instead. */
     @Test
-    public void readController2ReportsNoButtonsPressedWithoutTouchingAnyBus(){
-        assertEquals(0, memoryBus.read(CONTROLLER_2_ADDRESS));
-        verifyNoInteractions(ramBus);
-        verifyNoInteractions(io);
-        verifyNoInteractions(cartridge);
-        verifyNoInteractions(ppu);
-    }
-
-    /** Unlike every other I/O-range write, the joypad strobe has no meaning to the APU (or anything else) - it's a pure no-op. */
-    @Test
-    public void writeController1StrobeIsANoOp(){
+    public void writeController1StrobeDoesNotReachAnyBus(){
         memoryBus.write(CONTROLLER_1_ADDRESS, 0x01);
 
+        verifyNoInteractions(ramBus);
+        verifyNoInteractions(io);
+        verifyNoInteractions(cartridge);
+        verifyNoInteractions(ppu);
+    }
+
+    /** The single most easy-to-get-wrong detail of this wiring: one $4016 write must strobe BOTH ports, not just port 1. */
+    @Test
+    public void writeController1StrobeAlsoStrobesController2Port(){
+        strobeLatch(); //only ever writes to $4016
+
+        assertEquals(1, memoryBus.read(CONTROLLER_2_ADDRESS)); //player2's A, pressed - see setup()
         verifyNoInteractions(ramBus);
         verifyNoInteractions(io);
         verifyNoInteractions(cartridge);
