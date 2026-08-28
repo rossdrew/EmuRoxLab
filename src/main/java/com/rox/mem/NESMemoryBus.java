@@ -51,8 +51,10 @@ public class NESMemoryBus implements MemoryBus {
         this.apuBus = apuBus;
         this.cartridgeBus = cartridgeBus;
         this.ppuBus = ppuBus;
-        this.controllerPort1 = new ControllerPort(controllers.player1(), controllers.player3(), controllers.fourScoreEnabled());
-        this.controllerPort2 = new ControllerPort(controllers.player2(), controllers.player4(), controllers.fourScoreEnabled());
+        this.controllerPort1 = new ControllerPort(controllers.player1(), controllers.player3(), controllers.fourScoreEnabled(),
+                ControllerPort.FOUR_SCORE_PORT_1_SIGNATURE_BIT);
+        this.controllerPort2 = new ControllerPort(controllers.player2(), controllers.player4(), controllers.fourScoreEnabled(),
+                ControllerPort.FOUR_SCORE_PORT_2_SIGNATURE_BIT);
     }
 
     @Override

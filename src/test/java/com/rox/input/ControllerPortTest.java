@@ -35,7 +35,7 @@ public class ControllerPortTest {
 
     @Property
     public void eachButtonLatchesToItsOwnShiftRegisterBitPosition(@ForAll("buttons") final Button pressed){
-        final ControllerPort port = new ControllerPort(onlyPressed(pressed), Controller.NONE, false);
+        final ControllerPort port = new ControllerPort(onlyPressed(pressed), Controller.NONE, false, 0); //signature bit unused - Four Score disabled
         strobeLatch(port);
 
         final int[] bits = drain(port, 8);
@@ -47,7 +47,7 @@ public class ControllerPortTest {
     @Test
     public void eightReadsDrainInAbSelectStartUpDownLeftRightOrder(){
         final Controller controller = button -> button == Button.A || button == Button.START;
-        final ControllerPort port = new ControllerPort(controller, Controller.NONE, false);
+        final ControllerPort port = new ControllerPort(controller, Controller.NONE, false, 0); //signature bit unused - Four Score disabled
         strobeLatch(port);
 
         assertEquals(1, port.read()); //A
@@ -62,7 +62,7 @@ public class ControllerPortTest {
 
     @Test
     public void readsPastTheEighthAlwaysReturnOneInStandardMode(){
-        final ControllerPort port = new ControllerPort(Controller.NONE, Controller.NONE, false);
+        final ControllerPort port = new ControllerPort(Controller.NONE, Controller.NONE, false, 0); //signature bit unused - Four Score disabled
         strobeLatch(port);
         drain(port, 8);
 
@@ -75,7 +75,7 @@ public class ControllerPortTest {
     public void strobeHeldHighContinuouslyReflectsLiveAStateWithoutLatching(){
         final boolean[] pressed = { false };
         final Controller controller = button -> button == Button.A && pressed[0];
-        final ControllerPort port = new ControllerPort(controller, Controller.NONE, false);
+        final ControllerPort port = new ControllerPort(controller, Controller.NONE, false, 0); //signature bit unused - Four Score disabled
 
         port.strobe(true);
         assertEquals(0, port.read());
@@ -91,7 +91,7 @@ public class ControllerPortTest {
     public void aButtonChangeAfterStrobeLowDoesNotPerturbTheAlreadyLatchedSnapshot(){
         final boolean[] pressed = { false };
         final Controller controller = button -> button == Button.A && pressed[0];
-        final ControllerPort port = new ControllerPort(controller, Controller.NONE, false);
+        final ControllerPort port = new ControllerPort(controller, Controller.NONE, false, 0); //signature bit unused - Four Score disabled
 
         strobeLatch(port); //latches A=0
 
@@ -105,7 +105,7 @@ public class ControllerPortTest {
     public void redundantStrobeHighCallsDoNotTriggerASpuriousLatch(){
         final boolean[] pressed = { false };
         final Controller controller = button -> button == Button.A && pressed[0];
-        final ControllerPort port = new ControllerPort(controller, Controller.NONE, false);
+        final ControllerPort port = new ControllerPort(controller, Controller.NONE, false, 0); //signature bit unused - Four Score disabled
 
         port.strobe(true);
         port.strobe(true); //redundant - already high, must not be treated as a falling edge
@@ -118,7 +118,7 @@ public class ControllerPortTest {
     public void reStrobingWithoutGoingHighFirstDoesNotReLatch(){
         final boolean[] pressed = { false };
         final Controller controller = button -> button == Button.A && pressed[0];
-        final ControllerPort port = new ControllerPort(controller, Controller.NONE, false);
+        final ControllerPort port = new ControllerPort(controller, Controller.NONE, false, 0); //signature bit unused - Four Score disabled
 
         strobeLatch(port); //latches A=0
         drain(port, 1); //consume the A bit
@@ -129,19 +129,29 @@ public class ControllerPortTest {
         assertEquals(0, port.read()); //B, unaffected either way, but proves no re-latch reset the cursor to A
     }
 
+    /** Port 1 ($4016, controllers 1+3) signature is bit 19 - NOT the same bit port 2 uses, per nesdev.org's Four Score page. */
     @Test
-    public void fourScoreLatchesSecondaryControllerAndSignatureBits(){
+    public void fourScorePort1LatchesSecondaryControllerAndItsOwnSignatureBit(){
+        assertFourScoreSignature(ControllerPort.FOUR_SCORE_PORT_1_SIGNATURE_BIT, 19);
+    }
+
+    /** Port 2 ($4017, controllers 2+4) signature is bit 18 - NOT the same bit port 1 uses, per nesdev.org's Four Score page. */
+    @Test
+    public void fourScorePort2LatchesSecondaryControllerAndItsOwnSignatureBit(){
+        assertFourScoreSignature(ControllerPort.FOUR_SCORE_PORT_2_SIGNATURE_BIT, 18);
+    }
+
+    private void assertFourScoreSignature(final int signatureBit, final int expectedSignatureBitPosition){
         final Controller primary = onlyPressed(Button.A);
         final Controller secondary = onlyPressed(Button.B);
-        final ControllerPort port = new ControllerPort(primary, secondary, true);
+        final ControllerPort port = new ControllerPort(primary, secondary, true, signatureBit);
         strobeLatch(port);
 
-        final int[] expected = {
-                1, 0, 0, 0, 0, 0, 0, 0, //bits0-7: primary (A pressed)
-                0, 1, 0, 0, 0, 0, 0, 0, //bits8-15: secondary (B pressed)
-                0, 0, 0, 1, 0, 0, 0, 0, //bits16-23: 16-18=0, 19=1 (Four Score signature), 20-23=0
-        };
-        assertEquals(expected.length, 24);
+        final int[] expected = new int[24];
+        expected[Button.A.ordinal()] = 1; //bits0-7: primary (A pressed)
+        expected[8 + Button.B.ordinal()] = 1; //bits8-15: secondary (B pressed)
+        expected[expectedSignatureBitPosition] = 1; //bits16-23: every bit 0 except the port's own signature bit
+
         final int[] actual = drain(port, expected.length);
         for (int bit = 0; bit < expected.length; bit++){
             assertEquals(expected[bit], actual[bit], "bit " + bit);
