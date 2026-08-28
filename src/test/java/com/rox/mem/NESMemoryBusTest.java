@@ -251,6 +251,20 @@ public class NESMemoryBusTest extends Arbitraries {
         verifyNoInteractions(ppu);
     }
 
+    @Test
+    public void strobeGoingLowActuallyStopsLiveReadingAndAdvancesThroughLatchedBits(){
+        strobeLatch();
+
+        //player1 presses only A (see setup) - if the low transition were never truly detected (e.g. a
+        //mutated bit-test on the strobed value), every read would keep returning the live A bit
+        //forever instead of advancing through the latched B/Select/.../Right bits
+        final int[] bits = new int[8];
+        for (int i = 0; i < 8; i++){
+            bits[i] = memoryBus.read(CONTROLLER_1_ADDRESS);
+        }
+        assertArrayEquals(new int[]{1, 0, 0, 0, 0, 0, 0, 0}, bits);
+    }
+
     /** $4017 is genuinely the APU's frame counter register on write (unlike $4016) - must keep reaching it. */
     @Test
     public void writeController2AddressStillReachesIOAsTheApuFrameCounter(){
