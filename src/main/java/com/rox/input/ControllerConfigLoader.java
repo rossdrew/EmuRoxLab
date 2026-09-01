@@ -6,6 +6,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 
@@ -64,7 +65,9 @@ public final class ControllerConfigLoader {
 
     private static int resolveKeyCode(final String keyName){
         try {
-            return KeyEvent.class.getField("VK_" + keyName.toUpperCase()).getInt(null);
+            //Locale.ROOT, not the JVM default - a Turkish default locale uppercases "i" to "İ" (dotted
+            //capital I), which would look up a nonexistent "VK_İ..." field instead of "VK_I..."
+            return KeyEvent.class.getField("VK_" + keyName.toUpperCase(Locale.ROOT)).getInt(null);
         } catch (NoSuchFieldException | IllegalAccessException e){
             throw new IllegalArgumentException(
                     "Unknown key name '" + keyName + "' - expected a java.awt.event.KeyEvent.VK_* field name", e);

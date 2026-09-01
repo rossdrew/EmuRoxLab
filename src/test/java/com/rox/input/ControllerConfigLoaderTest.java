@@ -8,6 +8,7 @@ import java.awt.event.KeyEvent;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -84,6 +85,27 @@ public class ControllerConfigLoaderTest {
     @Test
     public void fourScoreEnabledDefaultsToFalse(){
         assertFalse(ControllerConfigLoader.parse(new Properties()).fourScoreEnabled());
+    }
+
+    @Test
+    public void keyNameResolutionIsLocaleIndependent(){
+        //Turkish uppercases "i" to "İ" (dotted capital I), not ASCII "I" - a JVM running under this
+        //locale must still resolve a lowercase "i" key name to VK_I, not throw or silently mis-map
+        final Locale originalDefault = Locale.getDefault();
+        try {
+            Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+
+            final Properties properties = new Properties();
+            properties.setProperty("player1.source", "keyboard");
+            properties.setProperty("player1.keyboard.a", "i");
+
+            final KeyboardController controller = (KeyboardController) ControllerConfigLoader.parse(properties).player1();
+            controller.keyPressed(press(KeyEvent.VK_I));
+
+            assertTrue(controller.isPressed(Button.A));
+        } finally {
+            Locale.setDefault(originalDefault);
+        }
     }
 
     @Test
