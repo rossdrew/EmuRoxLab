@@ -1,0 +1,22 @@
+# Copy to controllers.properties (or any path) and pass it as the second argument to
+# RomVideoSmokeDemo, e.g.:
+#   java -cp build/classes/java/main com.rox.RomVideoSmokeDemo path/to/rom.nes controllers.properties
+#
+# source: "keyboard" or "none" (default if omitted). Gamepad support is planned for phase 3.
+# Key names resolve to java.awt.event.KeyEvent.VK_* constants, e.g. "Z" -> VK_Z, "UP" -> VK_UP.
+
+fourscore.enabled=false
+
+player1.source=keyboard
+player1.keyboard.a=Z
+player1.keyboard.b=X
+player1.keyboard.select=SHIFT
+player1.keyboard.start=ENTER
+player1.keyboard.up=UP
+player1.keyboard.down=DOWN
+player1.keyboard.left=LEFT
+player1.keyboard.right=RIGHT
+
+player2.source=none
+player3.source=none
+player4.source=none
