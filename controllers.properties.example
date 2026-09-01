@@ -2,7 +2,7 @@
 # RomVideoSmokeDemo, e.g.:
 #   java -cp build/classes/java/main com.rox.RomVideoSmokeDemo path/to/rom.nes controllers.properties
 #
-# source: "keyboard", "gamepad" (phase 3), or "none" (default if omitted).
+# source: "keyboard" or "none" (default if omitted). Gamepad support is planned for phase 3.
 # Key names resolve to java.awt.event.KeyEvent.VK_* constants, e.g. "Z" -> VK_Z, "UP" -> VK_UP.
 
 fourscore.enabled=false
