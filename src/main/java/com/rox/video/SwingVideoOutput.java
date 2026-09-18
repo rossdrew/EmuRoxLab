@@ -7,6 +7,7 @@ import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+import java.awt.event.KeyListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
@@ -74,6 +75,15 @@ public final class SwingVideoOutput implements VideoOutput {
             }
         });
         frame.setVisible(true);
+    }
+
+    /**
+     * @param listener receives real key events once the window has focus - unlike the close listener,
+     * there's no register-before-{@code setVisible} ordering requirement here, since key events only
+     * matter once emulation is actually running.
+     */
+    public void addKeyListener(final KeyListener listener){
+        frame.addKeyListener(listener);
     }
 
     @Override
