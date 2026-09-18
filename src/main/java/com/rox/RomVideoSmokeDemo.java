@@ -16,28 +16,26 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Manual visual smoke test: loads a real {@code .nes} ROM file and shows its video output in a real
- * window for up to a fixed duration, or until the window is closed, whichever comes first - not a
- * unit test, run it directly and play.
+ * window until the window is closed, or up to a fixed duration if one is given, whichever comes
+ * first - not a unit test, run it directly and play.
  *
  * <pre>./gradlew compileJava &amp;&amp; java -cp build/classes/java/main com.rox.RomVideoSmokeDemo path/to/rom.nes [path/to/controllers.properties] [seconds]</pre>
  */
 public final class RomVideoSmokeDemo {
-    private static final int DEFAULT_RUN_SECONDS = 30;
-
     private RomVideoSmokeDemo(){
     }
 
     public static void main(final String[] args) throws Exception {
         if (args.length < 1){
-            System.err.println("Usage: RomVideoSmokeDemo <path-to-rom.nes> [path-to-controllers.properties] [seconds]");
+            System.err.println("Usage: RomVideoSmokeDemo <path-to-rom.nes> [path-to-controllers.properties] [seconds, or omit to run until the window is closed]");
             System.exit(1);
             return;
         }
 
         final Path romPath = Path.of(args[0]);
         final ControllerConfiguration controllers = loadControllers(args.length >= 2 ? args[1] : null);
-        final int runSeconds = args.length >= 3 ? Integer.parseInt(args[2]) : DEFAULT_RUN_SECONDS;
-        if (runSeconds < 0){
+        final Integer runSeconds = args.length >= 3 ? Integer.parseInt(args[2]) : null;
+        if (runSeconds != null && runSeconds < 0){
             System.err.println("Seconds must be non-negative");
             System.exit(1);
             return;
@@ -76,12 +74,18 @@ public final class RomVideoSmokeDemo {
         try {
             final NES nes = new NES(videoOutput, controllers, cartridge);
 
-            System.out.println("Showing " + romPath + " for up to " + runSeconds + " seconds (close the window to stop early)...");
+            System.out.println("Showing " + romPath
+                    + (runSeconds != null ? " for up to " + runSeconds + " seconds" : "")
+                    + " (close the window to stop" + (runSeconds != null ? " early" : "") + ")...");
             final Thread nesThread = new Thread(nes::powerOn);
             nesThread.start();
             boolean interrupted = false;
             try {
-                windowClosed.await(runSeconds, TimeUnit.SECONDS);
+                if (runSeconds != null){
+                    windowClosed.await(runSeconds, TimeUnit.SECONDS);
+                } else {
+                    windowClosed.await();
+                }
             } catch (InterruptedException e){
                 interrupted = true;
             } finally {
