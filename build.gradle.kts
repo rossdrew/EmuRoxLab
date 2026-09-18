@@ -59,6 +59,10 @@ pitest {
 }
 
 dependencies {
+    //first main-scope (non-test) dependency in this project - confirmed OK with the user during
+    //Phase 3 planning. MIT, built on Java's FFM API so no native .so/.dll bundling, requires JDK 22+
+    implementation("de.gurkenlabs:input4j:1.3.1")
+
     testImplementation(platform("org.junit:junit-bom:6.0.0"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.12.2")
     testImplementation("org.mockito:mockito-core:5.18.0") //Mocks
