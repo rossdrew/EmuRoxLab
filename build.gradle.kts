@@ -71,6 +71,16 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
+tasks.register<JavaExec>("runRomVideoSmokeDemo") {
+    description = "Runs RomVideoSmokeDemo with the toolchain JDK and the full runtime classpath " +
+            "(including input4j) resolved automatically - no manual -cp/jar path needed. " +
+            "e.g. ./gradlew runRomVideoSmokeDemo --args=\"resource/rom/loz.nes controllers.properties\""
+    group = "application"
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass.set("com.rox.RomVideoSmokeDemo")
+    javaLauncher.set(javaToolchains.launcherFor(java.toolchain))
+}
+
 tasks.test {
     useJUnitPlatform()
     finalizedBy(tasks.jacocoTestReport)
