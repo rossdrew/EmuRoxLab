@@ -239,6 +239,18 @@ public class ControllerConfigLoaderTest {
     }
 
     @Test
+    public void gamepadButtonBindingWithADirectionSuffixThrows(){
+        //only axis components take a ":positive"/":negative" suffix - a button component with one
+        //attached (e.g. a typo'd config) must be rejected, not silently accepted with the suffix ignored
+        final Properties properties = new Properties();
+        properties.setProperty("player1.source", "gamepad");
+        properties.setProperty("player1.gamepad.a", "BUTTON_0:positive");
+        final List<InputDevice> devices = List.of(fakeDevice("Xbox Wireless Controller"));
+
+        assertThrows(IllegalArgumentException.class, () -> ControllerConfigLoader.parse(properties, () -> devices));
+    }
+
+    @Test
     public void gamepadAxisBindingWithoutADirectionSuffixThrows(){
         final Properties properties = new Properties();
         properties.setProperty("player1.source", "gamepad");

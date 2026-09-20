@@ -175,6 +175,11 @@ public final class ControllerConfigLoader {
                     "Unknown gamepad component '" + componentName + "' bound to " + button + " for " + prefix);
         }
         if (componentId.type != ComponentType.AXIS){
+            if (parts.length > 1){
+                throw new IllegalArgumentException(
+                        "Button component '" + componentName + "' bound to " + button + " for " + prefix
+                                + " must not have a direction suffix");
+            }
             return new GamepadBinding.ButtonBinding(componentId);
         }
         if (parts.length < 2){
