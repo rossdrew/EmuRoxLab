@@ -105,6 +105,9 @@ public final class RomVideoSmokeDemo {
             }
         } finally {
             videoOutput.close();
+            //only reached once the emulation thread (and thus all gamepad polling) has genuinely
+            //terminated - see the inner finally's join loop above
+            ControllerConfigLoader.closeConnectedGamepads();
         }
         System.out.println("Done.");
     }

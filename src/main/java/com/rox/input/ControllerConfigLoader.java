@@ -90,6 +90,13 @@ public final class ControllerConfigLoader {
         return new ControllerConfiguration(players[0], players[1], players[2], players[3], fourScoreEnabled);
     }
 
+    //the plugin returned by the one real InputDevices.init() call this class ever makes (from
+    //availableDevices() below) - input4j documents that result as owning real hardware resources
+    //(open device handles), not something whose device list can just be read and discarded. There is
+    //no config-reload path in this codebase, so tracking only the single most-recently-opened plugin
+    //(rather than e.g. a per-ControllerConfiguration handle) is a deliberate, sufficient simplification.
+    private static volatile InputDevicePlugin activePlugin;
+
     /**
      * Enumerates real, currently-connected gamepads via input4j.
      * <p>
@@ -98,7 +105,30 @@ public final class ControllerConfigLoader {
      */
     private static Collection<InputDevice> availableDevices(){
         final InputDevicePlugin plugin = InputDevices.init();
+        activePlugin = plugin;
         return plugin == null ? List.of() : plugin.getAll();
+    }
+
+    /**
+     * Closes the input4j plugin opened by the most recent real gamepad enumeration (a no-op if
+     * gamepads were never used, or none are currently open) - callers should call this once emulation
+     * has stopped polling gamepads, mirroring how {@code RomVideoSmokeDemo} already closes its
+     * {@code SwingVideoOutput} in its own outer {@code finally}.
+     * <p>
+     * XXX Mutation coverage expected to have issues here since it deals with real hardware (and CI has
+     * no gamepad attached) - just accepting it for now, same as {@link #availableDevices()}.
+     */
+    public static void closeConnectedGamepads() throws IOException {
+        final InputDevicePlugin plugin = activePlugin;
+        if (plugin != null){
+            activePlugin = null;
+            plugin.close();
+        }
+    }
+
+    /** Test seam: lets a test drive {@link #closeConnectedGamepads()}'s "an open plugin gets closed" path with a fake plugin, without ever touching real hardware. */
+    static void setActivePluginForTesting(final InputDevicePlugin plugin){
+        activePlugin = plugin;
     }
 
     /** Only calls {@code deviceSupplier} if some player actually needs a gamepad - not for keyboard/none-only configs. */

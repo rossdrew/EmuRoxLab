@@ -326,4 +326,54 @@ public class ControllerConfigLoaderTest {
 
         assertEquals(1, callCount[0]);
     }
+
+    @Test
+    public void closeConnectedGamepadsIsANoOpWhenNoGamepadWasEverOpened() throws IOException {
+        ControllerConfigLoader.setActivePluginForTesting(null);
+
+        ControllerConfigLoader.closeConnectedGamepads();
+    }
+
+    @Test
+    public void closeConnectedGamepadsClosesAnOpenPluginExactlyOnce() throws IOException {
+        final FakeInputDevicePlugin plugin = new FakeInputDevicePlugin();
+        ControllerConfigLoader.setActivePluginForTesting(plugin);
+
+        ControllerConfigLoader.closeConnectedGamepads();
+        assertEquals(1, plugin.closeCount);
+
+        //closing again must not double-close the same plugin - the active reference was cleared
+        ControllerConfigLoader.closeConnectedGamepads();
+        assertEquals(1, plugin.closeCount);
+    }
+
+    private static final class FakeInputDevicePlugin implements de.gurkenlabs.input4j.InputDevicePlugin {
+        int closeCount;
+
+        @Override
+        public void internalInitDevices(final java.awt.Frame owner){
+        }
+
+        @Override
+        public java.util.Collection<InputDevice> getAll(){
+            return List.of();
+        }
+
+        @Override
+        public void onDevicesChanged(final Runnable listener){
+        }
+
+        @Override
+        public void onDeviceConnected(final java.util.function.Consumer<InputDevice> listener){
+        }
+
+        @Override
+        public void onDeviceDisconnected(final java.util.function.Consumer<InputDevice> listener){
+        }
+
+        @Override
+        public void close(){
+            closeCount++;
+        }
+    }
 }
