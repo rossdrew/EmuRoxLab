@@ -121,10 +121,15 @@ public final class RomVideoSmokeDemo {
         } finally {
             videoOutput.close();
             //only reached once the emulation thread (and thus all gamepad polling and cartridge
-            //writes) has genuinely terminated - see the inner finally's join loop above
-            ControllerConfigLoader.closeConnectedGamepads();
-            if (batterySaveManager != null){
-                batterySaveManager.stop();
+            //writes) has genuinely terminated - see the inner finally's join loop above. Nested in its
+            //own finally so a thrown IOException from gamepad cleanup can't skip the save manager's
+            //own shutdown-time flush
+            try {
+                ControllerConfigLoader.closeConnectedGamepads();
+            } finally {
+                if (batterySaveManager != null){
+                    batterySaveManager.stop();
+                }
             }
         }
         System.out.println("Done.");
