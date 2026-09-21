@@ -133,6 +133,9 @@ final class SaveCodec {
             while (buffer.hasRemaining()){
                 channel.write(buffer);
             }
+            //XXX force()'s effect (data genuinely reaching the storage device) isn't observable from a
+            //test without simulating a real power loss - accepted gap, same category as
+            //SpeakerAudioOutput.openDefaultLine()'s own real-hardware sliver
             channel.force(true);
         }
         Files.move(tmp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);

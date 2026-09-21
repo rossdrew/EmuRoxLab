@@ -52,9 +52,12 @@ public class SaveFileFormatTest {
 
     @Test
     public void readBatterySaveIsEmptyForAFileOfTheWrongSaveType(@TempDir final Path tempDir) throws IOException {
+        //payload is exactly PRG_RAM_SIZE, same as a real battery save - isolates the type check from
+        //the separate size check below it, so a mutant breaking just the type filter can't hide behind
+        //the size filter also (correctly, coincidentally) rejecting an undersized payload
         final Path saveFile = tempDir.resolve("latest.sav");
         final SaveMetadata metadata = new SaveMetadata(SaveType.LIVE_SNAPSHOT, Instant.now(), 0);
-        Files.write(saveFile, SaveCodec.encode(SaveType.LIVE_SNAPSHOT, metadata, new byte[]{0x01}));
+        Files.write(saveFile, SaveCodec.encode(SaveType.LIVE_SNAPSHOT, metadata, new byte[PRG_RAM_SIZE]));
 
         assertEquals(Optional.empty(), SaveFileFormat.readBatterySave(saveFile));
     }

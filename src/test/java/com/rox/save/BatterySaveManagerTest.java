@@ -14,7 +14,6 @@ import java.time.Instant;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -42,13 +41,6 @@ public class BatterySaveManagerTest {
             }
             Thread.sleep(10);
         }
-    }
-
-    private static Thread findFlushThread(){
-        return Thread.getAllStackTraces().keySet().stream()
-                .filter(t -> "BatterySaveManager-flush".equals(t.getName()))
-                .findFirst()
-                .orElse(null);
     }
 
     @Test
@@ -162,9 +154,7 @@ public class BatterySaveManagerTest {
         final Cartridge cartridge = blankCartridge();
         final BatterySaveManager manager = BatterySaveManager.start(tempDir.resolve("battery.sav"), cartridge);
         try {
-            final Thread flushThread = findFlushThread();
-            assertNotNull(flushThread, "expected to find the running BatterySaveManager-flush thread");
-            assertTrue(flushThread.isDaemon(), "the flush thread must be a daemon thread so it never blocks JVM exit");
+            assertTrue(manager.flushThreadForTesting().isDaemon(), "the flush thread must be a daemon thread so it never blocks JVM exit");
         } finally {
             manager.stop();
         }
@@ -174,8 +164,7 @@ public class BatterySaveManagerTest {
     public void stopTerminatesTheFlushThreadPromptly(@TempDir final Path tempDir){
         final Cartridge cartridge = blankCartridge();
         final BatterySaveManager manager = BatterySaveManager.start(tempDir.resolve("battery.sav"), cartridge);
-        final Thread flushThread = findFlushThread();
-        assertNotNull(flushThread, "expected to find the running BatterySaveManager-flush thread");
+        final Thread flushThread = manager.flushThreadForTesting();
 
         manager.stop();
 

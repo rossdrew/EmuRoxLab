@@ -63,6 +63,10 @@ public final class BatterySaveManager {
         manager.running = true;
         cartridge.setOnPrgRamWrite(manager::onWrite);
         manager.flushThread = new Thread(manager::run, "BatterySaveManager-flush");
+        //XXX a new Thread already inherits isDaemon() from its creator - a test asserting isDaemon()
+        //true can only distinguish this call from a genuinely non-daemon *caller*, which a mutation-
+        //testing harness's own test-execution thread isn't guaranteed to be; accepted, environment-
+        //dependent gap, not a real behavioral difference `./gradlew test` itself would ever exercise
         manager.flushThread.setDaemon(true);
         manager.flushThread.start();
         return manager;
@@ -130,6 +134,9 @@ public final class BatterySaveManager {
             lock.notifyAll();
         }
         boolean interrupted = false;
+        //XXX removing the join() call itself is a hard-to-kill mutant: isAlive() alone still converges
+        //to the same observable outcome (busy-spinning instead of blocking until the thread is genuinely
+        //dead) - accepted, matches NES.powerOn()'s own identically-shaped retry-join loop
         while (flushThread.isAlive()){
             try {
                 flushThread.join();
@@ -140,5 +147,10 @@ public final class BatterySaveManager {
         if (interrupted){
             Thread.currentThread().interrupt();
         }
+    }
+
+    /** Test seam: direct access to this instance's own flush thread - avoids a name-based search across every thread in the JVM, fragile when more than one manager (e.g. across different tests) shares the same thread name. */
+    Thread flushThreadForTesting(){
+        return flushThread;
     }
 }
