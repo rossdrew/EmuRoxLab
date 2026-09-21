@@ -31,6 +31,12 @@ public final class BatterySaveManager {
     private final Instant sessionStart = Instant.now();
     private volatile boolean running;
     private boolean pendingWrite;
+    //true whenever prgRam has changes not yet successfully written to disk - deliberately separate
+    //from pendingWrite (the wake signal): pendingWrite is always cleared before attempting a flush, so
+    //a *failed* flush leaving it set would busy-loop retrying instead of going back to sleep. dirty is
+    //only cleared once a flush genuinely succeeds, and is only re-attempted when either a later write
+    //wakes the loop again, or once, right before shutdown, if nothing ever did
+    private boolean dirty;
     private Thread flushThread;
 
     private BatterySaveManager(final Path saveFile, final Cartridge cartridge, final Instant createdAt, final long baseGameTimeMillis){
@@ -66,6 +72,7 @@ public final class BatterySaveManager {
     private void onWrite(){
         synchronized (lock){
             pendingWrite = true;
+            dirty = true;
             lock.notifyAll();
         }
     }
@@ -84,6 +91,11 @@ public final class BatterySaveManager {
                     }
                 }
                 if (!running && !pendingWrite){
+                    if (dirty){
+                        //shutting down with an earlier flush failure that nothing ever retried - one
+                        //last attempt, not an unbounded retry loop
+                        flush();
+                    }
                     return;
                 }
                 pendingWrite = false;
@@ -98,6 +110,9 @@ public final class BatterySaveManager {
         final SaveMetadata metadata = new SaveMetadata(SaveType.BATTERY_PRG_RAM, createdAt, gameTimeMillis);
         try {
             SaveFileFormat.writeBatterySave(saveFile, metadata, prgRam);
+            synchronized (lock){
+                dirty = false;
+            }
         } catch (IOException e){
             log.log(Level.WARNING, "Could not write battery save to " + saveFile, e);
         }

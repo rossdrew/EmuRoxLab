@@ -205,6 +205,24 @@ public class BatterySaveManagerTest {
     }
 
     @Test
+    public void aFailedFlushIsRetriedOnceMoreDuringStopEvenWithNoFurtherWrite(@TempDir final Path tempDir) throws Exception {
+        final Path saveDir = Files.createDirectory(tempDir.resolve("savedir"));
+        final Path saveFile = saveDir.resolve("battery.sav");
+        assumeTrue(saveDir.toFile().setWritable(false), "test requires being able to make a directory read-only (e.g. not running as root)");
+
+        final Cartridge cartridge = blankCartridge();
+        final BatterySaveManager manager = BatterySaveManager.start(saveFile, cartridge);
+        cartridge.write(0x6000, 0x42);
+        Thread.sleep(200); //give the flush thread a chance to attempt (and fail) the write
+        assertTrue(Files.notExists(saveFile), "the write must have failed against the read-only directory");
+
+        saveDir.toFile().setWritable(true);
+        manager.stop(); //no further write - stop() alone must retry the still-unsaved change
+
+        assertTrue(Files.exists(saveFile), "the earlier failed flush must be retried once during stop(), even with no further write");
+    }
+
+    @Test
     public void stopHandlesBeingInterruptedWhileJoiningTheFlushThread(@TempDir final Path tempDir){
         final Cartridge cartridge = blankCartridge();
         final BatterySaveManager manager = BatterySaveManager.start(tempDir.resolve("battery.sav"), cartridge);
