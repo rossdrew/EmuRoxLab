@@ -79,4 +79,17 @@ public final class NromMapper implements Mapper {
     public Mirroring nametableMirroring(){
         return mirroring;
     }
+
+    @Override
+    public int[] prgRam(){
+        return prgRam.clone();
+    }
+
+    @Override
+    public void restorePrgRam(final int[] prgRam){
+        if (prgRam.length != this.prgRam.length){
+            throw new IllegalArgumentException("Expected " + this.prgRam.length + " bytes of PRG-RAM, got " + prgRam.length);
+        }
+        System.arraycopy(prgRam, 0, this.prgRam, 0, prgRam.length);
+    }
 }

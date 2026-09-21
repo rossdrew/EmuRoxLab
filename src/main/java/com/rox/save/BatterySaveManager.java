@@ -1,0 +1,118 @@
+package com.rox.save;
+
+import com.rox.cartridge.Cartridge;
+
+import java.io.IOException;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Optional;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+/**
+ * Mirrors real battery-backed SRAM: write-through, no timer, no user action - the disk file is
+ * updated after every write to {@code $6000-$7FFF} ({@link Cartridge#setOnPrgRamWrite}), same as a
+ * real battery-backed chip never losing a write. The actual disk write always happens on this
+ * class's own background thread, never the emulation thread {@link Cartridge#write} runs on,
+ * matching {@code SpeakerAudioOutput}'s own never-block-the-emulation-thread discipline - writes
+ * arriving faster than disk I/O naturally coalesce onto the flush thread's next loop iteration
+ * rather than blocking or queuing unboundedly.
+ */
+public final class BatterySaveManager {
+    private static final Logger log = Logger.getLogger(BatterySaveManager.class.getName());
+    private static final long JOIN_TIMEOUT_MILLIS = 1000;
+
+    private final Path saveFile;
+    private final Cartridge cartridge;
+    private final Object lock = new Object();
+    private final Instant createdAt;
+    private final long baseGameTimeMillis;
+    private final Instant sessionStart = Instant.now();
+    private volatile boolean running;
+    private boolean pendingWrite;
+    private Thread flushThread;
+
+    private BatterySaveManager(final Path saveFile, final Cartridge cartridge, final Instant createdAt, final long baseGameTimeMillis){
+        this.saveFile = saveFile;
+        this.cartridge = cartridge;
+        this.createdAt = createdAt;
+        this.baseGameTimeMillis = baseGameTimeMillis;
+    }
+
+    /**
+     * If a battery save already exists for this cartridge, loads it straight into PRG-RAM - mirrors
+     * inserting a cartridge whose battery was already charged. No-op if none exists yet.
+     */
+    public static void loadIfPresent(final Path saveFile, final Cartridge cartridge){
+        SaveFileFormat.readBatterySave(saveFile).ifPresent(save -> cartridge.restorePrgRam(save.prgRam()));
+    }
+
+    /** Starts write-through persistence for {@code cartridge} to {@code saveFile}, reusing an existing save's creation timestamp/accumulated game time if one is already on disk. */
+    public static BatterySaveManager start(final Path saveFile, final Cartridge cartridge){
+        final Optional<BatterySaveFile> existing = SaveFileFormat.readBatterySave(saveFile);
+        final Instant createdAt = existing.map(save -> save.metadata().createdAt()).orElseGet(Instant::now);
+        final long baseGameTimeMillis = existing.map(save -> save.metadata().accumulatedGameTimeMillis()).orElse(0L);
+
+        final BatterySaveManager manager = new BatterySaveManager(saveFile, cartridge, createdAt, baseGameTimeMillis);
+        manager.running = true;
+        cartridge.setOnPrgRamWrite(manager::onWrite);
+        manager.flushThread = new Thread(manager::run, "BatterySaveManager-flush");
+        manager.flushThread.setDaemon(true);
+        manager.flushThread.start();
+        return manager;
+    }
+
+    private void onWrite(){
+        synchronized (lock){
+            pendingWrite = true;
+            lock.notifyAll();
+        }
+    }
+
+    private void run(){
+        while (true){
+            synchronized (lock){
+                while (running && !pendingWrite){
+                    try {
+                        lock.wait();
+                    } catch (InterruptedException e){
+                        //this thread isn't exposed for a test to interrupt directly, unlike stop()'s
+                        //own join() below (interruptible via the *calling* thread) - accepted gap, same
+                        //category as NES.powerOn()'s own defensive interrupt-restore branches
+                        Thread.currentThread().interrupt();
+                    }
+                }
+                if (!running && !pendingWrite){
+                    return;
+                }
+                pendingWrite = false;
+            }
+            flush();
+        }
+    }
+
+    private void flush(){
+        final int[] prgRam = cartridge.prgRam();
+        final long gameTimeMillis = baseGameTimeMillis + Duration.between(sessionStart, Instant.now()).toMillis();
+        final SaveMetadata metadata = new SaveMetadata(SaveType.BATTERY_PRG_RAM, createdAt, gameTimeMillis);
+        try {
+            SaveFileFormat.writeBatterySave(saveFile, metadata, prgRam);
+        } catch (IOException e){
+            log.log(Level.WARNING, "Could not write battery save to " + saveFile, e);
+        }
+    }
+
+    /** Stops write-through persistence, flushing one last time first if a write was still pending. */
+    public void stop(){
+        synchronized (lock){
+            running = false;
+            lock.notifyAll();
+        }
+        try {
+            flushThread.join(JOIN_TIMEOUT_MILLIS);
+        } catch (InterruptedException e){
+            Thread.currentThread().interrupt();
+        }
+    }
+}

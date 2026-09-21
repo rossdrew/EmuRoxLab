@@ -155,4 +155,35 @@ public class NromMapperTest {
         assertEquals(Mirroring.HORIZONTAL, new NromMapper(romWithChr(0, false)).nametableMirroring());
         assertEquals(Mirroring.VERTICAL, new NromMapper(romWithChr(0, true)).nametableMirroring());
     }
+
+    @Test
+    public void prgRamRoundTripsThroughRestore(){
+        final NromMapper source = new NromMapper(romWithPositionEncodedPrg(1));
+        source.write(0x6000, 0x42);
+        source.write(0x7FFF, 0x99);
+
+        final NromMapper destination = new NromMapper(romWithPositionEncodedPrg(1));
+        destination.restorePrgRam(source.prgRam());
+
+        assertEquals(0x42, destination.read(0x6000));
+        assertEquals(0x99, destination.read(0x7FFF));
+    }
+
+    @Test
+    public void prgRamIsADefensiveCopyNotALiveView(){
+        final NromMapper mapper = new NromMapper(romWithPositionEncodedPrg(1));
+        mapper.write(0x6000, 0x42);
+
+        final int[] snapshot = mapper.prgRam();
+        mapper.write(0x6000, 0x99);
+
+        assertEquals(0x42, snapshot[0], "mutating the mapper after prgRam() must not affect the already-returned array");
+    }
+
+    @Test
+    public void restorePrgRamRejectsTheWrongLength(){
+        final NromMapper mapper = new NromMapper(romWithPositionEncodedPrg(1));
+
+        assertThrows(IllegalArgumentException.class, () -> mapper.restorePrgRam(new int[1]));
+    }
 }

@@ -55,6 +55,7 @@ public class PPUTest {
      */
     private static final class FakeMapper implements Mapper {
         private final int[] chr = new int[0x2000];
+        private final int[] prgRam = new int[0x2000];
         private Mirroring mirroring = Mirroring.HORIZONTAL;
 
         @Override public int read(final int address){ return 0; }
@@ -62,6 +63,8 @@ public class PPUTest {
         @Override public int readChr(final int address){ return chr[address & 0x1FFF]; }
         @Override public void writeChr(final int address, final int value){ chr[address & 0x1FFF] = value & 0xFF; }
         @Override public Mirroring nametableMirroring(){ return mirroring; }
+        @Override public int[] prgRam(){ return prgRam.clone(); }
+        @Override public void restorePrgRam(final int[] prgRam){ System.arraycopy(prgRam, 0, this.prgRam, 0, prgRam.length); }
     }
 
     private FakeMapper mapper;
