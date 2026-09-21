@@ -105,8 +105,16 @@ public class NES {
         });
         clock.addListener(() -> resampler.accept(apu.outputSample()).ifPresent(audioOutput::write));
         clock.addListener(() -> {
+            //polling the (possibly real, physical) gamepads is folded into this same frame-ready gate
+            //rather than a second, separate clock.addListener - PPU.consumeFrameReady() is a one-shot
+            //flag (it resets itself the moment it's read true), so a second listener also calling it
+            //would simply never see true, having already been beaten to it by this one
             if (ppu.consumeFrameReady()){
                 videoOutput.present(ppu.rgbFramebuffer());
+                controllers.player1().poll();
+                controllers.player2().poll();
+                controllers.player3().poll();
+                controllers.player4().poll();
             }
         });
     }

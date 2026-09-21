@@ -59,12 +59,26 @@ pitest {
 }
 
 dependencies {
+    //first main-scope (non-test) dependency in this project - confirmed OK with the user during
+    //Phase 3 planning. MIT, built on Java's FFM API so no native .so/.dll bundling, requires JDK 22+
+    implementation("de.gurkenlabs:input4j:1.3.1")
+
     testImplementation(platform("org.junit:junit-bom:6.0.0"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.12.2")
     testImplementation("org.mockito:mockito-core:5.18.0") //Mocks
     testImplementation("net.jqwik:jqwik:1.9.3") //Properties
 
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.register<JavaExec>("runRomVideoSmokeDemo") {
+    description = "Runs RomVideoSmokeDemo with the toolchain JDK and the full runtime classpath " +
+            "(including input4j) resolved automatically - no manual -cp/jar path needed. " +
+            "e.g. ./gradlew runRomVideoSmokeDemo --args=\"resource/rom/loz.nes controllers.properties\""
+    group = "application"
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass.set("com.rox.RomVideoSmokeDemo")
+    javaLauncher.set(javaToolchains.launcherFor(java.toolchain))
 }
 
 tasks.test {

@@ -4,6 +4,8 @@ import com.rox.apu.APU;
 import com.rox.audio.AudioOutput;
 import com.rox.cartridge.Cartridge;
 import com.rox.cartridge.RomLoader;
+import com.rox.input.Controller;
+import com.rox.input.ControllerConfiguration;
 import com.rox.video.VideoOutput;
 import org.junit.jupiter.api.Test;
 
@@ -121,6 +123,31 @@ public class NESTest {
         }
 
         verify(videoOutput, atLeastOnce()).present(any());
+    }
+
+    /**
+     * Same wiring-level style as {@link #frameReadyPresentsTheFramebufferToVideoOutput()}: a physical
+     * gamepad has no push-based events, so its {@code Controller} must be actively polled once a frame
+     * completes - this proves all 4 configured slots get polled, not just player 1.
+     */
+    @Test
+    public void frameReadyPollsAllFourConfiguredControllers(){
+        final Controller player1 = mock(Controller.class);
+        final Controller player2 = mock(Controller.class);
+        final Controller player3 = mock(Controller.class);
+        final Controller player4 = mock(Controller.class);
+        final ControllerConfiguration controllers = new ControllerConfiguration(player1, player2, player3, player4, false);
+        final NES nes = new NES(mock(AudioOutput.class), mock(VideoOutput.class), controllers, blankCartridge());
+
+        final int maxTicks = 100_000;
+        for (int i = 0; i < maxTicks; i++){
+            nes.clock().tick();
+        }
+
+        verify(player1, atLeastOnce()).poll();
+        verify(player2, atLeastOnce()).poll();
+        verify(player3, atLeastOnce()).poll();
+        verify(player4, atLeastOnce()).poll();
     }
 
     @Test

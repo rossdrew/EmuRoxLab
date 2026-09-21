@@ -2,8 +2,18 @@
 # RomVideoSmokeDemo, e.g.:
 #   java -cp build/classes/java/main com.rox.RomVideoSmokeDemo path/to/rom.nes controllers.properties
 #
-# source: "keyboard" or "none" (default if omitted). Gamepad support is planned for phase 3.
+# source: "keyboard", "gamepad", or "none" (default if omitted).
 # Key names resolve to java.awt.event.KeyEvent.VK_* constants, e.g. "Z" -> VK_Z, "UP" -> VK_UP.
+#
+# Gamepad bindings name a raw input4j component, e.g. "BUTTON_0", "DPAD_UP", "LEFT_AXIS_X" - run with
+# a gamepad connected and check its logs/documentation (or input4j's own) to find out which physical
+# button/axis maps to which name on your device. An axis component needs a ":positive" or ":negative"
+# suffix (e.g. "LEFT_AXIS_X:positive") - a button component doesn't.
+#
+# playerN.gamepad.device picks which connected gamepad to use, by a case-insensitive substring of its
+# display name (e.g. "Xbox"); if omitted, playerN.gamepad.deviceIndex (default 0) picks by enumeration
+# order instead - name matching is recommended since raw enumeration order isn't guaranteed stable
+# across runs.
 
 fourscore.enabled=false
 
@@ -18,5 +28,16 @@ player1.keyboard.left=LEFT
 player1.keyboard.right=RIGHT
 
 player2.source=none
+#player2.source=gamepad
+#player2.gamepad.device=Xbox
+#player2.gamepad.a=BUTTON_0
+#player2.gamepad.b=BUTTON_1
+#player2.gamepad.select=BUTTON_8
+#player2.gamepad.start=BUTTON_9
+#player2.gamepad.up=DPAD_UP
+#player2.gamepad.down=DPAD_DOWN
+#player2.gamepad.left=DPAD_LEFT
+#player2.gamepad.right=DPAD_RIGHT
+
 player3.source=none
 player4.source=none
