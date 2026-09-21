@@ -60,10 +60,35 @@ public class SaveCodecTest {
     }
 
     @Test
-    public void decodeRejectsTruncatedInput(){
+    public void decodeRejectsInputTruncatedInsidePayloadOrTrailingCrc(){
+        //by the time payloadLength itself is fully read, this is caught by the new
+        //payloadLength-vs-actually-remaining check below, not an EOFException - either way, empty
         final byte[] encoded = SaveCodec.encode(SaveType.BATTERY_PRG_RAM, metadata(), new byte[]{0x01, 0x02, 0x03});
 
         assertTrue(SaveCodec.decode(Arrays.copyOf(encoded, encoded.length - 2)).isEmpty());
+    }
+
+    @Test
+    public void decodeRejectsInputTruncatedWithinTheFixedHeader(){
+        //truncated before payloadLength (or anything after it) can even be read - this is the one
+        //scenario that genuinely reaches the EOFException catch, not the payloadLength check
+        final byte[] encoded = SaveCodec.encode(SaveType.BATTERY_PRG_RAM, metadata(), new byte[]{0x01, 0x02, 0x03});
+
+        assertTrue(SaveCodec.decode(Arrays.copyOf(encoded, 10)).isEmpty());
+    }
+
+    @Test
+    public void decodeRejectsAPayloadLengthThatDoesNotMatchWhatsActuallyPresent(){
+        //a corrupt/malicious file could otherwise claim a huge payloadLength and force an equally
+        //huge allocation (new byte[payloadLength]) before that length is ever cross-checked - this
+        //proves the check runs first, using a length far larger than the 3 bytes actually present
+        final byte[] encoded = SaveCodec.encode(SaveType.BATTERY_PRG_RAM, metadata(), new byte[]{0x01, 0x02, 0x03});
+        encoded[23] = 0x00;
+        encoded[24] = 0x00;
+        encoded[25] = 0x03;
+        encoded[26] = (byte) 0xE8; //claims 1000 bytes of payload
+
+        assertTrue(SaveCodec.decode(encoded).isEmpty());
     }
 
     @Test

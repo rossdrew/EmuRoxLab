@@ -85,7 +85,10 @@ final class SaveCodec {
             final long createdAtEpochMillis = in.readLong();
             final long accumulatedGameTimeMillis = in.readLong();
             final int payloadLength = in.readInt();
-            if (payloadLength < 0){
+            //reject before allocating - a corrupt/malicious file declaring a huge payloadLength must
+            //not reach `new byte[payloadLength]` (risking OutOfMemoryError) before the length is even
+            //checked against what's actually left in the file (the payload itself, plus the trailing CRC)
+            if (payloadLength < 0 || payloadLength != in.available() - Integer.BYTES){
                 return Optional.empty();
             }
             final byte[] payload = new byte[payloadLength];
