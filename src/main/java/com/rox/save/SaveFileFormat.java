@@ -11,10 +11,16 @@ import java.util.Optional;
  * never a crash.
  */
 public final class SaveFileFormat {
+    /** The board's PRG-RAM size on every currently-supported mapper - see {@code Mapper.prgRam()}. */
+    private static final int PRG_RAM_SIZE = 0x2000;
+
     private SaveFileFormat(){
     }
 
     public static void writeBatterySave(final Path path, final SaveMetadata metadata, final int[] prgRam) throws IOException {
+        if (prgRam.length != PRG_RAM_SIZE){
+            throw new IllegalArgumentException("Expected " + PRG_RAM_SIZE + " bytes of PRG-RAM, got " + prgRam.length);
+        }
         SaveCodec.writeAtomically(path, SaveCodec.encode(SaveType.BATTERY_PRG_RAM, metadata, toBytes(prgRam)));
     }
 
@@ -32,6 +38,9 @@ public final class SaveFileFormat {
         }
         return SaveCodec.decode(bytes)
                 .filter(decoded -> decoded.type() == SaveType.BATTERY_PRG_RAM)
+                //a CRC-valid file of the wrong length (corruption, or a future format change) must be
+                //rejected here, not left to crash deep inside Mapper.restorePrgRam()'s own length check
+                .filter(decoded -> decoded.payload().length == PRG_RAM_SIZE)
                 .map(decoded -> new BatterySaveFile(decoded.metadata(), toPrgRam(decoded.payload())));
     }
 

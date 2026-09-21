@@ -11,15 +11,23 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class SaveFileFormatTest {
+    private static final int PRG_RAM_SIZE = 0x2000;
+
+    private static int[] prgRamWithValueAt(final int index, final int value){
+        final int[] prgRam = new int[PRG_RAM_SIZE];
+        prgRam[index] = value;
+        return prgRam;
+    }
 
     @Test
     public void writeThenReadRoundTripsPrgRamAndMetadata(@TempDir final Path tempDir) throws IOException {
         final Path saveFile = tempDir.resolve("battery.sav");
         final SaveMetadata metadata = new SaveMetadata(SaveType.BATTERY_PRG_RAM, Instant.ofEpochMilli(5_000), 12_000);
-        final int[] prgRam = {0x00, 0xFF, 0x42, 0x7F};
+        final int[] prgRam = prgRamWithValueAt(2, 0x42);
 
         SaveFileFormat.writeBatterySave(saveFile, metadata, prgRam);
         final Optional<BatterySaveFile> read = SaveFileFormat.readBatterySave(saveFile);
@@ -52,11 +60,30 @@ public class SaveFileFormatTest {
     }
 
     @Test
+    public void readBatterySaveIsEmptyForAPayloadOfTheWrongSize(@TempDir final Path tempDir) throws IOException {
+        //a CRC-valid file whose payload isn't exactly PRG_RAM_SIZE (corruption, or a future format
+        //change) must be rejected here, not crash deep inside Mapper.restorePrgRam()'s own length check
+        final Path saveFile = tempDir.resolve("battery.sav");
+        final SaveMetadata metadata = new SaveMetadata(SaveType.BATTERY_PRG_RAM, Instant.now(), 0);
+        Files.write(saveFile, SaveCodec.encode(SaveType.BATTERY_PRG_RAM, metadata, new byte[]{0x01, 0x02, 0x03}));
+
+        assertEquals(Optional.empty(), SaveFileFormat.readBatterySave(saveFile));
+    }
+
+    @Test
+    public void writeBatterySaveRejectsTheWrongPrgRamSize(@TempDir final Path tempDir){
+        final Path saveFile = tempDir.resolve("battery.sav");
+        final SaveMetadata metadata = new SaveMetadata(SaveType.BATTERY_PRG_RAM, Instant.now(), 0);
+
+        assertThrows(IllegalArgumentException.class, () -> SaveFileFormat.writeBatterySave(saveFile, metadata, new int[]{0x01}));
+    }
+
+    @Test
     public void writeCreatesParentDirectoriesThatDoNotYetExist(@TempDir final Path tempDir) throws IOException {
         final Path saveFile = tempDir.resolve("loz").resolve("battery.sav");
         final SaveMetadata metadata = new SaveMetadata(SaveType.BATTERY_PRG_RAM, Instant.now(), 0);
 
-        SaveFileFormat.writeBatterySave(saveFile, metadata, new int[]{0x01});
+        SaveFileFormat.writeBatterySave(saveFile, metadata, new int[PRG_RAM_SIZE]);
 
         assertTrue(Files.exists(saveFile));
     }
@@ -66,9 +93,9 @@ public class SaveFileFormatTest {
         final Path saveFile = tempDir.resolve("battery.sav");
         final SaveMetadata metadata = new SaveMetadata(SaveType.BATTERY_PRG_RAM, Instant.now(), 0);
 
-        SaveFileFormat.writeBatterySave(saveFile, metadata, new int[]{0xFF});
+        SaveFileFormat.writeBatterySave(saveFile, metadata, prgRamWithValueAt(0, 0xFF));
         final BatterySaveFile read = SaveFileFormat.readBatterySave(saveFile).orElseThrow();
 
-        assertArrayEquals(new int[]{0xFF}, read.prgRam());
+        assertEquals(0xFF, read.prgRam()[0]);
     }
 }
