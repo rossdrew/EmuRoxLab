@@ -21,7 +21,6 @@ import java.util.logging.Logger;
  */
 public final class BatterySaveManager {
     private static final Logger log = Logger.getLogger(BatterySaveManager.class.getName());
-    private static final long JOIN_TIMEOUT_MILLIS = 1000;
 
     private final Path saveFile;
     private final Cartridge cartridge;
@@ -118,15 +117,27 @@ public final class BatterySaveManager {
         }
     }
 
-    /** Stops write-through persistence, flushing one last time first if a write was still pending. */
+    /**
+     * Stops write-through persistence, flushing one last time first if a write was still pending or an
+     * earlier flush had failed. Never returns while that final flush is still in progress - retries the
+     * join until the flush thread has genuinely terminated, the same interrupt-retry pattern
+     * {@code NES.powerOn()} uses for its own lifecycle-critical thread, rather than a single bounded
+     * join that could return early and let JVM shutdown kill a daemon thread mid-write.
+     */
     public void stop(){
         synchronized (lock){
             running = false;
             lock.notifyAll();
         }
-        try {
-            flushThread.join(JOIN_TIMEOUT_MILLIS);
-        } catch (InterruptedException e){
+        boolean interrupted = false;
+        while (flushThread.isAlive()){
+            try {
+                flushThread.join();
+            } catch (InterruptedException e){
+                interrupted = true;
+            }
+        }
+        if (interrupted){
             Thread.currentThread().interrupt();
         }
     }
