@@ -7,9 +7,12 @@ import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Optional;
@@ -113,11 +116,25 @@ final class SaveCodec {
         }
     }
 
-    /** Writes {@code content} to {@code target} without ever leaving a torn/partial file behind, even on a crash mid-write. */
+    /**
+     * Writes {@code content} to {@code target} without ever leaving a torn/partial file behind, even on
+     * a crash mid-write. The temp file's content is forced to the storage device ({@link FileChannel#force}) before
+     * the atomic rename, so a crash or power loss after this method returns can't lose or corrupt what
+     * was just written. This does not separately sync the containing directory's own metadata (no
+     * portable Java API for that) - an exceedingly narrow window where a literal power loss in the
+     * instant right after the rename could still show the previous file on some filesystems, distinct
+     * from (and far rarer than) the crash/kill/disk-full scenarios this guards against.
+     */
     static void writeAtomically(final Path target, final byte[] content) throws IOException {
         Files.createDirectories(target.getParent());
         final Path tmp = target.resolveSibling(target.getFileName() + ".tmp");
-        Files.write(tmp, content);
+        try (FileChannel channel = FileChannel.open(tmp, StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)){
+            final ByteBuffer buffer = ByteBuffer.wrap(content);
+            while (buffer.hasRemaining()){
+                channel.write(buffer);
+            }
+            channel.force(true);
+        }
         Files.move(tmp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
     }
 }
