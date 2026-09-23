@@ -19,6 +19,7 @@ public final class INesRom {
     private static final int FLAGS_7_OFFSET = 7;
 
     private static final int TRAINER_BIT = 0x04;
+    private static final int BATTERY_BIT = 0x02;
     private static final int VERTICAL_MIRRORING_BIT = 0x01;
     private static final int MAPPER_LOW_NIBBLE_SHIFT = 4;
     private static final int MAPPER_HIGH_NIBBLE_MASK = 0xF0;
@@ -27,12 +28,15 @@ public final class INesRom {
 
     private final int mapperNumber;
     private final boolean verticalMirroring;
+    private final boolean hasBattery;
     private final byte[] prgRom;
     private final byte[] chrRom;
 
-    private INesRom(final int mapperNumber, final boolean verticalMirroring, final byte[] prgRom, final byte[] chrRom){
+    private INesRom(final int mapperNumber, final boolean verticalMirroring, final boolean hasBattery,
+                     final byte[] prgRom, final byte[] chrRom){
         this.mapperNumber = mapperNumber;
         this.verticalMirroring = verticalMirroring;
+        this.hasBattery = hasBattery;
         this.prgRom = prgRom;
         this.chrRom = chrRom;
     }
@@ -54,6 +58,7 @@ public final class INesRom {
 
         final int mapperNumber = (flags7 & MAPPER_HIGH_NIBBLE_MASK) | (flags6 >> MAPPER_LOW_NIBBLE_SHIFT);
         final boolean verticalMirroring = (flags6 & VERTICAL_MIRRORING_BIT) != 0;
+        final boolean hasBattery = (flags6 & BATTERY_BIT) != 0;
         final boolean hasTrainer = (flags6 & TRAINER_BIT) != 0;
 
         int offset = HEADER_SIZE + (hasTrainer ? TRAINER_SIZE : 0);
@@ -65,7 +70,7 @@ public final class INesRom {
         final int chrSize = chrBanks * CHR_BANK_SIZE;
         final byte[] chrRom = copyRange(fileBytes, offset, chrSize, "CHR-ROM");
 
-        return new INesRom(mapperNumber, verticalMirroring, prgRom, chrRom);
+        return new INesRom(mapperNumber, verticalMirroring, hasBattery, prgRom, chrRom);
     }
 
     private static boolean hasMagic(final byte[] fileBytes){
@@ -86,6 +91,11 @@ public final class INesRom {
 
     public boolean isVerticalMirroring(){
         return verticalMirroring;
+    }
+
+    /** Whether this cartridge's PRG-RAM ({@code $6000-$7FFF}) is battery-backed - flags6 bit 1 of the iNES header. */
+    public boolean hasBattery(){
+        return hasBattery;
     }
 
     /** Defensive copy - callers must not be able to mutate ROM content behind PRG-ROM's back. */

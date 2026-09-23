@@ -3,9 +3,11 @@ package com.rox.cartridge;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -67,5 +69,49 @@ public class CartridgeTest {
         when(mapper.nametableMirroring()).thenReturn(Mirroring.VERTICAL);
 
         assertEquals(Mirroring.VERTICAL, cartridge.nametableMirroring());
+    }
+
+    @Test
+    public void prgRamDelegatesToMapper(){
+        when(mapper.prgRam()).thenReturn(new int[]{0x11, 0x22});
+
+        assertArrayEquals(new int[]{0x11, 0x22}, cartridge.prgRam());
+    }
+
+    @Test
+    public void restorePrgRamDelegatesToMapper(){
+        final int[] prgRam = {0x33};
+
+        cartridge.restorePrgRam(prgRam);
+
+        verify(mapper).restorePrgRam(prgRam);
+    }
+
+    @Test
+    public void onPrgRamWriteFiresForAWriteBelow0x8000(){
+        final Runnable listener = mock(Runnable.class);
+        cartridge.setOnPrgRamWrite(listener);
+
+        cartridge.write(0x7FFF, 0x11);
+
+        verify(listener).run();
+    }
+
+    @Test
+    public void onPrgRamWriteDoesNotFireForAWriteAt0x8000OrAbove(){
+        final Runnable listener = mock(Runnable.class);
+        cartridge.setOnPrgRamWrite(listener);
+
+        cartridge.write(0x8000, 0x11);
+
+        verify(listener, never()).run();
+    }
+
+    @Test
+    public void writeWithNoListenerRegisteredIsStillFine(){
+        //the default no-op listener must not NPE - this is the common case (every non-battery-backed cartridge)
+        cartridge.write(0x6000, 0x11);
+
+        verify(mapper).write(0x6000, 0x11);
     }
 }

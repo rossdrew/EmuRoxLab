@@ -395,4 +395,38 @@ public class Mmc1MapperTest {
         writeFiveBits(mapper, 0x8000, 0x03);
         assertEquals(Mirroring.HORIZONTAL, mapper.nametableMirroring());
     }
+
+    @Test
+    public void prgRamRoundTripsThroughRestore(){
+        final Mmc1Mapper source = new Mmc1Mapper(romWithBanks(2));
+        source.write(0x6000, 0x42);
+        source.write(0x7FFF, 0x99);
+
+        final Mmc1Mapper destination = new Mmc1Mapper(romWithBanks(2));
+        destination.restorePrgRam(source.prgRam());
+
+        assertEquals(0x42, destination.read(0x6000));
+        assertEquals(0x99, destination.read(0x7FFF));
+    }
+
+    @Test
+    public void prgRamRoundTripsAcrossABankSwitch(){
+        //bank-select state and PRG-RAM content are independent - restoring PRG-RAM into a mapper
+        //that's already switched to a non-default bank must not disturb either
+        final Mmc1Mapper mapper = new Mmc1Mapper(romWithBanks(4));
+        writeFiveBits(mapper, 0xE000, 0x02); //select PRG bank 2
+
+        mapper.restorePrgRam(new int[0x2000]);
+        mapper.write(0x6000, 0x77);
+
+        assertEquals(0x77, mapper.read(0x6000));
+        assertEquals(2, mapper.read(0x8000), "the bank-select write before restorePrgRam() must still be in effect");
+    }
+
+    @Test
+    public void restorePrgRamRejectsTheWrongLength(){
+        final Mmc1Mapper mapper = new Mmc1Mapper(romWithBanks(2));
+
+        assertThrows(IllegalArgumentException.class, () -> mapper.restorePrgRam(new int[1]));
+    }
 }

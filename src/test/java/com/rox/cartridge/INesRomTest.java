@@ -62,6 +62,12 @@ public class INesRomTest {
     }
 
     @Test
+    public void batteryBitIsRead(){
+        assertTrue(INesRom.parse(buildRom(1, 1, 0x02, 0x00, false)).hasBattery());
+        assertFalse(INesRom.parse(buildRom(1, 1, 0x00, 0x00, false)).hasBattery());
+    }
+
+    @Test
     public void extractsPrgRomAtCorrectOffsetAndLength(){
         final byte[] rom = buildRom(2, 0, 0x00, 0x00, true);
         final byte[] prg = INesRom.parse(rom).prgRom();

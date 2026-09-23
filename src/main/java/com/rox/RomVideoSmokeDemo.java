@@ -6,6 +6,8 @@ import com.rox.input.Controller;
 import com.rox.input.ControllerConfigLoader;
 import com.rox.input.ControllerConfiguration;
 import com.rox.input.KeyboardController;
+import com.rox.save.BatterySaveManager;
+import com.rox.save.SavePaths;
 import com.rox.video.SwingVideoOutput;
 
 import javax.swing.SwingUtilities;
@@ -42,6 +44,19 @@ public final class RomVideoSmokeDemo {
         }
 
         final Cartridge cartridge = RomLoader.load(romPath);
+
+        //mirrors inserting a cartridge whose battery was already charged - silent, no prompt, exactly
+        //like real hardware. Only battery-backed carts pay any cost here (see Cartridge.write()'s
+        //own no-op-by-default onPrgRamWrite hook)
+        final BatterySaveManager batterySaveManager;
+        if (cartridge.rom().hasBattery()){
+            final Path batterySaveFile = SavePaths.batterySaveFile(romPath);
+            BatterySaveManager.loadIfPresent(batterySaveFile, cartridge);
+            batterySaveManager = BatterySaveManager.start(batterySaveFile, cartridge);
+        } else {
+            batterySaveManager = null;
+        }
+
         final CountDownLatch windowClosed = new CountDownLatch(1);
         //Swing components must only be constructed on the EDT - see PpuDebugViewerDemo's own comment.
         //invokeLater + our own retried-on-interrupt latch, not invokeAndWait, since invokeAndWait's own
@@ -105,9 +120,17 @@ public final class RomVideoSmokeDemo {
             }
         } finally {
             videoOutput.close();
-            //only reached once the emulation thread (and thus all gamepad polling) has genuinely
-            //terminated - see the inner finally's join loop above
-            ControllerConfigLoader.closeConnectedGamepads();
+            //only reached once the emulation thread (and thus all gamepad polling and cartridge
+            //writes) has genuinely terminated - see the inner finally's join loop above. Nested in its
+            //own finally so a thrown IOException from gamepad cleanup can't skip the save manager's
+            //own shutdown-time flush
+            try {
+                ControllerConfigLoader.closeConnectedGamepads();
+            } finally {
+                if (batterySaveManager != null){
+                    batterySaveManager.stop();
+                }
+            }
         }
         System.out.println("Done.");
     }

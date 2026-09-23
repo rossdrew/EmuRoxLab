@@ -18,4 +18,10 @@ public interface Mapper extends MemoryBus {
 
     /** How this board's 2KB of nametable RAM is currently aliased across the PPU's 4 logical nametables. */
     Mirroring nametableMirroring();
+
+    /** The board's 8KB of PRG-RAM ({@code $6000-$7FFF}), 0-255 per element - a defensive copy, not a live view. */
+    int[] prgRam();
+
+    /** Replaces the board's PRG-RAM wholesale, e.g. when restoring a battery-backed save. {@code prgRam.length} must match {@link #prgRam()}'s. */
+    void restorePrgRam(int[] prgRam);
 }
