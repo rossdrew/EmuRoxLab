@@ -7,7 +7,8 @@ import com.rox.mem.MemoryBus;
  * PRG-ROM, however the board maps/switches them) via {@link MemoryBus#read}/{@link MemoryBus#write},
  * plus the PPU-visible CHR pattern table window ({@code $0000-$1FFF}, CHR-ROM or CHR-RAM depending on
  * the board) and the board's current nametable mirroring mode. One implementation per iNES mapper
- * number - {@link NromMapper} for mapper 0, {@link Mmc1Mapper} for mapper 1.
+ * number - {@link NromMapper} for mapper 0, {@link Mmc1Mapper} for mapper 1, {@link Mmc3Mapper} for
+ * mapper 4.
  */
 public interface Mapper extends MemoryBus {
     /** Read a byte from the PPU's CHR pattern table space, address {@code $0000-$1FFF}. */
@@ -24,4 +25,13 @@ public interface Mapper extends MemoryBus {
 
     /** Replaces the board's PRG-RAM wholesale, e.g. when restoring a battery-backed save. {@code prgRam.length} must match {@link #prgRam()}'s. */
     void restorePrgRam(int[] prgRam);
+
+    /**
+     * Whether this board is currently asserting an IRQ onto the CPU's IRQ line - a no-op {@code false}
+     * default, since most boards (NROM, MMC1) have no IRQ capability of their own; {@link Mmc3Mapper}
+     * is the one implementation that overrides this.
+     */
+    default boolean isIrqAsserted(){
+        return false;
+    }
 }

@@ -48,6 +48,14 @@ public class NESTest {
         return RomLoader.fromBytes(fileBytes);
     }
 
+    /** A minimal MMC3-mapped (mapper 4) cartridge, for {@link #mapperIrqReachesTheCpusRealIrqLine()}. */
+    private static Cartridge mmc3Cartridge(){
+        final byte[] header = {'N', 'E', 'S', 0x1A, 0x02, 0x00, 0x40, 0x00, 0, 0, 0, 0, 0, 0, 0, 0};
+        final byte[] fileBytes = new byte[header.length + 4 * 0x2000]; //4 PRG banks (32KB)
+        System.arraycopy(header, 0, fileBytes, 0, header.length);
+        return RomLoader.fromBytes(fileBytes);
+    }
+
     /** A cartridge whose reset vector points at a single "JMP $9000" instruction, looping on itself. */
     private static Cartridge selfLoopingCartridge(){
         final byte[] header = {'N', 'E', 'S', 0x1A, 0x01, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -499,5 +507,27 @@ public class NESTest {
             }
             nes.clock().tick();
         }
+    }
+
+    /**
+     * Same wiring-level proof as {@link #dmcExhaustionIrqReachesTheCpusRealIrqLine()}, this time for a
+     * mapper-driven IRQ (MMC3's scanline counter) - {@code Mmc3MapperTest} already proves the counter
+     * logic itself in isolation; this only proves {@code NES}'s own constructor actually ORs
+     * {@code cartridge.isIrqAsserted()} into the CPU's IRQ line.
+     */
+    @Test
+    public void mapperIrqReachesTheCpusRealIrqLine(){
+        final Cartridge cartridge = mmc3Cartridge();
+        final NES nes = new NES(mock(AudioOutput.class), cartridge);
+
+        cartridge.write(0xC000, 0x00); //IRQ latch = 0
+        cartridge.write(0xC001, 0x00); //request a reload
+        cartridge.write(0xE001, 0x00); //enable IRQs
+        assertFalse(nes.cpu().getEnvironmentSnapshot().isIRQLineAsserted());
+
+        cartridge.readChr(0x1000); //A12 rising edge: counter reloads to 0 (already latched) -> IRQ asserted at the mapper
+        nes.clock().tick(); //one tick is enough for the IRQ-line listener to re-evaluate and pick it up
+
+        assertTrue(nes.cpu().getEnvironmentSnapshot().isIRQLineAsserted());
     }
 }

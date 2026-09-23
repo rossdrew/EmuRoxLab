@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -113,5 +114,12 @@ public class CartridgeTest {
         cartridge.write(0x6000, 0x11);
 
         verify(mapper).write(0x6000, 0x11);
+    }
+
+    @Test
+    public void isIrqAssertedDelegatesToMapper(){
+        when(mapper.isIrqAsserted()).thenReturn(true);
+
+        assertTrue(cartridge.isIrqAsserted());
     }
 }

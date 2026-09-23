@@ -59,6 +59,22 @@ public class RomLoaderTest {
     }
 
     @Test
+    public void mapperFourDispatchesToAWorkingMmc3Mapper(){
+        //4 PRG banks so R6/fixed-second-last-bank banking is observable
+        final byte[] fileBytes = new byte[16 + 4 * 0x2000];
+        fileBytes[0] = 'N';
+        fileBytes[1] = 'E';
+        fileBytes[2] = 'S';
+        fileBytes[3] = 0x1A;
+        fileBytes[4] = (byte) ((fileBytes.length - 16) / 16384); //4*8KB = 32KB = 2 (16KB) banks
+        fileBytes[6] = 0x40; //mapper 4 low nibble
+        fileBytes[16 + 3 * 0x2000] = 0x33; //first byte of PRG bank 3 (the last bank)
+        final Cartridge cartridge = RomLoader.fromBytes(fileBytes);
+
+        assertEquals(0x33, cartridge.read(0xE000), "$E000-$FFFF should be fixed to the last PRG bank");
+    }
+
+    @Test
     public void unsupportedMapperNumberThrowsWithTheNumberInTheMessage(){
         final IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
                 () -> RomLoader.fromBytes(mapperRom(99)));
