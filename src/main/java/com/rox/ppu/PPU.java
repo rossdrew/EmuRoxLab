@@ -50,7 +50,13 @@ import static com.rox.ByteUtil.BYTE_MASK;
  * fetching across dots 65-256 and 257-320 respectively; both are collapsed here into a single step (at
  * dots 65 and 257) since nothing outside the PPU can observe mid-evaluation/mid-fetch state - the
  * resulting secondary OAM and fetched pattern bytes are byte-for-byte identical to real hardware's by
- * the time the next scanline starts. Sprite overflow uses a simple "found more than 8 sprites in range"
+ * the time the next scanline starts. <b>One documented exception</b>: {@link com.rox.cartridge.Mmc3Mapper}
+ * treats every {@link com.rox.cartridge.Mapper#readChr} call as directly observable (it clocks its IRQ
+ * counter off the PPU address bus's A12 line), so collapsing dots 257-320's per-slot fetches into one
+ * dot-257 step is only timing-transparent to it when at most one A12 edge would occur across those real
+ * dots anyway - true for the common case, not for 8x16 sprites mixing pattern-table halves across
+ * sprites; see {@link com.rox.cartridge.Mmc3Mapper}'s own class doc "Known limitation" note. Sprite
+ * overflow uses a simple "found more than 8 sprites in range"
  * count, not real hardware's well-known buggy diagonal-read overflow detection (see nesdev's "Sprite
  * overflow bug") - only the obscure false-positive/false-negative edge cases differ, not correct
  * rendering. OAMADDR's glitchy behaviour during evaluation (real hardware corrupts low OAM entries if

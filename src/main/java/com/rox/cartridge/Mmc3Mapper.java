@@ -45,6 +45,25 @@ import static com.rox.ByteUtil.BYTE_MASK;
  * requested (via {@code $C001}), otherwise it decrements; an IRQ is asserted whenever the
  * (post-clock) counter is zero and IRQs are enabled. The counter itself is never gated by the
  * enable/disable registers - only whether reaching zero actually asserts the IRQ line is.
+ *
+ * <p><b>Known limitation</b> (flagged by CodeRabbit review on PR #37, not yet fixed): the "no filter
+ * needed" reasoning above only holds when every sprite fetched on a scanline reads from the same
+ * pattern-table half - true for the standard background-at-{@code $0000}/sprites-at-{@code $1000}
+ * (or vice versa) configuration nesdev documents as required for the counter to work at all, but not
+ * for 8x16 sprites, where each sprite's own tile index (not a single shared PPUCTRL bit) picks its
+ * pattern-table half. A frame mixing even- and odd-indexed 8x16 sprites can toggle A12 more than once
+ * within one scanline's sprite-fetch phase, which this unfiltered edge detector would (incorrectly)
+ * clock as multiple rises. Compounding this, {@code PPU.fetchSpritesForNextScanline()} still fetches
+ * all 8 sprite slots (real and dummy) in one collapsed step at dot 257 rather than real hardware's
+ * spread across dots 257-320, so even a correctly-filtered edge could land at the wrong simulated
+ * instant relative to the scanline. Properly fixing this needs two coordinated changes neither made
+ * here: PPU-cycle-aware low-time qualification in this class (real hardware requires A12 low for a
+ * few PPU cycles before counting a rise), and un-collapsing the PPU's sprite fetch back into its own
+ * per-slot dots so that timing information actually exists to qualify against - a bigger change than
+ * this simplification was worth making speculatively, since no ROM this codebase currently runs
+ * exercises 8x16-sprite MMC3 IRQ timing (Shadowgate's own mapper-4 conversion doesn't use the IRQ
+ * mechanism at all, verified by instrumenting every {@code $8000-$FFFF} register write across full
+ * playthroughs). Revisit if/when a ROM actually depends on this.
  */
 public final class Mmc3Mapper implements Mapper {
     private static final int PRG_RAM_SIZE = 0x2000;
