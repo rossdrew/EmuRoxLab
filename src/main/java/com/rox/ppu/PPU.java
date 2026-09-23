@@ -206,6 +206,9 @@ public class PPU implements ClockWatcher, OamDmaBus {
     private static final int SPRITE_ZERO_HIT_EXCLUDED_X = 255; //real hardware never sets the hit flag here
     private static final int SPRITE_ZERO_HIT_STATUS_BIT = 0x40;
     private static final int SPRITE_OVERFLOW_STATUS_BIT = 0x20;
+    //real hardware's secondary-OAM-clear phase (dots 1-64) fills every byte with $FF; an unused sprite
+    //slot's dummy pattern fetch (see fetchSpritesForNextScanline()) reads this same tile index
+    private static final int DUMMY_SPRITE_TILE_INDEX = 0xFF;
 
     private final Cartridge cartridge;
 
@@ -603,6 +606,19 @@ public class PPU implements ClockWatcher, OamDmaBus {
             spriteAttributes[slot] = attributes;
             spriteXPosition[slot] = secondaryOam[base + 3];
             spriteIsZero[slot] = slot == secondaryOamSpriteZeroSlot;
+        }
+        //real hardware always fetches all 8 sprite slots every scanline - unused slots (secondary OAM
+        //left at its $FF clear value) still perform a "dummy" tile-$FF fetch, discarded here since
+        //activeSpriteCount below excludes them from rendering. Skipping these dummy reads entirely (as
+        //this loop used to) is invisible to on-screen NROM/MMC1 output, but MMC3 games rely on exactly
+        //these reads for their once-per-scanline A12 toggle (via Mmc3Mapper.readChr()) whenever a
+        //scanline has fewer than 8 real sprites - the common case - so omitting them starves the MMC3
+        //IRQ counter of the edges it needs.
+        for (int slot = secondaryOamCount; slot < MAX_SPRITES_PER_SCANLINE; slot++){
+            final int dummyPatternTableBase = tallSpritesEnabled ? TALL_SPRITE_PATTERN_TABLE_SIZE : controlRegister.spritePatternTableBase();
+            final int dummyTileIndex = tallSpritesEnabled ? DUMMY_SPRITE_TILE_INDEX & 0xFE : DUMMY_SPRITE_TILE_INDEX;
+            readMemory(dummyPatternTableBase + dummyTileIndex * TILE_BYTES);
+            readMemory(dummyPatternTableBase + dummyTileIndex * TILE_BYTES + PATTERN_HIGH_PLANE_OFFSET);
         }
         activeSpriteCount = secondaryOamCount;
     }
