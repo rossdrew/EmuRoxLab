@@ -111,6 +111,12 @@ public class INesRomTest {
     }
 
     @Test
+    public void trainerBitIsRead(){
+        assertTrue(INesRom.parse(buildRom(1, 1, 0x04, 0x00, false)).hasTrainer());
+        assertFalse(INesRom.parse(buildRom(1, 1, 0x00, 0x00, false)).hasTrainer());
+    }
+
+    @Test
     public void trainerShiftsPrgRomOffsetBy512Bytes(){
         final byte[] rom = buildRom(1, 0, 0x04, 0x00, true); //trainer bit set
         final byte[] prg = INesRom.parse(rom).prgRom();

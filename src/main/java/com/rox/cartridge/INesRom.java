@@ -29,14 +29,16 @@ public final class INesRom {
     private final int mapperNumber;
     private final boolean verticalMirroring;
     private final boolean hasBattery;
+    private final boolean hasTrainer;
     private final byte[] prgRom;
     private final byte[] chrRom;
 
     private INesRom(final int mapperNumber, final boolean verticalMirroring, final boolean hasBattery,
-                     final byte[] prgRom, final byte[] chrRom){
+                     final boolean hasTrainer, final byte[] prgRom, final byte[] chrRom){
         this.mapperNumber = mapperNumber;
         this.verticalMirroring = verticalMirroring;
         this.hasBattery = hasBattery;
+        this.hasTrainer = hasTrainer;
         this.prgRom = prgRom;
         this.chrRom = chrRom;
     }
@@ -70,7 +72,7 @@ public final class INesRom {
         final int chrSize = chrBanks * CHR_BANK_SIZE;
         final byte[] chrRom = copyRange(fileBytes, offset, chrSize, "CHR-ROM");
 
-        return new INesRom(mapperNumber, verticalMirroring, hasBattery, prgRom, chrRom);
+        return new INesRom(mapperNumber, verticalMirroring, hasBattery, hasTrainer, prgRom, chrRom);
     }
 
     private static boolean hasMagic(final byte[] fileBytes){
@@ -96,6 +98,11 @@ public final class INesRom {
     /** Whether this cartridge's PRG-RAM ({@code $6000-$7FFF}) is battery-backed - flags6 bit 1 of the iNES header. */
     public boolean hasBattery(){
         return hasBattery;
+    }
+
+    /** Whether the file includes a 512-byte trainer before PRG-ROM - flags6 bit 2 of the iNES header. */
+    public boolean hasTrainer(){
+        return hasTrainer;
     }
 
     /** Defensive copy - callers must not be able to mutate ROM content behind PRG-ROM's back. */

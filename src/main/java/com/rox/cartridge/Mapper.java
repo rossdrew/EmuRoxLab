@@ -2,6 +2,8 @@ package com.rox.cartridge;
 
 import com.rox.mem.MemoryBus;
 
+import java.util.Map;
+
 /**
  * A cartridge board's banking strategy: the CPU-visible {@code $6000-$FFFF} window (PRG-RAM and
  * PRG-ROM, however the board maps/switches them) via {@link MemoryBus#read}/{@link MemoryBus#write},
@@ -33,5 +35,14 @@ public interface Mapper extends MemoryBus {
      */
     default boolean isIrqAsserted(){
         return false;
+    }
+
+    /**
+     * Bank/IRQ register state worth showing in a debug view, as label -&gt; formatted-value pairs in
+     * display order - an empty map default, since boards with nothing to switch (NROM) have none.
+     * {@link Mmc1Mapper}/{@link Mmc3Mapper} override this with their own current register values.
+     */
+    default Map<String, String> debugState(){
+        return Map.of();
     }
 }

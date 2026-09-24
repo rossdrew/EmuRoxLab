@@ -2,6 +2,8 @@ package com.rox.cartridge;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Map;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -428,5 +430,21 @@ public class Mmc1MapperTest {
         final Mmc1Mapper mapper = new Mmc1Mapper(romWithBanks(2));
 
         assertThrows(IllegalArgumentException.class, () -> mapper.restorePrgRam(new int[1]));
+    }
+
+    @Test
+    public void debugStateReportsAllFourBankRegisters(){
+        final Mmc1Mapper mapper = new Mmc1Mapper(romWithBanks(2));
+        writeFiveBits(mapper, 0x8000, 0x15);
+        writeFiveBits(mapper, 0xA000, 0x0B);
+        writeFiveBits(mapper, 0xC000, 0x1D);
+        writeFiveBits(mapper, 0xE000, 0x07);
+
+        final Map<String, String> state = mapper.debugState();
+
+        assertEquals("$15", state.get("Control"));
+        assertEquals("$0B", state.get("CHR bank 0"));
+        assertEquals("$1D", state.get("CHR bank 1"));
+        assertEquals("$07", state.get("PRG bank"));
     }
 }

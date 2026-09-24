@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class NromMapperTest {
 
@@ -185,5 +186,12 @@ public class NromMapperTest {
         final NromMapper mapper = new NromMapper(romWithPositionEncodedPrg(1));
 
         assertThrows(IllegalArgumentException.class, () -> mapper.restorePrgRam(new int[1]));
+    }
+
+    @Test
+    public void debugStateIsEmptyBecauseNromHasNoBankRegisters(){
+        final NromMapper mapper = new NromMapper(romWithPositionEncodedPrg(1));
+
+        assertTrue(mapper.debugState().isEmpty());
     }
 }

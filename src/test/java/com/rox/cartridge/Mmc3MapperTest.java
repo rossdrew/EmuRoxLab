@@ -2,6 +2,8 @@ package com.rox.cartridge;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Map;
+
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -446,5 +448,25 @@ public class Mmc3MapperTest {
         mapper.writeChr(0x1000, 0x22);
 
         assertEquals(5, mapper.irqCounter(), "only readChr (real address-bus activity) clocks the counter");
+    }
+
+    @Test
+    public void debugStateReportsBankSelectAllEightBankRegistersAndIrqState(){
+        final Mmc3Mapper mapper = new Mmc3Mapper(romWithBanks(4));
+        selectAndLatch(mapper, 0, 0x0A); //R0
+        selectAndLatch(mapper, 6, 0x15); //R6
+        mapper.write(0xC000, 0x2A); //IRQ latch
+        mapper.write(0xC001, 0); //reload request -> counter clocked to 0 on next rising edge
+        mapper.readChr(0x1000); //rising edge
+        mapper.write(0xE001, 0); //IRQ enable
+
+        final Map<String, String> state = mapper.debugState();
+
+        assertEquals(String.format("$%02X", mapper.bankSelect()), state.get("Bank select"));
+        assertEquals("$0A", state.get("R0"));
+        assertEquals("$15", state.get("R6"));
+        assertEquals("$2A", state.get("IRQ latch"));
+        assertEquals(String.format("$%02X", mapper.irqCounter()), state.get("IRQ counter"));
+        assertEquals("true", state.get("IRQ enabled"));
     }
 }
