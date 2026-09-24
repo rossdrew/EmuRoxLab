@@ -57,10 +57,11 @@ public class PPUTest {
         private final int[] chr = new int[0x2000];
         private final int[] prgRam = new int[0x2000];
         private Mirroring mirroring = Mirroring.HORIZONTAL;
+        private int readChrCallCount;
 
         @Override public int read(final int address){ return 0; }
         @Override public void write(final int address, final int value){ }
-        @Override public int readChr(final int address){ return chr[address & 0x1FFF]; }
+        @Override public int readChr(final int address){ readChrCallCount++; return chr[address & 0x1FFF]; }
         @Override public void writeChr(final int address, final int value){ chr[address & 0x1FFF] = value & 0xFF; }
         @Override public Mirroring nametableMirroring(){ return mirroring; }
         @Override public int[] prgRam(){ return prgRam.clone(); }
@@ -1445,6 +1446,34 @@ public class PPUTest {
 
         tickTo(1, VBLANK_END_SCANLINE, 2); //just past the pre-render scanline's dot-1 flag clear
         assertEquals(0, ppu.read(PPUSTATUS) & SPRITE_OVERFLOW_BIT, "the pre-render scanline must clear the overflow flag for the next frame");
+    }
+
+    @Test
+    public void spriteFetchPerformsTheSameTotalChrReadsWhetherSlotsAreRealOrDummy(){
+        //isolating the sprite-fetch dot's own read count from backgroundStep()'s own, unrelated CHR
+        //reads (which run every scanline regardless of sprite content, at a cadence that can coincide
+        //with dot 257 in the same CPU tick) isn't reliable via a narrow before/after window - instead,
+        //compare two scanlines' *whole-scanline* totals, which cancels the identical background
+        //contribution from both and isolates just the sprite-fetch difference.
+        pushAllSpritesOffscreen(); //0 sprites in range anywhere
+        enableSpriteRendering();
+        tickThroughScanline(1, 0);
+        final int beforeZeroReal = mapper.readChrCallCount;
+        tickThroughScanline(1, 1); //0 real sprites -> all 8 slots must be dummy fetches
+        final int zeroRealSpriteReads = mapper.readChrCallCount - beforeZeroReal;
+
+        for (int i = 0; i < 8; i++){
+            writeSprite(i, 0, 0, 0x00, i * 8); //8 real sprites now in range; Y=0 -> visible on the next scanline
+        }
+        final int beforeEightReal = mapper.readChrCallCount;
+        tickThroughScanline(1, 2); //8 real sprites -> no dummy fetches needed
+        final int eightRealSpriteReads = mapper.readChrCallCount - beforeEightReal;
+
+        assertEquals(zeroRealSpriteReads, eightRealSpriteReads, "a scanline with 0 real sprites (8 "
+                + "dummy fetches) and one with 8 real sprites (0 dummy fetches) must perform the exact "
+                + "same total number of CHR reads - real hardware always fetches all 8 sprite slots "
+                + "every scanline, real or dummy, and Mmc3Mapper's IRQ counter depends on the resulting "
+                + "once-per-scanline A12 edge even when a scanline has fewer than 8 real sprites");
     }
 
     @Test

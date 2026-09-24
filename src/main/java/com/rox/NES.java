@@ -91,7 +91,7 @@ public class NES {
         clock.addListener(cpu);
         clock.addListener(apu);
         clock.addListener(ppu);
-        clock.addListener(() -> cpu.setIRQLine(apu.isIrqAsserted()));
+        clock.addListener(() -> cpu.setIRQLine(apu.isIrqAsserted() || cartridge.isIrqAsserted()));
         clock.addListener(() -> {
             if (ppu.consumeNmiEdge()){
                 cpu.signalNMI();

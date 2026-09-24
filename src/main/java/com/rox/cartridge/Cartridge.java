@@ -9,9 +9,10 @@ import com.rox.mem.MemoryBus;
  * a CLI printing what got loaded) need, not for address decoding.
  */
 public final class Cartridge implements MemoryBus {
-    //PRG-RAM on both currently-supported boards (NROM, MMC1) occupies $6000-$7FFF, PRG-ROM starting
-    //at $8000 - safe to hardcode here rather than asking Mapper, since a Mapper's own read/write are
-    //only ever called with addresses already known to be in $6000-$FFFF (see Mapper's class doc)
+    //PRG-RAM on every currently-supported board (NROM, MMC1, MMC3) occupies $6000-$7FFF, PRG-ROM
+    //starting at $8000 - safe to hardcode here rather than asking Mapper, since a Mapper's own
+    //read/write are only ever called with addresses already known to be in $6000-$FFFF (see Mapper's
+    //class doc)
     private static final int PRG_ROM_START_ADDRESS = 0x8000;
 
     private final INesRom rom;
@@ -61,6 +62,11 @@ public final class Cartridge implements MemoryBus {
 
     public Mirroring nametableMirroring(){
         return mapper.nametableMirroring();
+    }
+
+    /** Whether the mapper (e.g. MMC3's scanline IRQ) is currently asserting an IRQ onto the CPU's IRQ line. */
+    public boolean isIrqAsserted(){
+        return mapper.isIrqAsserted();
     }
 
     public INesRom rom(){

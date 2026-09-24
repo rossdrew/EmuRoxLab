@@ -20,6 +20,7 @@ public final class RomLoader {
         final Mapper mapper = switch (rom.mapperNumber()){
             case 0 -> new NromMapper(rom);
             case 1 -> new Mmc1Mapper(rom);
+            case 4 -> new Mmc3Mapper(rom);
             default -> throw new IllegalArgumentException("Unsupported mapper: " + rom.mapperNumber());
         };
         return new Cartridge(rom, mapper);

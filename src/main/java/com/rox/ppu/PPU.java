@@ -50,7 +50,13 @@ import static com.rox.ByteUtil.BYTE_MASK;
  * fetching across dots 65-256 and 257-320 respectively; both are collapsed here into a single step (at
  * dots 65 and 257) since nothing outside the PPU can observe mid-evaluation/mid-fetch state - the
  * resulting secondary OAM and fetched pattern bytes are byte-for-byte identical to real hardware's by
- * the time the next scanline starts. Sprite overflow uses a simple "found more than 8 sprites in range"
+ * the time the next scanline starts. <b>One documented exception</b>: {@link com.rox.cartridge.Mmc3Mapper}
+ * treats every {@link com.rox.cartridge.Mapper#readChr} call as directly observable (it clocks its IRQ
+ * counter off the PPU address bus's A12 line), so collapsing dots 257-320's per-slot fetches into one
+ * dot-257 step is only timing-transparent to it when at most one A12 edge would occur across those real
+ * dots anyway - true for the common case, not for 8x16 sprites mixing pattern-table halves across
+ * sprites; see {@link com.rox.cartridge.Mmc3Mapper}'s own class doc "Known limitation" note. Sprite
+ * overflow uses a simple "found more than 8 sprites in range"
  * count, not real hardware's well-known buggy diagonal-read overflow detection (see nesdev's "Sprite
  * overflow bug") - only the obscure false-positive/false-negative edge cases differ, not correct
  * rendering. OAMADDR's glitchy behaviour during evaluation (real hardware corrupts low OAM entries if
@@ -206,6 +212,9 @@ public class PPU implements ClockWatcher, OamDmaBus {
     private static final int SPRITE_ZERO_HIT_EXCLUDED_X = 255; //real hardware never sets the hit flag here
     private static final int SPRITE_ZERO_HIT_STATUS_BIT = 0x40;
     private static final int SPRITE_OVERFLOW_STATUS_BIT = 0x20;
+    //real hardware's secondary-OAM-clear phase (dots 1-64) fills every byte with $FF; an unused sprite
+    //slot's dummy pattern fetch (see fetchSpritesForNextScanline()) reads this same tile index
+    private static final int DUMMY_SPRITE_TILE_INDEX = 0xFF;
 
     private final Cartridge cartridge;
 
@@ -603,6 +612,19 @@ public class PPU implements ClockWatcher, OamDmaBus {
             spriteAttributes[slot] = attributes;
             spriteXPosition[slot] = secondaryOam[base + 3];
             spriteIsZero[slot] = slot == secondaryOamSpriteZeroSlot;
+        }
+        //real hardware always fetches all 8 sprite slots every scanline - unused slots (secondary OAM
+        //left at its $FF clear value) still perform a "dummy" tile-$FF fetch, discarded here since
+        //activeSpriteCount below excludes them from rendering. Skipping these dummy reads entirely (as
+        //this loop used to) is invisible to on-screen NROM/MMC1 output, but MMC3 games rely on exactly
+        //these reads for their once-per-scanline A12 toggle (via Mmc3Mapper.readChr()) whenever a
+        //scanline has fewer than 8 real sprites - the common case - so omitting them starves the MMC3
+        //IRQ counter of the edges it needs.
+        for (int slot = secondaryOamCount; slot < MAX_SPRITES_PER_SCANLINE; slot++){
+            final int dummyPatternTableBase = tallSpritesEnabled ? TALL_SPRITE_PATTERN_TABLE_SIZE : controlRegister.spritePatternTableBase();
+            final int dummyTileIndex = tallSpritesEnabled ? DUMMY_SPRITE_TILE_INDEX & 0xFE : DUMMY_SPRITE_TILE_INDEX;
+            readMemory(dummyPatternTableBase + dummyTileIndex * TILE_BYTES);
+            readMemory(dummyPatternTableBase + dummyTileIndex * TILE_BYTES + PATTERN_HIGH_PLANE_OFFSET);
         }
         activeSpriteCount = secondaryOamCount;
     }
