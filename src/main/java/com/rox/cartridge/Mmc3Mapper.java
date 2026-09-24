@@ -1,5 +1,8 @@
 package com.rox.cartridge;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import static com.rox.ByteUtil.BYTE_MASK;
 
 /**
@@ -276,5 +279,18 @@ public final class Mmc3Mapper implements Mapper {
 
     boolean irqEnabled(){
         return irqEnabled;
+    }
+
+    @Override
+    public Map<String, String> debugState(){
+        final Map<String, String> state = new LinkedHashMap<>();
+        state.put("Bank select", String.format("$%02X", bankSelect));
+        for (int i = 0; i < bankRegister.length; i++){
+            state.put("R" + i, String.format("$%02X", bankRegister[i]));
+        }
+        state.put("IRQ latch", String.format("$%02X", irqLatch));
+        state.put("IRQ counter", String.format("$%02X", irqCounter));
+        state.put("IRQ enabled", String.valueOf(irqEnabled));
+        return state;
     }
 }

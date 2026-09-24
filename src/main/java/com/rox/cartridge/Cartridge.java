@@ -2,6 +2,8 @@ package com.rox.cartridge;
 
 import com.rox.mem.MemoryBus;
 
+import java.util.Map;
+
 /**
  * A loaded ROM: the parsed {@link INesRom} plus whichever {@link Mapper} its header's mapper number
  * selects. Implements {@link MemoryBus} by delegating straight to the mapper - {@link INesRom} is
@@ -71,5 +73,10 @@ public final class Cartridge implements MemoryBus {
 
     public INesRom rom(){
         return rom;
+    }
+
+    /** The mapper's current bank/IRQ register state, for a debug view - see {@link Mapper#debugState()}. */
+    public Map<String, String> debugState(){
+        return mapper.debugState();
     }
 }
