@@ -48,7 +48,8 @@ pitest {
             "com.rox.ppu.debug.NametableViewerPanel", "com.rox.ppu.debug.OamViewerPanel",
             "com.rox.ppu.debug.ScreenViewerPanel", "com.rox.ppu.debug.RegisterHudPanel",
             "com.rox.ppu.debug.BeamPositionPanel", "com.rox.ppu.debug.ScaledImageDrawer",
-            "com.rox.ppu.debug.PaletteViewerPanel", "com.rox.video.SwingVideoOutput*"
+            "com.rox.ppu.debug.PaletteViewerPanel", "com.rox.video.SwingVideoOutput*",
+            "com.rox.cartridge.debug.RomInfoPanel"
     ))
     threads.set(Runtime.getRuntime().availableProcessors())
     outputFormats.set(listOf("HTML", "XML"))
@@ -103,7 +104,8 @@ tasks.jacocoTestReport {
                         "com/rox/ppu/debug/OamViewerPanel.class", "com/rox/ppu/debug/ScreenViewerPanel.class",
                         "com/rox/ppu/debug/RegisterHudPanel.class", "com/rox/ppu/debug/BeamPositionPanel.class",
                         "com/rox/ppu/debug/ScaledImageDrawer.class", "com/rox/ppu/debug/PaletteViewerPanel.class",
-                        "com/rox/video/SwingVideoOutput.class", "com/rox/video/SwingVideoOutput\$1.class"
+                        "com/rox/video/SwingVideoOutput.class", "com/rox/video/SwingVideoOutput\$1.class",
+                        "com/rox/cartridge/debug/RomInfoPanel.class"
                 )
             }
         })
