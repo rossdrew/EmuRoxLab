@@ -5,6 +5,7 @@ import com.rox.cartridge.INesRom;
 
 import javax.swing.BorderFactory;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import java.awt.BorderLayout;
 import java.awt.Font;
@@ -32,7 +33,7 @@ final class RomInfoPanel extends JPanel {
         text.setEditable(false);
         text.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 32));
         setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
-        add(text, BorderLayout.CENTER);
+        add(new JScrollPane(text), BorderLayout.CENTER);
         refresh();
     }
 
