@@ -182,5 +182,61 @@ public class MOS6502Test {
 
         assertEquals(0x8000, cpu.getEnvironmentSnapshot().getPC());
     }
-}
 
+    /** A real CPU over 16 bytes of RAM holding {@code program} from $0000 - mocked buses can't drive real micro-op sequencing. */
+    private static MOS6502 cpuRunning(final int... program){
+        final Memory testRAM = new RAM(16);
+        for (int i = 0; i < program.length; i++){
+            testRAM.write(i, program[i]);
+        }
+        return new MOS6502(new Latched8BitMemoryBus(new MemoryBus8Bit(testRAM)));
+    }
+
+    @Test
+    public void freshCpuIsAtAnInstructionBoundary(){
+        assertTrue(cpu.isAtInstructionBoundary());
+    }
+
+    @Test
+    public void isAtInstructionBoundaryOnlyOnceEveryCycleOfAnInstructionHasRun(){
+        cpu = cpuRunning(MOS6502OpCode.ADC_Z.getId(), 0x04); //3 cycles
+
+        cpu.tick();
+        assertFalse(cpu.isAtInstructionBoundary(), "opcode fetched, operand still to come");
+        cpu.tick();
+        assertFalse(cpu.isAtInstructionBoundary(), "operand fetched, ALU cycle still to come");
+        cpu.tick();
+        assertTrue(cpu.isAtInstructionBoundary());
+    }
+
+    @Test
+    public void takenBranchsVariableExtraCycleIsNotAnInstructionBoundary(){
+        cpu = cpuRunning(MOS6502OpCode.BNE_REL.getId(), 0x00); //Z clear on a fresh CPU -> taken, 3 cycles
+
+        cpu.tick();
+        cpu.tick();
+        assertFalse(cpu.isAtInstructionBoundary(), "taken branch still owes its extra cycle");
+        cpu.tick();
+        assertTrue(cpu.isAtInstructionBoundary());
+    }
+
+    @Test
+    public void untakenBranchIsAtAnInstructionBoundaryAfterItsTwoCycles(){
+        cpu = cpuRunning(MOS6502OpCode.BEQ_REL.getId(), 0x00); //Z clear on a fresh CPU -> not taken, 2 cycles
+
+        cpu.tick();
+        cpu.tick();
+        assertTrue(cpu.isAtInstructionBoundary());
+    }
+
+    @Test
+    public void outstandingStallIsNotAnInstructionBoundaryUntilItHasRunOut(){
+        cpu.stall(2);
+        assertFalse(cpu.isAtInstructionBoundary());
+
+        cpu.tick();
+        assertFalse(cpu.isAtInstructionBoundary());
+        cpu.tick();
+        assertTrue(cpu.isAtInstructionBoundary());
+    }
+}
