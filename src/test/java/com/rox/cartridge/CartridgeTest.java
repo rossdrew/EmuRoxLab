@@ -3,6 +3,8 @@ package com.rox.cartridge;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.Map;
+
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -121,5 +123,13 @@ public class CartridgeTest {
         when(mapper.isIrqAsserted()).thenReturn(true);
 
         assertTrue(cartridge.isIrqAsserted());
+    }
+
+    @Test
+    public void debugStateDelegatesToMapper(){
+        final Map<String, String> state = Map.of("Control", "$15");
+        when(mapper.debugState()).thenReturn(state);
+
+        assertEquals(state, cartridge.debugState());
     }
 }

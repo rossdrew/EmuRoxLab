@@ -1,5 +1,8 @@
 package com.rox.cartridge;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import static com.rox.ByteUtil.BYTE_MASK;
 
 /**
@@ -213,6 +216,16 @@ public final class Mmc1Mapper implements Mapper {
 
     int prgBankRegister(){
         return prgBankRegister;
+    }
+
+    @Override
+    public Map<String, String> debugState(){
+        final Map<String, String> state = new LinkedHashMap<>();
+        state.put("Control", String.format("$%02X", controlRegister));
+        state.put("CHR bank 0", String.format("$%02X", chrBank0Register));
+        state.put("CHR bank 1", String.format("$%02X", chrBank1Register));
+        state.put("PRG bank", String.format("$%02X", prgBankRegister));
+        return state;
     }
 
     @Override
