@@ -170,4 +170,18 @@ public class DisassemblerTest {
         assertEquals(0x0000, instructions.get(1).address(), "address must wrap from $FFFF back to $0000, not overflow past it");
         assertEquals("NOP", instructions.get(1).formatted(), "the wrapped address must still read back the byte placed there, not a default 0");
     }
+
+    @Test
+    public void operandReadsWrapAtSixteenBitsRatherThanPeekingPastTheAddressSpace(){
+        //a real 64KB array, so an unwrapped read of $10000 fails rather than quietly returning 0
+        final int[] memory = new int[0x10000];
+        memory[0xFFFF] = 0x4C; //JMP absolute
+        memory[0x0000] = 0x34; //target low byte, at wrapped address $0000
+        memory[0x0001] = 0x12; //target high byte, at wrapped address $0001
+
+        final DisassembledInstruction instruction = Disassembler.disassembleOne(address -> memory[address], 0xFFFF);
+
+        assertArrayEquals(new int[]{0x34, 0x12}, instruction.operandBytes());
+        assertEquals("JMP $1234", instruction.formatted());
+    }
 }

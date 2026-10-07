@@ -40,7 +40,7 @@ public final class Disassembler {
         final int operandByteCount = mode.operandByteCount();
         final int[] operandBytes = new int[operandByteCount];
         for (int i = 0; i < operandByteCount; i++){
-            operandBytes[i] = peekByte.applyAsInt(address + 1 + i) & BYTE_MASK;
+            operandBytes[i] = peekByte.applyAsInt((address + 1 + i) & ADDRESS_MASK) & BYTE_MASK;
         }
         final int length = 1 + operandByteCount;
 
