@@ -53,6 +53,8 @@ public class SpeakerAudioOutput implements AudioOutput {
     private int bufferedCount;
 
     private volatile boolean running;
+    //written under bufferLock so the writer thread's wait loop can't miss a resume()'s notify
+    private volatile boolean paused;
     private Thread writerThread;
 
     //DIAGNOSTICS (temporary): tracking down a reported clicking artifact
@@ -106,6 +108,7 @@ public class SpeakerAudioOutput implements AudioOutput {
         }
         running = false;
         synchronized (bufferLock){
+            paused = false;
             bufferLock.notifyAll(); //wake the writer thread so it notices `running` is now false
         }
         //stopping the line first also unblocks the writer thread if it's currently inside a
@@ -119,6 +122,34 @@ public class SpeakerAudioOutput implements AudioOutput {
         line.close();
         System.err.println("[SpeakerAudioOutput diagnostics] dropped samples: " + droppedSampleCount.get()
                 + ", underrun events (line buffer ran completely dry): " + underrunCount.get());
+    }
+
+    /**
+     * Stops the line where it is - unlike {@link #stop()}, which closes it for good - and parks the
+     * writer thread, so samples already buffered (in the line and the ring buffer) play on after
+     * {@link #resume()} rather than being lost.
+     */
+    @Override
+    public synchronized void pause(){
+        if (!running || paused){
+            return;
+        }
+        synchronized (bufferLock){
+            paused = true;
+        }
+        line.stop();
+    }
+
+    @Override
+    public synchronized void resume(){
+        if (!running || !paused){
+            return;
+        }
+        line.start();
+        synchronized (bufferLock){
+            paused = false;
+            bufferLock.notifyAll();
+        }
     }
 
     @Override
@@ -161,7 +192,17 @@ public class SpeakerAudioOutput implements AudioOutput {
                 //never quite reaches a full batch (sparse/slow production, or simply winding down) would
                 //never get flushed at all.
                 long batchStartNanos = -1;
-                while (bufferedCount < WRITE_CHUNK_SAMPLES && running){
+                while ((paused || bufferedCount < WRITE_CHUNK_SAMPLES) && running){
+                    if (paused){
+                        try {
+                            bufferLock.wait();
+                        } catch (InterruptedException e){
+                            Thread.currentThread().interrupt();
+                            return;
+                        }
+                        batchStartNanos = -1; //time spent paused doesn't count against a partial batch
+                        continue;
+                    }
                     if (bufferedCount == 0){
                         try {
                             bufferLock.wait();

@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.after;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
@@ -162,5 +163,79 @@ public class SpeakerAudioOutputTest {
         } finally {
             largeTimeoutOutput.stop();
         }
+    }
+
+    @Test
+    public void pauseBeforeStartDoesNotTouchTheLine(){
+        output.pause();
+        output.resume();
+
+        verify(line, never()).stop();
+        verify(line, never()).start();
+    }
+
+    @Test
+    public void pauseStopsTheLineOnceWithoutClosingIt(){
+        output.start();
+
+        output.pause();
+        output.pause();
+
+        verify(line, times(1)).stop();
+        verify(line, never()).close();
+    }
+
+    @Test
+    public void resumeRestartsAPausedLineOnce(){
+        output.start();
+        output.pause();
+
+        output.resume();
+        output.resume();
+
+        verify(line, times(2)).start(); //once for start(), once for the first resume()
+    }
+
+    @Test
+    public void resumeWithoutPauseDoesNotRestartTheLine(){
+        output.start();
+
+        output.resume();
+
+        verify(line, times(1)).start();
+    }
+
+    /**
+     * A paused writer must hold on to even a full batch rather than draining it into a stopped line,
+     * then deliver it on resume. The negative check uses a fixed window: an unpaused writer hands a
+     * full batch over within microseconds (see the test above), so 200ms is far beyond that.
+     */
+    @Test
+    public void pausedWriterHoldsBufferedSamplesUntilResumed(){
+        final SpeakerAudioOutput largeTimeoutOutput = new SpeakerAudioOutput(line, 5000);
+        try {
+            largeTimeoutOutput.start();
+            largeTimeoutOutput.pause();
+            for (int i = 0; i < SpeakerAudioOutput.WRITE_CHUNK_SAMPLES; i++){
+                largeTimeoutOutput.write(0.0);
+            }
+
+            verify(line, after(200).never()).write(any(byte[].class), anyInt(), anyInt());
+
+            largeTimeoutOutput.resume();
+            verify(line, timeout(1000).atLeastOnce()).write(any(byte[].class), anyInt(), anyInt());
+        } finally {
+            largeTimeoutOutput.stop();
+        }
+    }
+
+    @Test
+    public void stopWhilePausedStillClosesTheLine(){
+        output.start();
+        output.pause();
+
+        output.stop();
+
+        verify(line, times(1)).close();
     }
 }
