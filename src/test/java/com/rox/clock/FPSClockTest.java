@@ -457,4 +457,51 @@ public class FPSClockTest {
         clock.stop();
         joinOrFail(secondRun);
     }
+
+    @Test
+    void pauseWaitsOutAnInterruptRatherThanReturningBeforeTheLoopHasParked() throws InterruptedException {
+        final FPSClock clock = unthrottledClock();
+        final AtomicBoolean pauseResult = new AtomicBoolean();
+        final AtomicBoolean interruptFlagRestored = new AtomicBoolean();
+        final Thread pauser = new Thread(() -> {
+            pauseResult.set(clock.pause());
+            interruptFlagRestored.set(Thread.currentThread().isInterrupted());
+        }, "pauser");
+        final AtomicBoolean firstTick = new AtomicBoolean(true);
+        clock.addListener(() -> {
+            if (firstTick.getAndSet(false)){
+                pauser.start();
+                awaitBlocked(pauser);
+                pauser.interrupt();
+                //the interrupted pause() must go straight back to waiting on this still-unfinished frame
+                awaitTrue(() -> pauser.getState() == Thread.State.WAITING && !pauser.isInterrupted(), "pauser to resume waiting");
+            }
+        });
+        final Thread runThread = new Thread(clock::run, "clock-run");
+        runThread.start();
+
+        joinOrFail(pauser);
+        assertTrue(pauseResult.get(), "the loop did park, interrupt or not");
+        assertTrue(interruptFlagRestored.get(), "the swallowed interrupt must be re-asserted for the caller");
+
+        clock.stop();
+        joinOrFail(runThread);
+    }
+
+    /** {@link Clock}'s defaults, for clocks with no run loop to pause (e.g. test doubles). */
+    @Test
+    void clockDefaultsHaveNothingToPause(){
+        final Clock bareClock = new Clock(){
+            @Override public void addListener(final ClockWatcher listener){ }
+            @Override public void removeListener(final ClockWatcher listener){ }
+            @Override public void tick(){ }
+            @Override public int listeners(){ return 0; }
+            @Override public void run(){ }
+            @Override public void stop(){ }
+            @Override public boolean isRunning(){ return false; }
+        };
+
+        assertFalse(bareClock.pause());
+        assertDoesNotThrow(bareClock::resume);
+    }
 }
