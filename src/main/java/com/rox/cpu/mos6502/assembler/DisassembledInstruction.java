@@ -7,7 +7,8 @@ package com.rox.cpu.mos6502.assembler;
  * opcode byte (this codebase doesn't model every possible byte value - see {@link Disassembler}).
  *
  * @param address the address {@code mnemonic} was fetched from
- * @param length total instruction length in bytes (1-3), including the opcode byte
+ * @param length total instruction length in bytes (1-3), including the opcode byte - and, for BRK,
+ *               the signature byte the CPU skips after it (which isn't reported in {@code operandBytes})
  * @param mnemonic the instruction's mnemonic (e.g. {@code "LDA"}), or {@code "???"} for an unknown opcode byte
  * @param operandBytes the raw operand bytes, in the order they appear after the opcode (0-2 elements)
  * @param formatted a human-readable rendering (e.g. {@code "LDA #$05"}, {@code "JMP $8000"})

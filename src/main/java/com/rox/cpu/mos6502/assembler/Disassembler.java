@@ -42,7 +42,9 @@ public final class Disassembler {
         for (int i = 0; i < operandByteCount; i++){
             operandBytes[i] = peekByte.applyAsInt((address + 1 + i) & ADDRESS_MASK) & BYTE_MASK;
         }
-        final int length = 1 + operandByteCount;
+        //BRK is implied-mode but the CPU skips the "signature" byte after it (BRK_IMP's first cycle
+        //increments PC past it), so execution - and forward decoding - resumes 2 bytes on
+        final int length = opcode == MOS6502OpCode.BRK_IMP ? 2 : 1 + operandByteCount;
 
         return new DisassembledInstruction(address, length, mnemonic, operandBytes,
                 format(mnemonic, mode, operandBytes, address, length));

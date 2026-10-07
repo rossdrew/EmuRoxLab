@@ -184,4 +184,25 @@ public class DisassemblerTest {
         assertArrayEquals(new int[]{0x34, 0x12}, instruction.operandBytes());
         assertEquals("JMP $1234", instruction.formatted());
     }
+
+    @Test
+    public void brkSpansItsSkippedSignatureByteButStillFormatsAsImplied(){
+        final DisassembledInstruction instruction = Disassembler.disassembleOne(memoryAt(0x8000, 0x00, 0xA9), 0x8000); //BRK, signature byte
+
+        assertEquals(2, instruction.length());
+        assertEquals("BRK", instruction.mnemonic());
+        assertArrayEquals(new int[0], instruction.operandBytes());
+        assertEquals("BRK", instruction.formatted());
+    }
+
+    @Test
+    public void disassembleForwardDoesNotDecodeBrksSignatureByteAsAnOpcode(){
+        //signature byte $A9 would otherwise decode as "LDA #$EA", swallowing the real NOP after it
+        final IntUnaryOperator peek = memoryAt(0x8000, 0x00, 0xA9, 0xEA);
+
+        final List<DisassembledInstruction> instructions = Disassembler.disassembleForward(peek, 0x8000, 2);
+
+        assertEquals(0x8002, instructions.get(1).address());
+        assertEquals("NOP", instructions.get(1).formatted());
+    }
 }
