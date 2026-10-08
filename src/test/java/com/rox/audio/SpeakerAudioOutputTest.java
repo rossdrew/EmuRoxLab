@@ -13,7 +13,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.after;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
@@ -237,5 +239,58 @@ public class SpeakerAudioOutputTest {
         output.stop();
 
         verify(line, times(1)).close();
+    }
+
+    /**
+     * A full batch's frame with {@code line.write()} stubbed so its first call simulates {@link
+     * SpeakerAudioOutput#pause()} landing mid-write: real {@code SourceDataLine.write()} returns early,
+     * part-written, when the line is stopped under it. Later calls write everything asked of them.
+     */
+    private SpeakerAudioOutput outputWhoseFirstWriteIsCutShortByAPause(){
+        final SpeakerAudioOutput pausingOutput = new SpeakerAudioOutput(line, 5000);
+        final boolean[] firstWrite = {true};
+        doAnswer(invocation -> {
+            if (firstWrite[0]){
+                firstWrite[0] = false;
+                pausingOutput.pause();
+                return FULL_FRAME_BYTES / 2;
+            }
+            return invocation.getArgument(2, Integer.class);
+        }).when(line).write(any(byte[].class), anyInt(), anyInt());
+        for (int i = 0; i < SpeakerAudioOutput.WRITE_CHUNK_SAMPLES; i++){
+            pausingOutput.write(0.0);
+        }
+        return pausingOutput;
+    }
+
+    private static final int FULL_FRAME_BYTES = SpeakerAudioOutput.WRITE_CHUNK_SAMPLES * 2; //PCM16
+
+    @Test
+    public void framePartWrittenWhenPausedHasItsRemainderWrittenAfterResume(){
+        final SpeakerAudioOutput pausingOutput = outputWhoseFirstWriteIsCutShortByAPause();
+        try {
+            pausingOutput.start();
+            verify(line, timeout(1000)).write(any(byte[].class), eq(0), eq(FULL_FRAME_BYTES));
+
+            //same reasoning as pausedWriterHoldsBufferedSamplesUntilResumed() for the fixed window
+            verify(line, after(200).times(1)).write(any(byte[].class), anyInt(), anyInt());
+
+            pausingOutput.resume();
+            verify(line, timeout(1000)).write(any(byte[].class), eq(FULL_FRAME_BYTES / 2), eq(FULL_FRAME_BYTES / 2));
+        } finally {
+            pausingOutput.stop();
+        }
+    }
+
+    @Test
+    public void stopWhileWaitingToFinishAPartWrittenFrameAbandonsIt(){
+        final SpeakerAudioOutput pausingOutput = outputWhoseFirstWriteIsCutShortByAPause();
+        pausingOutput.start();
+        verify(line, timeout(1000)).write(any(byte[].class), eq(0), eq(FULL_FRAME_BYTES));
+
+        pausingOutput.stop();
+
+        verify(line).close();
+        verify(line, after(200).times(1)).write(any(byte[].class), anyInt(), anyInt());
     }
 }

@@ -250,8 +250,41 @@ public class SpeakerAudioOutput implements AudioOutput {
             if (firstChunkWritten && line.available() == line.getBufferSize()){
                 underrunCount.incrementAndGet();
             }
-            line.write(frame, 0, frame.length);
+            if (!writeFrameSurvivingPauses(frame)){
+                return;
+            }
             firstChunkWritten = true;
+        }
+    }
+
+    /**
+     * {@link SourceDataLine#write} returns early, part-written, if the line is stopped mid-write - which
+     * {@link #pause()} does. The frame has already left the ring buffer, so rather than dropping its
+     * unwritten tail (up to a whole batch of audio skipped on resume), wait out the pause and write the
+     * rest. A short write for any other reason (closed/flushed) keeps the old behaviour of moving on.
+     *
+     * @return false if stopped or interrupted while waiting to resume
+     */
+    private boolean writeFrameSurvivingPauses(final byte[] frame){
+        int offset = 0;
+        while (true){
+            offset += line.write(frame, offset, frame.length - offset);
+            if (offset >= frame.length || !paused){
+                return true;
+            }
+            synchronized (bufferLock){
+                while (paused && running){
+                    try {
+                        bufferLock.wait();
+                    } catch (InterruptedException e){
+                        Thread.currentThread().interrupt();
+                        return false;
+                    }
+                }
+            }
+            if (!running){
+                return false;
+            }
         }
     }
 }
