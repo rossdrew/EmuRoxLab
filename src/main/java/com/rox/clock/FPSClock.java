@@ -130,7 +130,8 @@ public class FPSClock implements Clock, AutoCloseable {
             parked = true;
             pauseLock.notifyAll(); //release pause()'s wait for this loop to genuinely stop ticking
             try {
-                while (pauseRequested && running){
+                //no separate running check needed: stop() clears pauseRequested under this same lock
+                while (pauseRequested){
                     pauseLock.wait();
                 }
             } finally {
