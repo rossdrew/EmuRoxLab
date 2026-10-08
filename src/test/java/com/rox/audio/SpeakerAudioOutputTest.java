@@ -283,6 +283,49 @@ public class SpeakerAudioOutputTest {
     }
 
     @Test
+    public void writerKeepsDeliveringFramesAfterAFullyWrittenOne(){
+        final SpeakerAudioOutput largeTimeoutOutput = new SpeakerAudioOutput(line, 5000);
+        doAnswer(invocation -> invocation.getArgument(2, Integer.class))
+                .when(line).write(any(byte[].class), anyInt(), anyInt());
+        for (int i = 0; i < 2 * SpeakerAudioOutput.WRITE_CHUNK_SAMPLES; i++){
+            largeTimeoutOutput.write(0.0);
+        }
+
+        largeTimeoutOutput.start();
+        try {
+            verify(line, timeout(1000).times(2)).write(any(byte[].class), eq(0), eq(FULL_FRAME_BYTES));
+        } finally {
+            largeTimeoutOutput.stop();
+        }
+    }
+
+    @Test
+    public void frameFullyWrittenJustAsAPauseLandsIsNotRetried(){
+        final SpeakerAudioOutput pausingOutput = new SpeakerAudioOutput(line, 5000);
+        final boolean[] firstWrite = {true};
+        doAnswer(invocation -> {
+            if (firstWrite[0]){
+                firstWrite[0] = false;
+                pausingOutput.pause(); //paused, but this write still completed in full
+            }
+            return invocation.getArgument(2, Integer.class);
+        }).when(line).write(any(byte[].class), anyInt(), anyInt());
+        for (int i = 0; i < SpeakerAudioOutput.WRITE_CHUNK_SAMPLES; i++){
+            pausingOutput.write(0.0);
+        }
+        try {
+            pausingOutput.start();
+            verify(line, timeout(1000)).write(any(byte[].class), eq(0), eq(FULL_FRAME_BYTES));
+
+            pausingOutput.resume();
+
+            verify(line, after(200).never()).write(any(byte[].class), anyInt(), eq(0));
+        } finally {
+            pausingOutput.stop();
+        }
+    }
+
+    @Test
     public void stopWhileWaitingToFinishAPartWrittenFrameAbandonsIt(){
         final SpeakerAudioOutput pausingOutput = outputWhoseFirstWriteIsCutShortByAPause();
         pausingOutput.start();
