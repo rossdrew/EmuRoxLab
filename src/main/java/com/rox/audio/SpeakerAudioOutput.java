@@ -258,10 +258,13 @@ public class SpeakerAudioOutput implements AudioOutput {
     }
 
     /**
-     * {@link SourceDataLine#write} returns early, part-written, if the line is stopped mid-write - which
-     * {@link #pause()} does. The frame has already left the ring buffer, so rather than dropping its
-     * unwritten tail (up to a whole batch of audio skipped on resume), wait out the pause and write the
-     * rest. A short write for any other reason (closed/flushed) keeps the old behaviour of moving on.
+     * {@link SourceDataLine#write} returns early, part-written, only if the line is stopped, closed or
+     * flushed mid-write. This class never flushes and only closes after {@code running} goes false, so a
+     * short write while still running means {@link #pause()} stopped the line - even if a quick
+     * {@link #resume()} has already cleared {@code paused} again, which is why that flag isn't what's
+     * checked. The frame has already left the ring buffer, so rather than dropping its unwritten tail
+     * (up to a whole batch of audio skipped on resume), wait out any pause still in effect and write
+     * the rest.
      *
      * @return false if stopped or interrupted while waiting to resume
      */
@@ -269,11 +272,12 @@ public class SpeakerAudioOutput implements AudioOutput {
         int offset = 0;
         while (true){
             offset += line.write(frame, offset, frame.length - offset);
-            if (offset >= frame.length || !paused){
+            if (offset >= frame.length){
                 return true;
             }
             synchronized (bufferLock){
-                while (paused && running){
+                //no separate running check needed: stop() clears paused under this same lock
+                while (paused){
                     try {
                         bufferLock.wait();
                     } catch (InterruptedException e){

@@ -29,6 +29,10 @@ public class SpeakerAudioOutputTest {
     @BeforeEach
     public void setup(){
         line = mock(SourceDataLine.class);
+        //like a real running line, write() takes everything it's given - a mock's default 0 would look
+        //like a stopped-line short write, which the writer retries
+        doAnswer(invocation -> invocation.getArgument(2, Integer.class))
+                .when(line).write(any(byte[].class), anyInt(), anyInt());
         output = new SpeakerAudioOutput(line);
     }
 
@@ -322,6 +326,32 @@ public class SpeakerAudioOutputTest {
             verify(line, after(200).never()).write(any(byte[].class), anyInt(), eq(0));
         } finally {
             pausingOutput.stop();
+        }
+    }
+
+    /** The race CodeRabbit flagged: resume() can clear {@code paused} before the cut-short write even returns. */
+    @Test
+    public void frameCutShortByAPauseAndResumeBothDuringTheWriteStillHasItsRemainderWritten(){
+        final SpeakerAudioOutput flickeringOutput = new SpeakerAudioOutput(line, 5000);
+        final boolean[] firstWrite = {true};
+        doAnswer(invocation -> {
+            if (firstWrite[0]){
+                firstWrite[0] = false;
+                flickeringOutput.pause();
+                flickeringOutput.resume(); //already unpaused by the time this write returns short
+                return FULL_FRAME_BYTES / 2;
+            }
+            return invocation.getArgument(2, Integer.class);
+        }).when(line).write(any(byte[].class), anyInt(), anyInt());
+        for (int i = 0; i < SpeakerAudioOutput.WRITE_CHUNK_SAMPLES; i++){
+            flickeringOutput.write(0.0);
+        }
+        try {
+            flickeringOutput.start();
+
+            verify(line, timeout(1000)).write(any(byte[].class), eq(FULL_FRAME_BYTES / 2), eq(FULL_FRAME_BYTES / 2));
+        } finally {
+            flickeringOutput.stop();
         }
     }
 
