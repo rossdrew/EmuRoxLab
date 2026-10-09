@@ -783,4 +783,62 @@ public class NESTest {
         assertTrue(nes.cpu().isAtInstructionBoundary());
         assertEquals(1, snapshot.cpu().x(), "the in-flight INX should have completed");
     }
+
+    // --- CPU debug hooks ---
+
+    @Test
+    public void tickRateMonitorSeesEveryClockTick(){
+        final NES nes = manuallyTickedNes(busyLoopCartridge(0));
+
+        for (int i = 0; i < 1234; i++){
+            nes.clock().tick();
+        }
+
+        assertEquals(1234, nes.tickRateMonitor().ticks());
+    }
+
+    @Test
+    public void intendedCpuHzIsTheNtscCpuClock(){
+        assertEquals(1_789_773, NES.intendedCpuHz());
+    }
+
+    @Test
+    public void ramIsTheCpuRamTheProgramWrites(){
+        final NES nes = manuallyTickedNes(busyLoopCartridge(0));
+        for (int i = 0; i < 1000; i++){
+            nes.clock().tick();
+        }
+
+        assertEquals(nes.captureSnapshot().ram()[0x10], nes.ram().read(0x10));
+        assertTrue(nes.ram().read(0x10) != 0, "test setup: expected the program to have written $10");
+    }
+
+    /**
+     * $9000: LDA #$02; STA $4014 (OAM DMA - stalls the CPU ~514 cycles); NOP; JMP $9000. The stall
+     * starts on the very tick STA finishes, so the trace must record the NOP once, after the stall,
+     * not also on that tick - which it would if it ran before NES's DMA-stall listener.
+     */
+    @Test
+    public void instructionTraceRecordsEachInstructionOnceEvenAcrossAnOamDmaStall(){
+        final byte[] header = {'N', 'E', 'S', 0x1A, 0x01, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0};
+        final byte[] fileBytes = new byte[header.length + PRG_ROM_SIZE];
+        System.arraycopy(header, 0, fileBytes, 0, header.length);
+        final byte[] program = {(byte) 0xA9, 0x02, (byte) 0x8D, 0x14, 0x40, (byte) 0xEA, 0x4C, 0x00, (byte) 0x90};
+        System.arraycopy(program, 0, fileBytes, header.length + 0x1000, program.length);
+        fileBytes[header.length + 0x3FFC] = 0x00;
+        fileBytes[header.length + 0x3FFD] = (byte) 0x90;
+        final NES nes = manuallyTickedNes(RomLoader.fromBytes(fileBytes));
+
+        for (int i = 0; i < 3 * 600; i++){ //a few loops, each ~525 cycles
+            nes.clock().tick();
+        }
+
+        final int[] recent = nes.instructionTrace().recent();
+        assertTrue(recent.length >= 8, "test setup: expected a few loops recorded");
+        final int[] loop = {0x9000, 0x9002, 0x9005, 0x9006};
+        final int offset = java.util.stream.IntStream.range(0, 4).filter(i -> recent[i] == 0x9000).findFirst().orElseThrow();
+        for (int i = offset; i < recent.length; i++){
+            assertEquals(loop[(i - offset) % loop.length], recent[i], "trace entry " + i);
+        }
+    }
 }

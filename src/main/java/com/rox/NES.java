@@ -7,7 +7,9 @@ import com.rox.audio.SpeakerAudioOutput;
 import com.rox.cartridge.Cartridge;
 import com.rox.clock.Clock;
 import com.rox.clock.FPSClock;
+import com.rox.clock.TickRateMonitor;
 import com.rox.cpu.mos6502.MOS6502;
+import com.rox.debug.cpu.InstructionTrace;
 import com.rox.input.ControllerConfiguration;
 import com.rox.mem.*;
 import com.rox.ppu.PPU;
@@ -38,6 +40,8 @@ public class NES {
     private final AudioOutput audioOutput;
     private final RAM ram;
     private final Cartridge cartridge;
+    private final TickRateMonitor tickRateMonitor;
+    private final InstructionTrace instructionTrace;
     //set only once pause() has genuinely parked the clock - the precondition for capturing/restoring
     //state while powered on (see captureSnapshot())
     private volatile boolean paused;
@@ -95,10 +99,13 @@ public class NES {
         this.ppu = new PPU(cartridge);
         this.memoryBus = new Latched8BitMemoryBus(new NESMemoryBus(ramBus, apu, cartridge, ppu, controllers));
         this.cpu = new MOS6502(memoryBus);
+        this.tickRateMonitor = new TickRateMonitor(new SystemTimeSource());
+        this.instructionTrace = new InstructionTrace(cpu::isAtInstructionBoundary, cpu::programCounter);
         this.clock = clock;
         this.audioOutput = audioOutput;
 
         final Resampler resampler = new Resampler(CPU_HZ, AUDIO_SAMPLE_RATE_HZ);
+        clock.addListener(tickRateMonitor);
         clock.addListener(cpu);
         clock.addListener(apu);
         clock.addListener(ppu);
@@ -114,6 +121,9 @@ public class NES {
                 cpu.stall(stallCycles);
             }
         });
+        //after the OAM DMA stall listener above, so a stall starting this tick holds recording back
+        //rather than the same instruction being recorded twice - see InstructionTrace's class doc
+        clock.addListener(instructionTrace);
         clock.addListener(() -> resampler.accept(apu.outputSample()).ifPresent(audioOutput::write));
         clock.addListener(() -> {
             //polling the (possibly real, physical) gamepads is folded into this same frame-ready gate
@@ -322,6 +332,23 @@ public class NES {
 
     PPU ppu(){
         return ppu;
+    }
+
+    RAM ram(){
+        return ram;
+    }
+
+    TickRateMonitor tickRateMonitor(){
+        return tickRateMonitor;
+    }
+
+    InstructionTrace instructionTrace(){
+        return instructionTrace;
+    }
+
+    /** The CPU clock rate a real NTSC NES runs at - what {@link #tickRateMonitor()}'s measured rate should match. */
+    static long intendedCpuHz(){
+        return CPU_HZ;
     }
 
     Cartridge cartridge(){
