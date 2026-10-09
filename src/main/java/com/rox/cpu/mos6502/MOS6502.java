@@ -116,6 +116,15 @@ public class MOS6502 implements ClockWatcher {
         if (!isAtInstructionBoundary()){
             throw new IllegalStateException("CPU state can only be captured at an instruction boundary");
         }
+        return liveState();
+    }
+
+    /**
+     * The CPU's registers and flags right now, at any point - including part-way through an
+     * instruction, when they may be half-updated and nothing in flight is captured. For display only;
+     * use {@link #snapshot()} for anything that will be {@link #restore}d.
+     */
+    public MOS6502Snapshot liveState(){
         return new MOS6502Snapshot(environment.getPC(), environment.getA(), environment.getX(), environment.getY(),
                 environment.getStackPointer(), environment.getIR(), environment.getADL(), environment.getADH(),
                 environment.negative, environment.signedOverflow, environment.breakFlag, environment.d,
