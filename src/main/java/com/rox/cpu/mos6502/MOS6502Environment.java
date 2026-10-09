@@ -284,6 +284,8 @@ public class MOS6502Environment {
     public MOS6502Environment clone(){
         final MOS6502Environment copy = new MOS6502Environment(carry, zero, negative, signedOverflow, breakFlag, pc, ir, adl, adh, a, x, y);
         copy.i = i;
+        copy.d = d;
+        copy.stackPointer = stackPointer;
         copy.irqLineAsserted = irqLineAsserted;
         copy.nmiPending = nmiPending;
         return copy;

@@ -94,4 +94,18 @@ public class MOS6502EnvironmentTest extends Arbitraries {
         final boolean expected = nmiSignalled || (irqAsserted && !interruptDisable);
         assertEquals(expected, localEnv.hasPendingInterrupt());
     }
+
+    @Test
+    public void cloneCopiesTheStackPointer(){
+        env.setStackPointer(0x42);
+
+        assertEquals(0x42, env.clone().getStackPointer(), "a clone must not reset SP to its $FF power-on default");
+    }
+
+    @Test
+    public void cloneCopiesTheDecimalFlag(){
+        env.d = true;
+
+        assertTrue(env.clone().d);
+    }
 }
