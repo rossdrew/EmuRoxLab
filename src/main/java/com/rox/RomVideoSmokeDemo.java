@@ -142,13 +142,14 @@ public final class RomVideoSmokeDemo {
 
     /**
      * The "Flag issue" button/F12 (runs on the EDT): freeze the game, capture everything, ask what went
-     * wrong, and write it all to a {@code debug-snapshot-<timestamp>} folder beside the ROM's saves -
-     * or, on Cancel, discard it. Always unfreezes afterwards.
+     * wrong, then unfreeze - and, unless cancelled, write it all to a {@code debug-snapshot-<timestamp>}
+     * folder beside the ROM's saves.
      */
     private static void flagIssue(final NES nes, final SwingVideoOutput videoOutput, final Path romPath){
         if (!nes.pause()){
             return; //nothing running to flag - not started yet, or already shutting down
         }
+        final DebugReport report;
         try {
             final LocalDateTime capturedAt = LocalDateTime.now();
             final DebugReport captured = DebugCapture.capture(nes, romPath.getFileName().toString(),
@@ -157,17 +158,26 @@ public final class RomVideoSmokeDemo {
             if (description.isEmpty()){
                 return;
             }
-            Path directory = SavePaths.debugSnapshotDirectory(romPath, capturedAt);
-            try {
-                directory = SavePaths.reserveDebugSnapshotDirectory(romPath, capturedAt);
-                DebugReportWriter.write(directory, captured.withDescription(description.get()));
-                System.out.println("Flagged issue saved to " + directory);
-                videoOutput.showStatus("flagged issue saved to " + directory.getFileName());
-            } catch (IOException e){
-                videoOutput.showError("Couldn't save flagged issue", "Couldn't write " + directory + ":\n" + e.getMessage());
-            }
+            report = captured.withDescription(description.get());
         } finally {
             nes.resume();
+        }
+        //everything in the report is already a copy, so the game carries on while it's written - and
+        //off the EDT, so slow storage can't freeze the window. Not a daemon thread: closing the window
+        //mid-write still lets the write finish before the JVM exits
+        new Thread(() -> writeFlaggedIssue(report, romPath, videoOutput), "flagged-issue-writer").start();
+    }
+
+    private static void writeFlaggedIssue(final DebugReport report, final Path romPath, final SwingVideoOutput videoOutput){
+        try {
+            final Path directory = SavePaths.reserveDebugSnapshotDirectory(romPath, report.capturedAt());
+            DebugReportWriter.write(directory, report);
+            System.out.println("Flagged issue saved to " + directory);
+            SwingUtilities.invokeLater(() -> videoOutput.showStatus("flagged issue saved to " + directory.getFileName()));
+        } catch (IOException e){
+            final String message = "Couldn't write a flagged issue under " + SavePaths.saveDirectory(romPath) + ":\n" + e.getMessage();
+            System.err.println(message);
+            SwingUtilities.invokeLater(() -> videoOutput.showError("Couldn't save flagged issue", message));
         }
     }
 
