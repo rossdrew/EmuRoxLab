@@ -3,10 +3,12 @@ package com.rox;
 import com.rox.apu.APU;
 import com.rox.audio.AudioOutput;
 import com.rox.cartridge.Cartridge;
+import com.rox.cartridge.NromMapperSnapshot;
 import com.rox.cartridge.RomLoader;
 import com.rox.clock.Clock;
 import com.rox.input.Controller;
 import com.rox.input.ControllerConfiguration;
+import com.rox.ppu.PpuSnapshot;
 import com.rox.save.SystemSnapshot;
 import com.rox.video.VideoOutput;
 import org.junit.jupiter.api.Test;
@@ -736,5 +738,36 @@ public class NESTest {
         final NES nes = new NES(mock(AudioOutput.class), cartridgeWithChrRom(2), new ManuallyTickedClock());
 
         assertThrows(IllegalArgumentException.class, () -> nes.restoreSnapshot(snapshot));
+    }
+
+    /**
+     * CodeRabbit's PR #41 finding: a CRC-valid save file can still decode to wrongly-shaped parts. Every
+     * part is checked before any is restored, so the mapper/RAM restored ahead of the bad part must
+     * not have been touched.
+     */
+    @Test
+    public void restoreRejectingAMalformedPartChangesNothing(){
+        final NES nes = manuallyTickedNes(busyLoopCartridge(0));
+        for (int i = 0; i < 20_000 || !nes.cpu().isAtInstructionBoundary(); i++){
+            nes.clock().tick();
+        }
+        final SystemSnapshot before = nes.captureSnapshot();
+        final SystemSnapshot fresh = manuallyTickedNes(busyLoopCartridge(0)).captureSnapshot();
+        final PpuSnapshot ppu = fresh.ppu();
+        final SystemSnapshot badRam = new SystemSnapshot(fresh.romCrc32(), fresh.cpu(), fresh.ppu(), fresh.apu(),
+                new int[0x800], fresh.mapper());
+        final SystemSnapshot badPpu = new SystemSnapshot(fresh.romCrc32(), fresh.cpu(),
+                new PpuSnapshot(new int[3], ppu.nametableRam(), ppu.paletteRam(), ppu.timing(), ppu.registers(),
+                        ppu.background(), ppu.sprites()),
+                fresh.apu(), fresh.ram(), fresh.mapper());
+
+        final SystemSnapshot badMapper = new SystemSnapshot(fresh.romCrc32(), fresh.cpu(), fresh.ppu(), fresh.apu(),
+                fresh.ram(), new NromMapperSnapshot(new int[0x1000], new int[0x2000]));
+
+        assertThrows(IllegalArgumentException.class, () -> nes.restoreSnapshot(badRam));
+        assertThrows(IllegalArgumentException.class, () -> nes.restoreSnapshot(badPpu));
+        assertThrows(IllegalArgumentException.class, () -> nes.restoreSnapshot(badMapper));
+
+        assertRecordsEqual(before, nes.captureSnapshot());
     }
 }

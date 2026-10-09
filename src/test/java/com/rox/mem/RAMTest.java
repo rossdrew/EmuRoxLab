@@ -123,4 +123,15 @@ public class RAMTest extends Arbitraries {
 
         assertThrows(IllegalArgumentException.class, () -> ram.restore(new int[8]));
     }
+
+    @Test
+    public void checkRestorableRejectsTheWrongSizeWithoutChangingAnything(){
+        final RAM ram = new RAM(4);
+        ram.write(0, 0x12);
+
+        ram.checkRestorable(new int[4]);
+        assertThrows(IllegalArgumentException.class, () -> ram.checkRestorable(new int[8]));
+
+        assertEquals(0x12, ram.read(0));
+    }
 }

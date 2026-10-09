@@ -1022,15 +1022,37 @@ public class PPU implements ClockWatcher, OamDmaBus {
     }
 
     /**
+     * Checks {@code snapshot} could be {@link #restore}d, without changing anything.
+     *
+     * @throws IllegalArgumentException if any of {@code snapshot}'s arrays is the wrong size
+     */
+    public void checkRestorable(final PpuSnapshot snapshot){
+        requireSameSize(snapshot.oam(), oam, "OAM");
+        requireSameSize(snapshot.nametableRam(), nametableRam, "nametable RAM");
+        requireSameSize(snapshot.paletteRam(), paletteRam, "palette RAM");
+        final PpuSnapshot.SpritePipeline sprites = snapshot.sprites();
+        requireSameSize(sprites.secondaryOam(), secondaryOam, "secondary OAM");
+        requireSameSize(sprites.patternLowBytes(), spritePatternLowByte, "sprite pattern low bytes");
+        requireSameSize(sprites.patternHighBytes(), spritePatternHighByte, "sprite pattern high bytes");
+        requireSameSize(sprites.attributes(), spriteAttributes, "sprite attributes");
+        requireSameSize(sprites.xPositions(), spriteXPosition, "sprite X positions");
+        if (sprites.isSpriteZero().length != spriteIsZero.length){
+            throw new IllegalArgumentException("Expected " + spriteIsZero.length + " sprite-zero slot flags, got " + sprites.isSpriteZero().length);
+        }
+    }
+
+    /**
      * Puts the PPU back exactly as {@code snapshot} captured it, apart from the framebuffer, which keeps
-     * whatever it last drew until the next frame overwrites it.
+     * whatever it last drew until the next frame overwrites it - all or nothing: a snapshot that fails
+     * {@link #checkRestorable} is rejected before anything changes.
      *
      * @throws IllegalArgumentException if any of {@code snapshot}'s arrays is the wrong size
      */
     public void restore(final PpuSnapshot snapshot){
-        restoreArray(snapshot.oam(), oam, "OAM");
-        restoreArray(snapshot.nametableRam(), nametableRam, "nametable RAM");
-        restoreArray(snapshot.paletteRam(), paletteRam, "palette RAM");
+        checkRestorable(snapshot);
+        copy(snapshot.oam(), oam);
+        copy(snapshot.nametableRam(), nametableRam);
+        copy(snapshot.paletteRam(), paletteRam);
 
         final PpuSnapshot.Timing timing = snapshot.timing();
         dot = timing.dot();
@@ -1062,26 +1084,26 @@ public class PPU implements ClockWatcher, OamDmaBus {
         nextPatternHighByte = background.nextPatternHighByte();
 
         final PpuSnapshot.SpritePipeline sprites = snapshot.sprites();
-        restoreArray(sprites.secondaryOam(), secondaryOam, "secondary OAM");
+        copy(sprites.secondaryOam(), secondaryOam);
         secondaryOamCount = sprites.secondaryOamCount();
         secondaryOamSpriteZeroSlot = sprites.secondaryOamSpriteZeroSlot();
         spriteOverflow = sprites.spriteOverflow();
         spriteZeroHitFlag = sprites.spriteZeroHitFlag();
-        restoreArray(sprites.patternLowBytes(), spritePatternLowByte, "sprite pattern low bytes");
-        restoreArray(sprites.patternHighBytes(), spritePatternHighByte, "sprite pattern high bytes");
-        restoreArray(sprites.attributes(), spriteAttributes, "sprite attributes");
-        restoreArray(sprites.xPositions(), spriteXPosition, "sprite X positions");
-        if (sprites.isSpriteZero().length != spriteIsZero.length){
-            throw new IllegalArgumentException("Expected " + spriteIsZero.length + " sprite-zero slot flags, got " + sprites.isSpriteZero().length);
-        }
+        copy(sprites.patternLowBytes(), spritePatternLowByte);
+        copy(sprites.patternHighBytes(), spritePatternHighByte);
+        copy(sprites.attributes(), spriteAttributes);
+        copy(sprites.xPositions(), spriteXPosition);
         System.arraycopy(sprites.isSpriteZero(), 0, spriteIsZero, 0, spriteIsZero.length);
         activeSpriteCount = sprites.activeSpriteCount();
     }
 
-    private static void restoreArray(final int[] from, final int[] into, final String what){
+    private static void requireSameSize(final int[] from, final int[] into, final String what){
         if (from.length != into.length){
             throw new IllegalArgumentException("Expected " + into.length + " values of " + what + ", got " + from.length);
         }
+    }
+
+    private static void copy(final int[] from, final int[] into){
         System.arraycopy(from, 0, into, 0, into.length);
     }
 }

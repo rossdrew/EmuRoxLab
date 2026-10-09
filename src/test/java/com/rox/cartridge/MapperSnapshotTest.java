@@ -1,6 +1,8 @@
 package com.rox.cartridge;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import static com.rox.RecordAssertions.assertRecordsEqual;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -234,5 +236,53 @@ public class MapperSnapshotTest {
                 0, false, 0, 0, false, false, false, false);
 
         assertThrows(IllegalArgumentException.class, () -> mapper.restore(broken));
+    }
+
+    /** A snapshot of {@code mapper}'s own type with the named array one element too short and every other value changed. */
+    private static MapperSnapshot withOneArrayTooShort(final MapperSnapshot snapshot, final String which){
+        final int[] prgRam = which.equals("prgRam") ? new int[snapshot.prgRam().length - 1] : new int[snapshot.prgRam().length];
+        final int[] chrRam = which.equals("chrRam") ? new int[snapshot.chrRam().length - 1] : new int[snapshot.chrRam().length];
+        if (prgRam.length > 0){
+            prgRam[0] = 0x99; //differs from the 0x12 each test mapper starts with
+        }
+        return switch (snapshot){
+            case NromMapperSnapshot ignored -> new NromMapperSnapshot(prgRam, chrRam);
+            case Mmc1MapperSnapshot ignored -> new Mmc1MapperSnapshot(prgRam, chrRam, 1, 2, 3, 4, 5, 6);
+            case Mmc3MapperSnapshot ignored -> new Mmc3MapperSnapshot(prgRam, chrRam,
+                    which.equals("bankRegisters") ? new int[7] : new int[8], 1, true, 2, 3, true, true, true, true);
+        };
+    }
+
+    /**
+     * CodeRabbit's PR #41 finding: whichever array is wrong, the restore is rejected before anything -
+     * including PRG-RAM, copied first - is overwritten.
+     */
+    @ParameterizedTest
+    @CsvSource({"nrom,prgRam", "nrom,chrRam", "mmc1,prgRam", "mmc1,chrRam", "mmc3,prgRam", "mmc3,chrRam", "mmc3,bankRegisters"})
+    public void rejectedRestoreChangesNothingWhicheverArrayIsWrong(final String board, final String which){
+        final Mapper mapper = switch (board){
+            case "nrom" -> new NromMapper(rom(0, 1, 0));
+            case "mmc1" -> new Mmc1Mapper(rom(1, 2, 0));
+            default -> new Mmc3Mapper(rom(4, 2, 0));
+        };
+        mapper.write(0x6000, 0x12);
+        final MapperSnapshot before = mapper.snapshot();
+
+        assertThrows(IllegalArgumentException.class, () -> mapper.restore(withOneArrayTooShort(before, which)));
+        assertRecordsEqual(before, mapper.snapshot());
+    }
+
+    @Test
+    public void checkRestorableAcceptsAMatchingSnapshotAndRejectsAMismatchedOneWithoutChangingAnything(){
+        for (final Mapper mapper : new Mapper[]{new NromMapper(rom(0, 1, 0)), new Mmc1Mapper(rom(1, 2, 0)), new Mmc3Mapper(rom(4, 2, 0))}){
+            mapper.write(0x6000, 0x34);
+            final MapperSnapshot before = mapper.snapshot();
+
+            mapper.checkRestorable(before);
+            assertThrows(IllegalArgumentException.class,
+                    () -> mapper.checkRestorable(new NromMapperSnapshot(new int[0x1000], new int[0])), mapper.getClass().getSimpleName());
+
+            assertRecordsEqual(before, mapper.snapshot());
+        }
     }
 }

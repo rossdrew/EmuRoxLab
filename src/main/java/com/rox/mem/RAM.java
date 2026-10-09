@@ -29,15 +29,24 @@ public class RAM implements Memory {
     }
 
     /**
+     * Checks {@code contents} could be {@link #restore}d, without changing anything.
+     *
+     * @throws IllegalArgumentException if {@code contents} isn't exactly this RAM's size
+     */
+    public void checkRestorable(final int[] contents) {
+        if (contents.length != memory.length) {
+            throw new IllegalArgumentException(
+                    "Expected " + memory.length + " bytes of RAM, got " + contents.length);
+        }
+    }
+
+    /**
      * Overwrites every byte with {@code contents} (copied, not kept) - the counterpart of {@link #snapshot()}.
      *
      * @throws IllegalArgumentException if {@code contents} isn't exactly this RAM's size
      */
     public void restore(final int[] contents) {
-        if (contents.length != memory.length) {
-            throw new IllegalArgumentException(
-                    "Expected " + memory.length + " bytes of RAM, got " + contents.length);
-        }
+        checkRestorable(contents);
         for (int i = 0; i < memory.length; i++) {
             memory[i] = contents[i] & BYTE_MASK;
         }

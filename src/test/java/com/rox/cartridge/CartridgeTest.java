@@ -149,4 +149,13 @@ public class CartridgeTest {
 
         verify(mapper).restore(snapshot);
     }
+
+    @Test
+    public void checkRestorableDelegatesToMapper(){
+        final MapperSnapshot snapshot = new NromMapperSnapshot(new int[0x2000], new int[0]);
+
+        cartridge.checkRestorable(snapshot);
+
+        verify(mapper).checkRestorable(snapshot);
+    }
 }

@@ -32,7 +32,17 @@ public interface Mapper extends MemoryBus {
     MapperSnapshot snapshot();
 
     /**
-     * Puts this board back exactly as {@code snapshot} captured it.
+     * Checks {@code snapshot} could be {@link #restore}d into this board, without changing anything - so
+     * a caller restoring several components can check them all before applying any.
+     *
+     * @throws IllegalArgumentException if {@code snapshot} is from a different kind of board, or one with
+     * a different RAM layout
+     */
+    void checkRestorable(MapperSnapshot snapshot);
+
+    /**
+     * Puts this board back exactly as {@code snapshot} captured it - all or nothing: a snapshot that
+     * fails {@link #checkRestorable} is rejected before anything changes.
      *
      * @throws IllegalArgumentException if {@code snapshot} is from a different kind of board, or one with
      * a different RAM layout

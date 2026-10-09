@@ -59,6 +59,11 @@ public final class Cartridge implements MemoryBus {
         return mapper.snapshot();
     }
 
+    /** See {@link Mapper#checkRestorable(MapperSnapshot)}. */
+    public void checkRestorable(final MapperSnapshot snapshot){
+        mapper.checkRestorable(snapshot);
+    }
+
     /** See {@link Mapper#restore(MapperSnapshot)}. */
     public void restore(final MapperSnapshot snapshot){
         mapper.restore(snapshot);

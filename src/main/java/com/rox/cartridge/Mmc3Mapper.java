@@ -302,11 +302,20 @@ public final class Mmc3Mapper implements Mapper {
     }
 
     @Override
-    public void restore(final MapperSnapshot snapshot){
+    public void checkRestorable(final MapperSnapshot snapshot){
         final Mmc3MapperSnapshot mmc3 = SnapshotArrays.expect(snapshot, Mmc3MapperSnapshot.class);
-        SnapshotArrays.restore(mmc3.prgRam(), prgRam, "PRG-RAM");
-        SnapshotArrays.restore(mmc3.chrRam(), chrRam, "CHR-RAM");
-        SnapshotArrays.restore(mmc3.bankRegisters(), bankRegister, "bank registers");
+        SnapshotArrays.requireSameSize(mmc3.prgRam(), prgRam, "PRG-RAM");
+        SnapshotArrays.requireSameSize(mmc3.chrRam(), chrRam, "CHR-RAM");
+        SnapshotArrays.requireSameSize(mmc3.bankRegisters(), bankRegister, "bank registers");
+    }
+
+    @Override
+    public void restore(final MapperSnapshot snapshot){
+        checkRestorable(snapshot);
+        final Mmc3MapperSnapshot mmc3 = (Mmc3MapperSnapshot) snapshot;
+        SnapshotArrays.copy(mmc3.prgRam(), prgRam);
+        SnapshotArrays.copy(mmc3.chrRam(), chrRam);
+        SnapshotArrays.copy(mmc3.bankRegisters(), bankRegister);
         bankSelect = mmc3.bankSelect();
         horizontalMirroring = mmc3.horizontalMirroring();
         irqLatch = mmc3.irqLatch();

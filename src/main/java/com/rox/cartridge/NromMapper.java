@@ -99,9 +99,17 @@ public final class NromMapper implements Mapper {
     }
 
     @Override
-    public void restore(final MapperSnapshot snapshot){
+    public void checkRestorable(final MapperSnapshot snapshot){
         final NromMapperSnapshot nrom = SnapshotArrays.expect(snapshot, NromMapperSnapshot.class);
-        SnapshotArrays.restore(nrom.prgRam(), prgRam, "PRG-RAM");
-        SnapshotArrays.restore(nrom.chrRam(), chrRam, "CHR-RAM");
+        SnapshotArrays.requireSameSize(nrom.prgRam(), prgRam, "PRG-RAM");
+        SnapshotArrays.requireSameSize(nrom.chrRam(), chrRam, "CHR-RAM");
+    }
+
+    @Override
+    public void restore(final MapperSnapshot snapshot){
+        checkRestorable(snapshot);
+        final NromMapperSnapshot nrom = (NromMapperSnapshot) snapshot;
+        SnapshotArrays.copy(nrom.prgRam(), prgRam);
+        SnapshotArrays.copy(nrom.chrRam(), chrRam);
     }
 }

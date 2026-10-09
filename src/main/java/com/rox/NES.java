@@ -260,15 +260,21 @@ public class NES {
      * precondition as {@link #captureSnapshot()}.
      *
      * @throws IllegalStateException if the clock is running and not paused
-     * @throws IllegalArgumentException if {@code snapshot} was taken with a different cartridge
+     * @throws IllegalArgumentException if {@code snapshot} was taken with a different cartridge, or any of
+     * its parts is the wrong shape - checked up front, so a rejected snapshot changes nothing
      */
     public void restoreSnapshot(final SystemSnapshot snapshot){
         requireNothingTicking();
         if (snapshot.romCrc32() != romCrc32(cartridge)){
             throw new IllegalArgumentException("Snapshot was taken with a different cartridge");
         }
-        //the restores that can reject a mismatched snapshot (array sizes, mapper type) go first, so a
-        //rejection leaves as little as possible half-restored
+        //every component that can reject a malformed snapshot (array sizes, mapper type) is checked before
+        //any is restored - a CRC-valid save file can still decode to the wrong shapes, and stopping
+        //part-way would leave a mix of old and restored state. The APU and CPU snapshots are plain
+        //values with nothing to reject.
+        cartridge.checkRestorable(snapshot.mapper());
+        ram.checkRestorable(snapshot.ram());
+        ppu.checkRestorable(snapshot.ppu());
         cartridge.restore(snapshot.mapper());
         ram.restore(snapshot.ram());
         ppu.restore(snapshot.ppu());

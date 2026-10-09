@@ -8,6 +8,8 @@ import com.rox.cartridge.Mirroring;
 import com.rox.cartridge.NromMapperSnapshot;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static com.rox.ppu.PPU.FrameTiming.DOTS_PER_CPU_CYCLE;
 import static com.rox.ppu.PPU.FrameTiming.DOTS_PER_SCANLINE;
@@ -72,6 +74,7 @@ public class PPUTest {
         @Override public int[] prgRam(){ return prgRam.clone(); }
         @Override public void restorePrgRam(final int[] prgRam){ System.arraycopy(prgRam, 0, this.prgRam, 0, prgRam.length); }
         @Override public MapperSnapshot snapshot(){ return new NromMapperSnapshot(prgRam.clone(), chr.clone()); }
+        @Override public void checkRestorable(final MapperSnapshot snapshot){ }
         @Override public void restore(final MapperSnapshot snapshot){
             System.arraycopy(snapshot.prgRam(), 0, prgRam, 0, prgRam.length);
             System.arraycopy(snapshot.chrRam(), 0, chr, 0, chr.length);
@@ -1866,5 +1869,43 @@ public class PPUTest {
                 new PpuSnapshot.SpritePipeline(s.secondaryOam(), s.secondaryOamCount(), s.secondaryOamSpriteZeroSlot(),
                         s.spriteOverflow(), s.spriteZeroHitFlag(), s.patternLowBytes(), s.patternHighBytes(),
                         s.attributes(), s.xPositions(), new boolean[3], s.activeSpriteCount()))));
+    }
+
+    /** {@code snapshot} with just one of its arrays, named by {@code which}, one element too short. */
+    private static PpuSnapshot withOneArrayTooShort(final PpuSnapshot snapshot, final String which){
+        final PpuSnapshot.SpritePipeline s = snapshot.sprites();
+        final java.util.function.UnaryOperator<int[]> shortenIf = array -> java.util.Arrays.copyOf(array, array.length - 1);
+        final PpuSnapshot.SpritePipeline sprites = new PpuSnapshot.SpritePipeline(
+                which.equals("secondaryOam") ? shortenIf.apply(s.secondaryOam()) : s.secondaryOam(),
+                s.secondaryOamCount(), s.secondaryOamSpriteZeroSlot(), s.spriteOverflow(), s.spriteZeroHitFlag(),
+                which.equals("patternLowBytes") ? shortenIf.apply(s.patternLowBytes()) : s.patternLowBytes(),
+                which.equals("patternHighBytes") ? shortenIf.apply(s.patternHighBytes()) : s.patternHighBytes(),
+                which.equals("attributes") ? shortenIf.apply(s.attributes()) : s.attributes(),
+                which.equals("xPositions") ? shortenIf.apply(s.xPositions()) : s.xPositions(),
+                which.equals("isSpriteZero") ? java.util.Arrays.copyOf(s.isSpriteZero(), s.isSpriteZero().length - 1) : s.isSpriteZero(),
+                s.activeSpriteCount());
+        return new PpuSnapshot(
+                which.equals("oam") ? shortenIf.apply(snapshot.oam()) : snapshot.oam(),
+                which.equals("nametableRam") ? shortenIf.apply(snapshot.nametableRam()) : snapshot.nametableRam(),
+                which.equals("paletteRam") ? shortenIf.apply(snapshot.paletteRam()) : snapshot.paletteRam(),
+                snapshot.timing(), snapshot.registers(), snapshot.background(), sprites);
+    }
+
+    /**
+     * CodeRabbit's PR #41 finding: whichever array is wrong, the restore is rejected before anything -
+     * including OAM, copied first - is overwritten. The snapshot's other contents differ from the
+     * PPU's current state, so a part-applied restore would show.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"oam", "nametableRam", "paletteRam", "secondaryOam", "patternLowBytes",
+            "patternHighBytes", "attributes", "xPositions", "isSpriteZero"})
+    public void rejectedRestoreChangesNothingWhicheverArrayIsWrong(final String which){
+        final PpuSnapshot freshState = ppu.snapshot();
+        writeSprite(0, 1, 2, 3, 4);
+        writeNametableTile(0, 0, 9);
+        final PpuSnapshot before = ppu.snapshot();
+
+        assertThrows(IllegalArgumentException.class, () -> ppu.restore(withOneArrayTooShort(freshState, which)));
+        assertRecordsEqual(before, ppu.snapshot());
     }
 }
