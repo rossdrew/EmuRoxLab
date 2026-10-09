@@ -755,7 +755,7 @@ public class NESTest {
         final SystemSnapshot fresh = manuallyTickedNes(busyLoopCartridge(0)).captureSnapshot();
         final PpuSnapshot ppu = fresh.ppu();
         final SystemSnapshot badRam = new SystemSnapshot(fresh.romCrc32(), fresh.cpu(), fresh.ppu(), fresh.apu(),
-                new int[0x800], fresh.mapper());
+                new int[0x400], fresh.mapper());
         final SystemSnapshot badPpu = new SystemSnapshot(fresh.romCrc32(), fresh.cpu(),
                 new PpuSnapshot(new int[3], ppu.nametableRam(), ppu.paletteRam(), ppu.timing(), ppu.registers(),
                         ppu.background(), ppu.sprites()),

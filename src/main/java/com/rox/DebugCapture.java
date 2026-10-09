@@ -23,6 +23,8 @@ final class DebugCapture {
      * plausible-looking instructions.
      */
     static final int REGISTER_PLACEHOLDER_BYTE = 0xFF;
+    /** What {@link NESMemoryBus} itself returns for the unmapped {@code $4018-$5FFF}. */
+    static final int UNMAPPED_BYTE = 0;
 
     private DebugCapture(){
     }
@@ -39,16 +41,22 @@ final class DebugCapture {
                 Disassembler.disassembleForward(peek, snapshot.cpu().pc(), UPCOMING_INSTRUCTION_COUNT));
     }
 
-    /** Mirrors {@link NESMemoryBus}'s routing, minus the registers whose reads have side effects. */
+    /**
+     * Mirrors {@link NESMemoryBus}'s routing - including RAM mirroring and the unmapped
+     * {@code $4018-$5FFF} - minus the registers whose reads have side effects.
+     */
     static IntUnaryOperator sideEffectFreePeek(final int[] ram, final Cartridge cartridge){
         return address -> {
-            if (address >= NESMemoryBus.PPU_START_ADDRESS && address <= NESMemoryBus.IO_END_ADDRESS){
+            if (address <= NESMemoryBus.CPU_RAM_END_ADDRESS){
+                return ram[address & NESMemoryBus.CPU_RAM_MIRROR_MASK];
+            }
+            if (address <= NESMemoryBus.IO_END_ADDRESS){
                 return REGISTER_PLACEHOLDER_BYTE;
             }
             if (address >= NESMemoryBus.CARTRIDGE_START_ADDRESS){
                 return cartridge.read(address); //PRG-RAM/PRG-ROM reads have no side effects on any mapper
             }
-            return ram[address];
+            return UNMAPPED_BYTE;
         };
     }
 }

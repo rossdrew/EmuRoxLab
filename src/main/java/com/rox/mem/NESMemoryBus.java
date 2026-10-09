@@ -6,10 +6,17 @@ import com.rox.input.ControllerPort;
 /**
  * Routes the NES:
  * <ul>
+ *     <li><b>$0000-$1FFF</b> to the wrapped RAM-backed bus - 2KB of CPU RAM, mirrored four times: real
+ *     hardware never decodes address lines A11/A12 for RAM, so {@code $0042}, {@code $0842},
+ *     {@code $1042} and {@code $1842} are all the same byte, and this bus only ever passes
+ *     {@code $0000-$07FF} on</li>
  *     <li><b>$2000-$3FFF</b> PPU register range to a PPU bus</li>
  *     <li><b>$4000-$4017</b> I/O range to a device bus (e.g. the APU)</li>
  *     <li><b>$6000-$FFFF</b> to a cartridge bus (PRG-RAM/PRG-ROM via a mapper)</li>
- *     <li><b>Everything else...</b> to the wrapped RAM-backed bus</li>
+ *     <li><b>$4018-$5FFF</b> nowhere: reads 0, writes ignored. On real hardware this is the disabled
+ *     APU test registers plus cartridge expansion space, which none of the supported mappers use; open
+ *     bus (a read returning the last value on the data bus) isn't modeled, same as the I/O range's
+ *     write-only registers</li>
  * </ul>
  * $4016/$4017 reads are routed to a {@link ControllerPort} each rather than the generic I/O device
  * bus. $4016 writes (the joypad strobe) drive <b>both</b> ports at once - real hardware wires the
@@ -33,6 +40,10 @@ public class NESMemoryBus implements MemoryBus {
     public static final int CONTROLLER_2_ADDRESS = 0x4017;
     private static final int STROBE_BIT = 0x01;
     public static final int CARTRIDGE_START_ADDRESS = 0x6000;
+    public static final int CPU_RAM_END_ADDRESS = 0x1FFF;
+    /** 2KB of real RAM: every address in $0000-$1FFF is reduced to its low 11 bits. */
+    public static final int CPU_RAM_MIRROR_MASK = 0x07FF;
+    private static final int UNMAPPED_READ_VALUE = 0;
     private static final int OAM_DMA_PAGE_SIZE = 0x100;
 
     private final MemoryBus ramBus;
@@ -77,7 +88,10 @@ public class NESMemoryBus implements MemoryBus {
         if (isInCartridgeRange(address)) {
             return cartridgeBus.read(address);
         }
-        return ramBus.read(address);
+        if (isInCpuRamRange(address)) {
+            return ramBus.read(address & CPU_RAM_MIRROR_MASK);
+        }
+        return UNMAPPED_READ_VALUE;
     }
 
     @Override
@@ -108,7 +122,9 @@ public class NESMemoryBus implements MemoryBus {
             cartridgeBus.write(address, value);
             return;
         }
-        ramBus.write(address, value);
+        if (isInCpuRamRange(address)) {
+            ramBus.write(address & CPU_RAM_MIRROR_MASK, value);
+        }
     }
 
     /**
@@ -122,6 +138,10 @@ public class NESMemoryBus implements MemoryBus {
             pageBytes[i] = read(pageStart + i);
         }
         return pageBytes;
+    }
+
+    private static boolean isInCpuRamRange(final int address){
+        return address <= CPU_RAM_END_ADDRESS;
     }
 
     private static boolean isInPpuRange(final int address){

@@ -16,7 +16,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.Arrays;
 import java.util.Map;
 
 /**
@@ -26,7 +25,7 @@ import java.util.Map;
  *     <li>{@code framebuffer-partial.png} - the PPU's part-drawn frame at the moment of capture</li>
  *     <li>{@code description.txt} - what the person flagging the issue saw</li>
  *     <li>{@code state.txt} - CPU registers/flags, the next instructions, PPU and mapper state</li>
- *     <li>{@code ram.bin}/{@code ram.hex.txt} - CPU RAM {@code $0000-$1FFF}</li>
+ *     <li>{@code ram.bin}/{@code ram.hex.txt} - the 2KB of CPU RAM ({@code $0000-$07FF}, mirrored through {@code $1FFF})</li>
  *     <li>{@code oam.bin}, {@code nametables.bin}, {@code palette.bin}, {@code prg-ram.bin}, and
  *     {@code chr-ram.bin} (CHR-RAM boards only) - raw dumps</li>
  *     <li>{@code <folder name>.sav} - the restorable {@link SystemSnapshot}</li>
@@ -35,8 +34,6 @@ import java.util.Map;
 public final class DebugReportWriter {
     private static final int SCREEN_WIDTH = 256;
     private static final int SCREEN_HEIGHT = 240;
-    /** $0000-$1FFF: the CPU's internal-RAM window. Covers the $0800-$1FFF mirror range too, so stray writes there show up. */
-    static final int RAM_DUMP_SIZE = 0x2000;
     private static final int HEX_BYTES_PER_ROW = 16;
     private static final DateTimeFormatter HEADER_TIMESTAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -56,7 +53,7 @@ public final class DebugReportWriter {
         Files.writeString(directory.resolve("description.txt"), report.description(), StandardCharsets.UTF_8);
         Files.writeString(directory.resolve("state.txt"), formatState(report), StandardCharsets.UTF_8);
 
-        final int[] ram = Arrays.copyOf(snapshot.ram(), RAM_DUMP_SIZE);
+        final int[] ram = snapshot.ram();
         Files.write(directory.resolve("ram.bin"), toBytes(ram));
         Files.writeString(directory.resolve("ram.hex.txt"), hexDump(ram), StandardCharsets.UTF_8);
         Files.write(directory.resolve("oam.bin"), toBytes(ppu.oam()));
