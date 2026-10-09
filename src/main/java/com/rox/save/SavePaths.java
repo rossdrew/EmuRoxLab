@@ -1,5 +1,8 @@
 package com.rox.save;
 
+import java.io.IOException;
+import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -42,5 +45,24 @@ public final class SavePaths {
     /** Where a flagged issue's files go: a {@link #debugSnapshotName} folder in the ROM's save directory. */
     public static Path debugSnapshotDirectory(final Path romPath, final LocalDateTime capturedAt){
         return saveDirectory(romPath).resolve(debugSnapshotName(capturedAt));
+    }
+
+    /**
+     * Creates and returns a fresh folder for a flagged issue: {@link #debugSnapshotDirectory} itself, or
+     * that name plus {@code -2}, {@code -3}... if a capture in the same second already took it. Creating
+     * the folder is the claim - {@link Files#createDirectory} fails if it exists - so two captures can't
+     * both end up writing into the same one.
+     */
+    public static Path reserveDebugSnapshotDirectory(final Path romPath, final LocalDateTime capturedAt) throws IOException {
+        final Path base = debugSnapshotDirectory(romPath, capturedAt);
+        Files.createDirectories(base.getParent());
+        Path candidate = base;
+        for (int suffix = 2; ; suffix++){
+            try {
+                return Files.createDirectory(candidate);
+            } catch (FileAlreadyExistsException e){
+                candidate = base.resolveSibling(base.getFileName() + "-" + suffix);
+            }
+        }
     }
 }

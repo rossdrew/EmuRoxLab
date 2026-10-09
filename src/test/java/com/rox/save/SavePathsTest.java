@@ -1,11 +1,15 @@
 package com.rox.save;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class SavePathsTest {
 
@@ -64,5 +68,32 @@ public class SavePathsTest {
 
         assertEquals(Path.of("/roms/loz/debug-snapshot-20261009-143000"),
                 SavePaths.debugSnapshotDirectory(romPath, LocalDateTime.of(2026, 10, 9, 14, 30, 0)));
+    }
+
+    @Test
+    public void reserveDebugSnapshotDirectoryCreatesTheTimestampFolderWhenFree(@TempDir final Path tempDir) throws IOException {
+        final Path romPath = tempDir.resolve("loz.nes");
+        final LocalDateTime capturedAt = LocalDateTime.of(2026, 10, 9, 14, 30, 0);
+
+        final Path reserved = SavePaths.reserveDebugSnapshotDirectory(romPath, capturedAt);
+
+        assertEquals(SavePaths.debugSnapshotDirectory(romPath, capturedAt), reserved);
+        assertTrue(Files.isDirectory(reserved));
+    }
+
+    /** CodeRabbit's PR #42 finding: two flags in the same second must not share (and overwrite) one folder. */
+    @Test
+    public void reserveDebugSnapshotDirectorySuffixesCapturesInTheSameSecond(@TempDir final Path tempDir) throws IOException {
+        final Path romPath = tempDir.resolve("loz.nes");
+        final LocalDateTime capturedAt = LocalDateTime.of(2026, 10, 9, 14, 30, 0);
+
+        final Path first = SavePaths.reserveDebugSnapshotDirectory(romPath, capturedAt);
+        final Path second = SavePaths.reserveDebugSnapshotDirectory(romPath, capturedAt);
+        final Path third = SavePaths.reserveDebugSnapshotDirectory(romPath, capturedAt);
+
+        assertEquals("debug-snapshot-20261009-143000", first.getFileName().toString());
+        assertEquals("debug-snapshot-20261009-143000-2", second.getFileName().toString());
+        assertEquals("debug-snapshot-20261009-143000-3", third.getFileName().toString());
+        assertTrue(Files.isDirectory(third));
     }
 }

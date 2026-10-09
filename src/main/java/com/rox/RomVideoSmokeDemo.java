@@ -157,8 +157,9 @@ public final class RomVideoSmokeDemo {
             if (description.isEmpty()){
                 return;
             }
-            final Path directory = SavePaths.debugSnapshotDirectory(romPath, capturedAt);
+            Path directory = SavePaths.debugSnapshotDirectory(romPath, capturedAt);
             try {
+                directory = SavePaths.reserveDebugSnapshotDirectory(romPath, capturedAt);
                 DebugReportWriter.write(directory, captured.withDescription(description.get()));
                 System.out.println("Flagged issue saved to " + directory);
                 videoOutput.showStatus("flagged issue saved to " + directory.getFileName());
