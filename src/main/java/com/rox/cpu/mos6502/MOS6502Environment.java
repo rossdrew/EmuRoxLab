@@ -242,6 +242,10 @@ public class MOS6502Environment {
         this.nmiPending = true;
     }
 
+    boolean isNMIPending(){
+        return nmiPending;
+    }
+
     /** @return true and clears the pending flag if an NMI was latched, false (no change) otherwise */
     public boolean consumeNMI(){
         boolean pending = nmiPending;
