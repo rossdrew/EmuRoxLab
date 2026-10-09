@@ -3,7 +3,9 @@ package com.rox.ppu;
 import com.rox.cartridge.Cartridge;
 import com.rox.cartridge.INesRom;
 import com.rox.cartridge.Mapper;
+import com.rox.cartridge.MapperSnapshot;
 import com.rox.cartridge.Mirroring;
+import com.rox.cartridge.NromMapperSnapshot;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -66,6 +68,11 @@ public class PPUTest {
         @Override public Mirroring nametableMirroring(){ return mirroring; }
         @Override public int[] prgRam(){ return prgRam.clone(); }
         @Override public void restorePrgRam(final int[] prgRam){ System.arraycopy(prgRam, 0, this.prgRam, 0, prgRam.length); }
+        @Override public MapperSnapshot snapshot(){ return new NromMapperSnapshot(prgRam.clone(), chr.clone()); }
+        @Override public void restore(final MapperSnapshot snapshot){
+            System.arraycopy(snapshot.prgRam(), 0, prgRam, 0, prgRam.length);
+            System.arraycopy(snapshot.chrRam(), 0, chr, 0, chr.length);
+        }
     }
 
     private FakeMapper mapper;

@@ -293,4 +293,27 @@ public final class Mmc3Mapper implements Mapper {
         state.put("IRQ enabled", String.valueOf(irqEnabled));
         return state;
     }
+
+    @Override
+    public MapperSnapshot snapshot(){
+        return new Mmc3MapperSnapshot(prgRam.clone(), SnapshotArrays.copyOf(chrRam), bankRegister.clone(), bankSelect,
+                horizontalMirroring, irqLatch, irqCounter, irqReloadRequested, irqEnabled, irqPending,
+                lastChrAddressA12High);
+    }
+
+    @Override
+    public void restore(final MapperSnapshot snapshot){
+        final Mmc3MapperSnapshot mmc3 = SnapshotArrays.expect(snapshot, Mmc3MapperSnapshot.class);
+        SnapshotArrays.restore(mmc3.prgRam(), prgRam, "PRG-RAM");
+        SnapshotArrays.restore(mmc3.chrRam(), chrRam, "CHR-RAM");
+        SnapshotArrays.restore(mmc3.bankRegisters(), bankRegister, "bank registers");
+        bankSelect = mmc3.bankSelect();
+        horizontalMirroring = mmc3.horizontalMirroring();
+        irqLatch = mmc3.irqLatch();
+        irqCounter = mmc3.irqCounter();
+        irqReloadRequested = mmc3.irqReloadRequested();
+        irqEnabled = mmc3.irqEnabled();
+        irqPending = mmc3.irqPending();
+        lastChrAddressA12High = mmc3.lastChrAddressA12High();
+    }
 }

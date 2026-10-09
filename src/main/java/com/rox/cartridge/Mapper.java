@@ -28,6 +28,17 @@ public interface Mapper extends MemoryBus {
     /** Replaces the board's PRG-RAM wholesale, e.g. when restoring a battery-backed save. {@code prgRam.length} must match {@link #prgRam()}'s. */
     void restorePrgRam(int[] prgRam);
 
+    /** A copy of this board's complete mutable state - see {@link MapperSnapshot}. */
+    MapperSnapshot snapshot();
+
+    /**
+     * Puts this board back exactly as {@code snapshot} captured it.
+     *
+     * @throws IllegalArgumentException if {@code snapshot} is from a different kind of board, or one with
+     * a different RAM layout
+     */
+    void restore(MapperSnapshot snapshot);
+
     /**
      * Whether this board is currently asserting an IRQ onto the CPU's IRQ line - a no-op {@code false}
      * default, since most boards (NROM, MMC1) have no IRQ capability of their own; {@link Mmc3Mapper}
