@@ -242,6 +242,11 @@ public class NES {
         return true;
     }
 
+    /** True from a successful {@link #pause()} until {@link #resume()}. */
+    public boolean isPaused(){
+        return paused;
+    }
+
     /** Carry on after a {@link #pause()}; does nothing if not paused. */
     public void resume(){
         paused = false;
