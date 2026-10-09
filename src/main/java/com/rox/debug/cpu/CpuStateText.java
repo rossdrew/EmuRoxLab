@@ -3,6 +3,7 @@ package com.rox.debug.cpu;
 import com.rox.cpu.mos6502.MOS6502Snapshot;
 import com.rox.cpu.mos6502.assembler.DisassembledInstruction;
 
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -54,8 +55,9 @@ public final class CpuStateText {
 
     /**
      * The whole CPU state view as text: run state and clock rate, registers, flags, interrupt lines,
-     * then the recent-instruction history leading into the next {@code upcomingCount} instructions -
-     * read top to bottom as "how we got here, then what's next".
+     * then the instructions on one time axis running bottom to top - the oldest recent instruction at
+     * the bottom, the latest above it, then the current one ({@code >}) and the next
+     * {@code upcomingCount - 1} above that, furthest ahead at the top.
      */
     public static String panel(final CpuDebugSource source, final int upcomingCount){
         final MOS6502Snapshot cpu = source.state();
@@ -65,15 +67,15 @@ public final class CpuStateText {
         out.append(registers(cpu)).append('\n');
         out.append("Flags: ").append(flags(cpu)).append("  (NV-BDIZC)\n");
         out.append(interruptLines(cpu)).append("\n\n");
-        out.append("--- Recent (oldest first) ---\n");
-        for (final DisassembledInstruction instruction : source.recentInstructions()){
-            out.append(instruction(instruction, false)).append('\n');
+        out.append("--- Next (furthest ahead at top) ---\n");
+        final List<DisassembledInstruction> upcoming = source.upcomingInstructions(upcomingCount);
+        for (int i = upcoming.size() - 1; i >= 0; i--){
+            out.append(instruction(upcoming.get(i), i == 0)).append('\n');
         }
-        out.append("--- Next ---\n");
-        boolean first = true;
-        for (final DisassembledInstruction instruction : source.upcomingInstructions(upcomingCount)){
-            out.append(instruction(instruction, first)).append('\n');
-            first = false;
+        out.append("--- Recent (latest at top) ---\n");
+        final List<DisassembledInstruction> recent = source.recentInstructions();
+        for (int i = recent.size() - 1; i >= 0; i--){
+            out.append(instruction(recent.get(i), false)).append('\n');
         }
         return out.toString();
     }

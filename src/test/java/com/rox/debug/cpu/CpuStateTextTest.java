@@ -67,20 +67,21 @@ public class CpuStateTextTest {
     }
 
     @Test
-    public void panelReadsAsHistoryThenWhatsNext(){
+    public void panelRunsTimeBottomToTopWithTheCurrentInstructionBetweenNextAndRecent(){
         assertEquals("""
                 Running  Clock: 1,789,773 Hz of 1,789,773 Hz (100.0%)
                 PC: $8123  A: $01  X: $02  Y: $03  SP: $FD
                 Flags: Nv-BdIzC  (NV-BDIZC)
                 IRQ line: clear  NMI pending: yes
 
-                --- Recent (oldest first) ---
-                  $8120  INX
-                  $8121  LDA #$05
-                --- Next ---
-                > $8123  NOP
+                --- Next (furthest ahead at top) ---
+                  $8125  NOP
                   $8124  NOP
-                """, CpuStateText.panel(source(false), 2));
+                > $8123  NOP
+                --- Recent (latest at top) ---
+                  $8121  LDA #$05
+                  $8120  INX
+                """, CpuStateText.panel(source(false), 3));
     }
 
     @Test
