@@ -2,6 +2,8 @@ package com.rox;
 
 import com.rox.cartridge.Cartridge;
 import com.rox.cartridge.RomLoader;
+import com.rox.debug.report.DebugReport;
+import com.rox.debug.report.DebugReportWriter;
 import com.rox.input.Controller;
 import com.rox.input.ControllerConfigLoader;
 import com.rox.input.ControllerConfiguration;
@@ -13,6 +15,8 @@ import com.rox.video.SwingVideoOutput;
 import javax.swing.SwingUtilities;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -88,6 +92,7 @@ public final class RomVideoSmokeDemo {
         //alive, so skipping close() here would hang the JVM on exit instead of surfacing the error
         try {
             final NES nes = new NES(videoOutput, controllers, cartridge);
+            SwingUtilities.invokeLater(() -> videoOutput.setOnFlagIssue(() -> flagIssue(nes, videoOutput, romPath)));
 
             System.out.println("Showing " + romPath
                     + (runSeconds != null ? " for up to " + runSeconds + " seconds" : "")
@@ -133,6 +138,36 @@ public final class RomVideoSmokeDemo {
             }
         }
         System.out.println("Done.");
+    }
+
+    /**
+     * The "Flag issue" button/F12 (runs on the EDT): freeze the game, capture everything, ask what went
+     * wrong, and write it all to a {@code debug-snapshot-<timestamp>} folder beside the ROM's saves -
+     * or, on Cancel, discard it. Always unfreezes afterwards.
+     */
+    private static void flagIssue(final NES nes, final SwingVideoOutput videoOutput, final Path romPath){
+        if (!nes.pause()){
+            return; //nothing running to flag - not started yet, or already shutting down
+        }
+        try {
+            final LocalDateTime capturedAt = LocalDateTime.now();
+            final DebugReport captured = DebugCapture.capture(nes, romPath.getFileName().toString(),
+                    videoOutput.lastPresentedFrame(), capturedAt);
+            final Optional<String> description = videoOutput.askForIssueDescription();
+            if (description.isEmpty()){
+                return;
+            }
+            final Path directory = SavePaths.debugSnapshotDirectory(romPath, capturedAt);
+            try {
+                DebugReportWriter.write(directory, captured.withDescription(description.get()));
+                System.out.println("Flagged issue saved to " + directory);
+                videoOutput.showStatus("flagged issue saved to " + directory.getFileName());
+            } catch (IOException e){
+                videoOutput.showError("Couldn't save flagged issue", "Couldn't write " + directory + ":\n" + e.getMessage());
+            }
+        } finally {
+            nes.resume();
+        }
     }
 
     private static ControllerConfiguration loadControllers(final String configPathArg) throws IOException {

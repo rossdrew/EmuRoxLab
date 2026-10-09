@@ -5,10 +5,18 @@ import com.rox.cartridge.Cartridge;
 import com.rox.cartridge.RomLoader;
 import com.rox.clock.Clock;
 import com.rox.debug.report.DebugReport;
+import com.rox.debug.report.DebugReportWriter;
+import com.rox.save.SaveFileFormat;
+import com.rox.save.SavePaths;
+import com.rox.save.SystemSnapshot;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.function.IntUnaryOperator;
 
@@ -105,5 +113,30 @@ public class DebugCaptureTest {
         final IntUnaryOperator peek = DebugCapture.sideEffectFreePeek(ram, cartridge);
 
         assertEquals(Integer.decode(hexExpected), peek.applyAsInt(Integer.parseInt(hexAddress, 16)));
+    }
+
+    /**
+     * The whole "Flag issue" chain minus Swing, as RomVideoSmokeDemo runs it: capture a running-then-
+     * paused NES, describe, write the folder, then read the .sav back and restore it into a fresh NES.
+     */
+    @Test
+    public void flaggedIssueFolderRestoresIntoAFreshNes(@TempDir final Path tempDir) throws IOException {
+        final NES nes = new NES(mock(AudioOutput.class), cartridge(), new ManuallyTickedClock());
+        nes.cpu().reset();
+        for (int i = 0; i < 30_000; i++){
+            nes.clock().tick();
+        }
+        final Path romPath = tempDir.resolve("test.nes");
+        final Path folder = SavePaths.debugSnapshotDirectory(romPath, CAPTURED_AT);
+
+        final DebugReport report = DebugCapture.capture(nes, "test.nes", null, CAPTURED_AT).withDescription("it broke");
+        DebugReportWriter.write(folder, report);
+
+        assertEquals("it broke", Files.readString(folder.resolve("description.txt")));
+        final SystemSnapshot saved = SaveFileFormat.readLiveSnapshot(folder.resolve("debug-snapshot-20261009-150000.sav"))
+                .orElseThrow().snapshot();
+        final NES fresh = new NES(mock(AudioOutput.class), cartridge(), new ManuallyTickedClock());
+        fresh.restoreSnapshot(saved);
+        assertRecordsEqual(nes.captureSnapshot(), fresh.captureSnapshot());
     }
 }
