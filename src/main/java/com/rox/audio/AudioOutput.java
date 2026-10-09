@@ -12,4 +12,12 @@ public interface AudioOutput {
     void write(double sample);
 
     void stop();
+
+    /** Silence playback without tearing anything down, so {@link #resume()} can pick up where it left off. */
+    default void pause(){
+    }
+
+    /** Undo a {@link #pause()}; does nothing if not paused. */
+    default void resume(){
+    }
 }

@@ -32,6 +32,12 @@ public class FPSClock implements Clock, AutoCloseable {
 
     private volatile boolean running = false;
 
+    //pause()/resume() handshake with run()'s loop - both guarded by pauseLock. pauseRequested is also
+    //volatile so run() can check it once per frame without taking the lock in the common, unpaused case
+    private final Object pauseLock = new Object();
+    private volatile boolean pauseRequested = false;
+    private boolean parked = false;
+
     /** Current total of remainder ticks after rounding */
     private long tickRemainderBuffer = 0;
 
@@ -84,13 +90,20 @@ public class FPSClock implements Clock, AutoCloseable {
         //each frame's deadline to runStartTime + frameIndex*FRAME_TIME_NS means an oversleep on one
         //frame simply shortens (or skips) the next frame's sleep, so the schedule self-corrects
         //instead of drifting indefinitely.
-        final long runStartTime = timeSource.nanoTime();
+        long runStartTime = timeSource.nanoTime();
         long frameIndex = 0;
 
         while (running) {
             //XXX This could be wrapped in a executeWithinFrame(()->{})
             runFrame();
             try {
+                if (parkWhilePaused()){
+                    //however long the pause lasted, it isn't time the schedule should try to catch up
+                    //on - re-anchor rather than racing through a burst of unthrottled frames
+                    runStartTime = timeSource.nanoTime();
+                    frameIndex = 0;
+                    continue;
+                }
                 throttle(runStartTime + frameIndex * FRAME_TIME_NS);
             } catch (InterruptedException e) {
                 /* LOG */System.out.println("Encountered issues using Thread.sleep(), terminating clock!");
@@ -98,6 +111,34 @@ public class FPSClock implements Clock, AutoCloseable {
             }
             frameIndex++;
         }
+        //however the loop ended (stop(), or an interrupt above), never leave a pause() waiting forever
+        //for a park that can no longer happen
+        stop();
+    }
+
+    /**
+     * Parks the {@link #run()} loop (between frames, never mid-frame) for as long as a {@link #pause()}
+     * is in effect.
+     *
+     * @return true if it parked at all
+     */
+    private boolean parkWhilePaused() throws InterruptedException {
+        if (!pauseRequested){
+            return false;
+        }
+        synchronized (pauseLock){
+            parked = true;
+            pauseLock.notifyAll(); //release pause()'s wait for this loop to genuinely stop ticking
+            try {
+                //no separate running check needed: stop() clears pauseRequested under this same lock
+                while (pauseRequested){
+                    pauseLock.wait();
+                }
+            } finally {
+                parked = false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -128,6 +169,47 @@ public class FPSClock implements Clock, AutoCloseable {
      */
     public void stop(){
         running = false;
+        synchronized (pauseLock){
+            //a stale request would otherwise park a later run() straight away with nobody to resume it
+            pauseRequested = false;
+            pauseLock.notifyAll(); //release a parked run() loop, and a pause() still waiting on one
+        }
+    }
+
+    /**
+     * Freezes {@link #run()} at the end of its current frame (up to one frame's worth of ticks away),
+     * blocking until it's genuinely parked. Like {@code NES.powerOn()}, waits out interrupts rather
+     * than returning early - the caller relies on a {@code true} meaning nothing else is ticking.
+     */
+    @Override
+    public boolean pause(){
+        boolean interrupted = false;
+        final boolean paused;
+        synchronized (pauseLock){
+            if (running){
+                pauseRequested = true;
+            }
+            while (pauseRequested && !parked){
+                try {
+                    pauseLock.wait();
+                } catch (InterruptedException e){
+                    interrupted = true;
+                }
+            }
+            paused = parked;
+        }
+        if (interrupted){
+            Thread.currentThread().interrupt();
+        }
+        return paused;
+    }
+
+    @Override
+    public void resume(){
+        synchronized (pauseLock){
+            pauseRequested = false;
+            pauseLock.notifyAll();
+        }
     }
 
     public boolean isRunning(){

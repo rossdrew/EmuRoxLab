@@ -94,6 +94,16 @@ public final class SwingVideoOutput implements VideoOutput {
         }
     }
 
+    /**
+     * The most recent complete frame handed to {@link #present} (a copy, packed {@code 0xRRGGBB}), or
+     * {@code null} if none has been yet - unlike {@code PPU.rgbFramebuffer()} read mid-frame (e.g.
+     * while paused), this is never part-drawn, so it's what a screenshot should show.
+     */
+    public int[] lastPresentedFrame(){
+        final int[] frame = pendingFrame.get();
+        return frame == null ? null : frame.clone();
+    }
+
     private void renderPendingFrame(){
         renderPending.set(false);
         image.setRGB(0, 0, WIDTH_PX, HEIGHT_PX, pendingFrame.get(), 0, WIDTH_PX);

@@ -4,19 +4,25 @@ import com.rox.apu.APU;
 import com.rox.audio.AudioOutput;
 import com.rox.cartridge.Cartridge;
 import com.rox.cartridge.RomLoader;
+import com.rox.clock.Clock;
 import com.rox.input.Controller;
 import com.rox.input.ControllerConfiguration;
 import com.rox.video.VideoOutput;
 import org.junit.jupiter.api.Test;
 
+import java.util.concurrent.atomic.AtomicLong;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.Mockito.after;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
@@ -529,5 +535,100 @@ public class NESTest {
         nes.clock().tick(); //one tick is enough for the IRQ-line listener to re-evaluate and pick it up
 
         assertTrue(nes.cpu().getEnvironmentSnapshot().isIRQLineAsserted());
+    }
+
+    @Test
+    public void pauseBeforePowerOnHasNothingToPauseAndLeavesAudioAlone(){
+        final AudioOutput audioOutput = mock(AudioOutput.class);
+        final NES nes = new NES(audioOutput, blankCartridge());
+
+        assertFalse(nes.pause());
+        verify(audioOutput, never()).pause();
+    }
+
+    /**
+     * A real-time clock's frame boundary only lands mid-instruction some of the time, so this drives a
+     * manually-ticked clock to a known mid-instruction point first: pause() must then finish that
+     * instruction itself rather than leaving the CPU somewhere its state can't be fully captured.
+     */
+    @Test
+    public void pauseFinishesTheInstructionTheCpuWasPartWayThroughBeforeSilencingAudio(){
+        final AudioOutput audioOutput = mock(AudioOutput.class);
+        final NES nes = new NES(audioOutput, blankCartridge(), new ManuallyTickedClock());
+        nes.clock().tick(); //fetches BRK (all-zero PRG-ROM) - 6 cycles still to go
+        assertFalse(nes.cpu().isAtInstructionBoundary(), "test setup: expected to be mid-instruction");
+
+        assertTrue(nes.pause());
+
+        assertTrue(nes.cpu().isAtInstructionBoundary());
+        verify(audioOutput).pause();
+    }
+
+    @Test
+    public void resumeUnpausesAudioBeforeTheClockStartsFeedingItAgain(){
+        final AudioOutput audioOutput = mock(AudioOutput.class);
+        final Clock clock = mock(Clock.class);
+        final NES nes = new NES(audioOutput, blankCartridge(), clock);
+
+        nes.resume();
+
+        final var order = inOrder(audioOutput, clock);
+        order.verify(audioOutput).resume();
+        order.verify(clock).resume();
+    }
+
+    /**
+     * End to end with the real clock: no samples are produced while paused, and production carries
+     * on after resume. Samples are the progress signal because the APU emits one roughly every 40
+     * CPU cycles - a still-running clock would produce thousands within the negative-check window.
+     */
+    @Test
+    public void pauseFreezesARunningNesAndResumeCarriesOn() throws InterruptedException {
+        final AudioOutput audioOutput = mock(AudioOutput.class);
+        final AtomicLong samplesWritten = new AtomicLong();
+        doAnswer(invocation -> {
+            samplesWritten.incrementAndGet();
+            return null;
+        }).when(audioOutput).write(anyDouble());
+        final NES nes = new NES(audioOutput, selfLoopingCartridge());
+        final Thread thread = new Thread(nes::powerOn);
+        thread.start();
+        verify(audioOutput, timeout(2000)).start();
+
+        assertTrue(nes.pause());
+        assertTrue(nes.cpu().isAtInstructionBoundary());
+        verify(audioOutput).pause();
+        final long samplesWhilePaused = samplesWritten.get();
+        verify(audioOutput, after(200).never()).resume();
+        assertEquals(samplesWhilePaused, samplesWritten.get(), "no samples should be produced while paused");
+        assertTrue(thread.isAlive(), "pausing must not end powerOn()");
+
+        nes.resume();
+        verify(audioOutput).resume();
+        final long deadline = System.currentTimeMillis() + 2000;
+        while (samplesWritten.get() == samplesWhilePaused && System.currentTimeMillis() < deadline){
+            Thread.onSpinWait();
+        }
+        assertTrue(samplesWritten.get() > samplesWhilePaused, "emulation should carry on after resume()");
+
+        nes.powerOff();
+        thread.join(5000);
+        assertFalse(thread.isAlive());
+    }
+
+    @Test
+    public void powerOffWhilePausedStillShutsDown() throws InterruptedException {
+        final AudioOutput audioOutput = mock(AudioOutput.class);
+        final NES nes = new NES(audioOutput, selfLoopingCartridge());
+        final Thread thread = new Thread(nes::powerOn);
+        thread.start();
+        verify(audioOutput, timeout(2000)).start();
+        assertTrue(nes.pause());
+
+        nes.powerOff();
+        thread.join(5000);
+
+        assertFalse(thread.isAlive(), "a parked clock must not keep powerOn() blocked after powerOff()");
+        verify(audioOutput).stop();
     }
 }

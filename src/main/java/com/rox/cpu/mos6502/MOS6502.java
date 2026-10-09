@@ -90,6 +90,17 @@ public class MOS6502 implements ClockWatcher {
         stallCycles += cycles;
     }
 
+    /**
+     * True when the last {@link #tick()} completed an instruction (or interrupt sequence) and no DMA
+     * stall is outstanding, so the next tick begins a fresh fetch or interrupt entry - the only point
+     * at which the CPU's state is fully described by {@link #getEnvironmentSnapshot()}. Variable-cycle
+     * extra ticks (page crosses, taken branches) are pushed onto {@code opsInTicksStack} in the same
+     * tick that requests them, so an empty stack already accounts for them.
+     */
+    public boolean isAtInstructionBoundary(){
+        return opsInTicksStack.isEmpty() && stallCycles == 0;
+    }
+
     @Override
     public void tick() {
         if (stallCycles > 0){

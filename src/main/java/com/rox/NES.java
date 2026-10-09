@@ -202,6 +202,32 @@ public class NES {
         }
     }
 
+    /**
+     * Freezes a running emulation without resetting or tearing anything down: the clock parks at the
+     * end of its current frame, then the CPU is single-stepped to the end of whatever instruction it
+     * was part-way through - so CPU state is fully captured by {@code getEnvironmentSnapshot()} for as
+     * long as the pause lasts - and audio is silenced. {@link #resume()} carries on from exactly there.
+     *
+     * @return false if there was nothing running to pause
+     */
+    public boolean pause(){
+        if (!clock.pause()){
+            return false;
+        }
+        //safe to tick from this thread: a true pause() guarantees the clock thread is parked
+        while (!cpu.isAtInstructionBoundary()){
+            clock.tick();
+        }
+        audioOutput.pause();
+        return true;
+    }
+
+    /** Carry on after a {@link #pause()}; does nothing if not paused. */
+    public void resume(){
+        audioOutput.resume();
+        clock.resume();
+    }
+
     public void powerOff(){
         stopRequested = true;
         clock.stop();
