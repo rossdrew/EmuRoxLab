@@ -1007,4 +1007,103 @@ public class PPU implements ClockWatcher, OamDmaBus {
         }
         return snapshot;
     }
+
+    /** Everything but the framebuffer - see {@link PpuSnapshot}. */
+    public PpuSnapshot snapshot(){
+        return new PpuSnapshot(oam.clone(), nametableRam.clone(), paletteRam.clone(),
+                new PpuSnapshot.Timing(dot, scanline, vblankFlag, previousNmiLine, nmiEdgePending, frameReady, oamDmaPending),
+                new PpuSnapshot.Registers(controlRegister.rawValue(), maskRegister.rawValue(), oamAddress, writeToggle,
+                        temporaryVramAddress, currentVramAddress, fineXScroll, readBuffer),
+                new PpuSnapshot.BackgroundPipeline(bgPatternShiftLow, bgPatternShiftHigh, bgAttributeShiftLow,
+                        bgAttributeShiftHigh, nextTileId, nextTilePaletteGroup, nextPatternLowByte, nextPatternHighByte),
+                new PpuSnapshot.SpritePipeline(secondaryOam.clone(), secondaryOamCount, secondaryOamSpriteZeroSlot,
+                        spriteOverflow, spriteZeroHitFlag, spritePatternLowByte.clone(), spritePatternHighByte.clone(),
+                        spriteAttributes.clone(), spriteXPosition.clone(), spriteIsZero.clone(), activeSpriteCount));
+    }
+
+    /**
+     * Checks {@code snapshot} could be {@link #restore}d, without changing anything.
+     *
+     * @throws IllegalArgumentException if any of {@code snapshot}'s arrays is the wrong size
+     */
+    public void checkRestorable(final PpuSnapshot snapshot){
+        requireSameSize(snapshot.oam(), oam, "OAM");
+        requireSameSize(snapshot.nametableRam(), nametableRam, "nametable RAM");
+        requireSameSize(snapshot.paletteRam(), paletteRam, "palette RAM");
+        final PpuSnapshot.SpritePipeline sprites = snapshot.sprites();
+        requireSameSize(sprites.secondaryOam(), secondaryOam, "secondary OAM");
+        requireSameSize(sprites.patternLowBytes(), spritePatternLowByte, "sprite pattern low bytes");
+        requireSameSize(sprites.patternHighBytes(), spritePatternHighByte, "sprite pattern high bytes");
+        requireSameSize(sprites.attributes(), spriteAttributes, "sprite attributes");
+        requireSameSize(sprites.xPositions(), spriteXPosition, "sprite X positions");
+        if (sprites.isSpriteZero().length != spriteIsZero.length){
+            throw new IllegalArgumentException("Expected " + spriteIsZero.length + " sprite-zero slot flags, got " + sprites.isSpriteZero().length);
+        }
+    }
+
+    /**
+     * Puts the PPU back exactly as {@code snapshot} captured it, apart from the framebuffer, which keeps
+     * whatever it last drew until the next frame overwrites it - all or nothing: a snapshot that fails
+     * {@link #checkRestorable} is rejected before anything changes.
+     *
+     * @throws IllegalArgumentException if any of {@code snapshot}'s arrays is the wrong size
+     */
+    public void restore(final PpuSnapshot snapshot){
+        checkRestorable(snapshot);
+        copy(snapshot.oam(), oam);
+        copy(snapshot.nametableRam(), nametableRam);
+        copy(snapshot.paletteRam(), paletteRam);
+
+        final PpuSnapshot.Timing timing = snapshot.timing();
+        dot = timing.dot();
+        scanline = timing.scanline();
+        vblankFlag = timing.vblankFlag();
+        previousNmiLine = timing.previousNmiLine();
+        nmiEdgePending = timing.nmiEdgePending();
+        frameReady = timing.frameReady();
+        oamDmaPending = timing.oamDmaPending();
+
+        final PpuSnapshot.Registers registers = snapshot.registers();
+        controlRegister = new PPUControlRegister(registers.control());
+        maskRegister = new PPUMaskRegister(registers.mask());
+        oamAddress = registers.oamAddress();
+        writeToggle = registers.writeToggle();
+        temporaryVramAddress = registers.temporaryVramAddress();
+        currentVramAddress = registers.currentVramAddress();
+        fineXScroll = registers.fineXScroll();
+        readBuffer = registers.readBuffer();
+
+        final PpuSnapshot.BackgroundPipeline background = snapshot.background();
+        bgPatternShiftLow = background.patternShiftLow();
+        bgPatternShiftHigh = background.patternShiftHigh();
+        bgAttributeShiftLow = background.attributeShiftLow();
+        bgAttributeShiftHigh = background.attributeShiftHigh();
+        nextTileId = background.nextTileId();
+        nextTilePaletteGroup = background.nextTilePaletteGroup();
+        nextPatternLowByte = background.nextPatternLowByte();
+        nextPatternHighByte = background.nextPatternHighByte();
+
+        final PpuSnapshot.SpritePipeline sprites = snapshot.sprites();
+        copy(sprites.secondaryOam(), secondaryOam);
+        secondaryOamCount = sprites.secondaryOamCount();
+        secondaryOamSpriteZeroSlot = sprites.secondaryOamSpriteZeroSlot();
+        spriteOverflow = sprites.spriteOverflow();
+        spriteZeroHitFlag = sprites.spriteZeroHitFlag();
+        copy(sprites.patternLowBytes(), spritePatternLowByte);
+        copy(sprites.patternHighBytes(), spritePatternHighByte);
+        copy(sprites.attributes(), spriteAttributes);
+        copy(sprites.xPositions(), spriteXPosition);
+        System.arraycopy(sprites.isSpriteZero(), 0, spriteIsZero, 0, spriteIsZero.length);
+        activeSpriteCount = sprites.activeSpriteCount();
+    }
+
+    private static void requireSameSize(final int[] from, final int[] into, final String what){
+        if (from.length != into.length){
+            throw new IllegalArgumentException("Expected " + into.length + " values of " + what + ", got " + from.length);
+        }
+    }
+
+    private static void copy(final int[] from, final int[] into){
+        System.arraycopy(from, 0, into, 0, into.length);
+    }
 }

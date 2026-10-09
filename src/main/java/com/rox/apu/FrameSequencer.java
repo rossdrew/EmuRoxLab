@@ -110,4 +110,19 @@ public class FrameSequencer implements ClockWatcher {
     public void clearFrameIrq(){
         frameIrqPending = false;
     }
+
+    /** Everything a {@link FrameSequencer} needs to carry on exactly where it was (its watchers are wiring, not state). */
+    public record Snapshot(boolean fiveStepMode, boolean irqInhibit, int cycle, boolean frameIrqPending) {
+    }
+
+    public Snapshot snapshot(){
+        return new Snapshot(fiveStepMode, irqInhibit, cycle, frameIrqPending);
+    }
+
+    public void restore(final Snapshot snapshot){
+        fiveStepMode = snapshot.fiveStepMode();
+        irqInhibit = snapshot.irqInhibit();
+        cycle = snapshot.cycle();
+        frameIrqPending = snapshot.frameIrqPending();
+    }
 }

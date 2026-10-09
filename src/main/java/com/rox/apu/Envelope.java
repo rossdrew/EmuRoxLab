@@ -76,4 +76,21 @@ public class Envelope implements ClockWatcher {
     public int volume(){
         return volumeIsConstant ? reloadValue : decayLevel;
     }
+
+    /** Everything an {@link Envelope} needs to carry on exactly where it was. */
+    public record Snapshot(int reloadValue, boolean volumeIsConstant, boolean loopEnabled, boolean restartRequested, int divider, int decayLevel) {
+    }
+
+    public Snapshot snapshot(){
+        return new Snapshot(reloadValue, volumeIsConstant, loopEnabled, restartRequested, divider, decayLevel);
+    }
+
+    public void restore(final Snapshot snapshot){
+        reloadValue = snapshot.reloadValue();
+        volumeIsConstant = snapshot.volumeIsConstant();
+        loopEnabled = snapshot.loopEnabled();
+        restartRequested = snapshot.restartRequested();
+        divider = snapshot.divider();
+        decayLevel = snapshot.decayLevel();
+    }
 }

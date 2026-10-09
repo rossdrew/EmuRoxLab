@@ -54,6 +54,21 @@ public final class Cartridge implements MemoryBus {
         mapper.restorePrgRam(prgRam);
     }
 
+    /** The mapper's complete mutable state, for a save state - see {@link Mapper#snapshot()}. */
+    public MapperSnapshot snapshot(){
+        return mapper.snapshot();
+    }
+
+    /** See {@link Mapper#checkRestorable(MapperSnapshot)}. */
+    public void checkRestorable(final MapperSnapshot snapshot){
+        mapper.checkRestorable(snapshot);
+    }
+
+    /** See {@link Mapper#restore(MapperSnapshot)}. */
+    public void restore(final MapperSnapshot snapshot){
+        mapper.restore(snapshot);
+    }
+
     public int readChr(final int address){
         return mapper.readChr(address);
     }

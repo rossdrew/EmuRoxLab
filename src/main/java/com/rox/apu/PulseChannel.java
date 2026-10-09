@@ -146,4 +146,25 @@ public class PulseChannel implements ClockWatcher {
     boolean isEnabled(){
         return enabled;
     }
+
+    /** Everything a {@link PulseChannel} needs to carry on exactly where it was, sub-units included. */
+    public record Snapshot(int dutyCycle, int sequencePosition, boolean enabled, Envelope.Snapshot envelope,
+                           LengthCounter.Snapshot lengthCounter, Sweep.Snapshot sweep,
+                           ParityCountdownFrequencyDivider.Snapshot frequencyDivider) {
+    }
+
+    public Snapshot snapshot(){
+        return new Snapshot(dutyCycle, sequencePosition, enabled, envelope.snapshot(), lengthCounter.snapshot(),
+                sweep.snapshot(), frequencyDivider.snapshot());
+    }
+
+    public void restore(final Snapshot snapshot){
+        dutyCycle = snapshot.dutyCycle();
+        sequencePosition = snapshot.sequencePosition();
+        enabled = snapshot.enabled();
+        envelope.restore(snapshot.envelope());
+        lengthCounter.restore(snapshot.lengthCounter());
+        sweep.restore(snapshot.sweep());
+        frequencyDivider.restore(snapshot.frequencyDivider());
+    }
 }

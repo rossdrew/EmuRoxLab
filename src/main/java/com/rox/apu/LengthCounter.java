@@ -47,4 +47,17 @@ public class LengthCounter implements ClockWatcher {
     public int value(){
         return counter;
     }
+
+    /** Everything a {@link LengthCounter} needs to carry on exactly where it was. */
+    public record Snapshot(int counter, boolean haltEnabled) {
+    }
+
+    public Snapshot snapshot(){
+        return new Snapshot(counter, haltEnabled);
+    }
+
+    public void restore(final Snapshot snapshot){
+        counter = snapshot.counter();
+        haltEnabled = snapshot.haltEnabled();
+    }
 }

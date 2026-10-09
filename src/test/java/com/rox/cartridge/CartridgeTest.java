@@ -132,4 +132,30 @@ public class CartridgeTest {
 
         assertEquals(state, cartridge.debugState());
     }
+
+    @Test
+    public void snapshotDelegatesToMapper(){
+        final MapperSnapshot snapshot = new NromMapperSnapshot(new int[0x2000], new int[0]);
+        when(mapper.snapshot()).thenReturn(snapshot);
+
+        assertSame(snapshot, cartridge.snapshot());
+    }
+
+    @Test
+    public void restoreDelegatesToMapper(){
+        final MapperSnapshot snapshot = new NromMapperSnapshot(new int[0x2000], new int[0]);
+
+        cartridge.restore(snapshot);
+
+        verify(mapper).restore(snapshot);
+    }
+
+    @Test
+    public void checkRestorableDelegatesToMapper(){
+        final MapperSnapshot snapshot = new NromMapperSnapshot(new int[0x2000], new int[0]);
+
+        cartridge.checkRestorable(snapshot);
+
+        verify(mapper).checkRestorable(snapshot);
+    }
 }

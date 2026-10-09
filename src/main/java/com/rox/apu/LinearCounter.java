@@ -56,4 +56,19 @@ public class LinearCounter implements ClockWatcher {
     public boolean isZero(){
         return counter == 0;
     }
+
+    /** Everything a {@link LinearCounter} needs to carry on exactly where it was. */
+    public record Snapshot(int reloadValue, boolean controlFlagSet, int counter, boolean reloadFlagSet) {
+    }
+
+    public Snapshot snapshot(){
+        return new Snapshot(reloadValue, controlFlagSet, counter, reloadFlagSet);
+    }
+
+    public void restore(final Snapshot snapshot){
+        reloadValue = snapshot.reloadValue();
+        controlFlagSet = snapshot.controlFlagSet();
+        counter = snapshot.counter();
+        reloadFlagSet = snapshot.reloadFlagSet();
+    }
 }

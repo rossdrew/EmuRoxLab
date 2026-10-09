@@ -240,4 +240,31 @@ public final class Mmc1Mapper implements Mapper {
         }
         System.arraycopy(prgRam, 0, this.prgRam, 0, prgRam.length);
     }
+
+    @Override
+    public MapperSnapshot snapshot(){
+        return new Mmc1MapperSnapshot(prgRam.clone(), SnapshotArrays.copyOf(chrRam), shiftRegister, shiftCount,
+                controlRegister, chrBank0Register, chrBank1Register, prgBankRegister);
+    }
+
+    @Override
+    public void checkRestorable(final MapperSnapshot snapshot){
+        final Mmc1MapperSnapshot mmc1 = SnapshotArrays.expect(snapshot, Mmc1MapperSnapshot.class);
+        SnapshotArrays.requireSameSize(mmc1.prgRam(), prgRam, "PRG-RAM");
+        SnapshotArrays.requireSameSize(mmc1.chrRam(), chrRam, "CHR-RAM");
+    }
+
+    @Override
+    public void restore(final MapperSnapshot snapshot){
+        checkRestorable(snapshot);
+        final Mmc1MapperSnapshot mmc1 = (Mmc1MapperSnapshot) snapshot;
+        SnapshotArrays.copy(mmc1.prgRam(), prgRam);
+        SnapshotArrays.copy(mmc1.chrRam(), chrRam);
+        shiftRegister = mmc1.shiftRegister();
+        shiftCount = mmc1.shiftCount();
+        controlRegister = mmc1.controlRegister();
+        chrBank0Register = mmc1.chrBank0Register();
+        chrBank1Register = mmc1.chrBank1Register();
+        prgBankRegister = mmc1.prgBankRegister();
+    }
 }

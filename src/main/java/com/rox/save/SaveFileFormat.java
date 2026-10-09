@@ -25,23 +25,39 @@ public final class SaveFileFormat {
     }
 
     public static Optional<BatterySaveFile> readBatterySave(final Path path){
-        if (!Files.isRegularFile(path)){
-            return Optional.empty();
-        }
-        final byte[] bytes;
-        try {
-            bytes = Files.readAllBytes(path);
-        } catch (IOException e){
-            //a narrow TOCTOU race (the file existed a moment ago, per isRegularFile above, but no
-            //longer does) or a permissions error - either way, treated the same as "no usable save"
-            return Optional.empty();
-        }
-        return SaveCodec.decode(bytes)
+        return readFile(path)
+                .flatMap(SaveCodec::decode)
                 .filter(decoded -> decoded.type() == SaveType.BATTERY_PRG_RAM)
                 //a CRC-valid file of the wrong length (corruption, or a future format change) must be
                 //rejected here, not left to crash deep inside Mapper.restorePrgRam()'s own length check
                 .filter(decoded -> decoded.payload().length == PRG_RAM_SIZE)
                 .map(decoded -> new BatterySaveFile(decoded.metadata(), toPrgRam(decoded.payload())));
+    }
+
+    public static void writeLiveSnapshot(final Path path, final SaveMetadata metadata, final SystemSnapshot snapshot) throws IOException {
+        SaveCodec.writeAtomically(path, SaveCodec.encode(SaveType.LIVE_SNAPSHOT, metadata, SnapshotCodec.encode(snapshot)));
+    }
+
+    public static Optional<LiveSaveFile> readLiveSnapshot(final Path path){
+        return readFile(path)
+                .flatMap(SaveCodec::decode)
+                .filter(decoded -> decoded.type() == SaveType.LIVE_SNAPSHOT)
+                .flatMap(decoded -> SnapshotCodec.decode(decoded.payload(), SystemSnapshot.class)
+                        .map(snapshot -> new LiveSaveFile(decoded.metadata(), snapshot)));
+    }
+
+    /** A missing or unreadable file is just "no save", never an error. */
+    private static Optional<byte[]> readFile(final Path path){
+        if (!Files.isRegularFile(path)){
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(Files.readAllBytes(path));
+        } catch (IOException e){
+            //a narrow TOCTOU race (the file existed a moment ago, per isRegularFile above, but no
+            //longer does) or a permissions error - either way, treated the same as "no usable save"
+            return Optional.empty();
+        }
     }
 
     private static byte[] toBytes(final int[] prgRam){

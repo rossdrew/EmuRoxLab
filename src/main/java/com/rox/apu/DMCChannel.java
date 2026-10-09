@@ -266,4 +266,32 @@ public class DMCChannel implements ClockWatcher {
     boolean isLoopFlagSet(){
         return loop;
     }
+
+    /** Everything a {@link DMCChannel} needs to carry on exactly where it was (sample bytes live in the cartridge, not here). */
+    public record Snapshot(boolean irqEnabled, boolean loop, boolean irqPending, int sampleStartAddress,
+                           int sampleLength, int currentAddress, int bytesRemaining, int shiftRegister,
+                           int bitsRemainingInShiftRegister, boolean outputSilenced, int deltaCounter,
+                           ParityCountdownFrequencyDivider.Snapshot frequencyDivider) {
+    }
+
+    public Snapshot snapshot(){
+        return new Snapshot(irqEnabled, loop, irqPending, sampleStartAddress, sampleLength, currentAddress,
+                bytesRemaining, shiftRegister, bitsRemainingInShiftRegister, outputSilenced, deltaCounter,
+                frequencyDivider.snapshot());
+    }
+
+    public void restore(final Snapshot snapshot){
+        irqEnabled = snapshot.irqEnabled();
+        loop = snapshot.loop();
+        irqPending = snapshot.irqPending();
+        sampleStartAddress = snapshot.sampleStartAddress();
+        sampleLength = snapshot.sampleLength();
+        currentAddress = snapshot.currentAddress();
+        bytesRemaining = snapshot.bytesRemaining();
+        shiftRegister = snapshot.shiftRegister();
+        bitsRemainingInShiftRegister = snapshot.bitsRemainingInShiftRegister();
+        outputSilenced = snapshot.outputSilenced();
+        deltaCounter = snapshot.deltaCounter();
+        frequencyDivider.restore(snapshot.frequencyDivider());
+    }
 }

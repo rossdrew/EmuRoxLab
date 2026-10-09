@@ -11,12 +11,14 @@ import com.rox.cpu.mos6502.MOS6502;
 import com.rox.input.ControllerConfiguration;
 import com.rox.mem.*;
 import com.rox.ppu.PPU;
+import com.rox.save.SystemSnapshot;
 import com.rox.time.SystemTimeSource;
 import com.rox.time.ThreadSleeper;
 import com.rox.video.VideoOutput;
 
 import javax.sound.sampled.LineUnavailableException;
 import java.util.concurrent.CountDownLatch;
+import java.util.zip.CRC32;
 
 public class NES {
     private static final long CPU_HZ = 1_789_773;
@@ -32,6 +34,11 @@ public class NES {
     private final Clock clock;
     private final LatchedMemoryBus memoryBus;
     private final AudioOutput audioOutput;
+    private final RAM ram;
+    private final Cartridge cartridge;
+    //set only once pause() has genuinely parked the clock - the precondition for capturing/restoring
+    //state while powered on (see captureSnapshot())
+    private volatile boolean paused;
     //set by powerOff(), read by powerOn() - catches a powerOff() that races ahead of clockThread
     //even starting (see powerOn()'s comment on why clock.stop() alone can't catch that case)
     private volatile boolean stopRequested;
@@ -75,7 +82,9 @@ public class NES {
     /** Test-only entry point for injecting a fake {@link Clock} alongside a real {@link ControllerConfiguration}. */
     NES(final AudioOutput audioOutput, final VideoOutput videoOutput, final ControllerConfiguration controllers,
         final Cartridge cartridge, final Clock clock){
-        final MemoryBus ramBus = new MemoryBus8Bit(new RAM(0x10000));
+        this.ram = new RAM(0x10000);
+        this.cartridge = cartridge;
+        final MemoryBus ramBus = new MemoryBus8Bit(ram);
         //DMC's own sample-address generator (see DMCChannel) only ever produces addresses in
         //$8000-$FFFF (base $C000+, wrapping no lower than $8000) - always within cartridge range,
         //so the cartridge alone is a complete, correct DMA source with no need to route through
@@ -215,17 +224,84 @@ public class NES {
             return false;
         }
         //safe to tick from this thread: a true pause() guarantees the clock thread is parked
-        while (!cpu.isAtInstructionBoundary()){
-            clock.tick();
-        }
+        finishInFlightInstruction();
         audioOutput.pause();
+        paused = true;
         return true;
     }
 
     /** Carry on after a {@link #pause()}; does nothing if not paused. */
     public void resume(){
+        paused = false;
         audioOutput.resume();
         clock.resume();
+    }
+
+    /**
+     * The whole system's state, for a save state or debug capture. Only while {@link #pause()}d (or
+     * before/after the clock runs at all) - otherwise the clock thread would be changing it mid-copy.
+     * A clock that simply stopped (e.g. after {@link #powerOff()}) can leave the CPU part-way through an
+     * instruction, unlike a pause; that instruction is finished first, so this may advance the system
+     * by a few cycles.
+     *
+     * <p>Not captured: controller shift registers (a pause landing mid-controller-read could misread
+     * one frame of input after a restore), and the audio resampler's fractional position.
+     *
+     * @throws IllegalStateException if the clock is running and not paused
+     */
+    public SystemSnapshot captureSnapshot(){
+        requireNothingTicking();
+        finishInFlightInstruction();
+        return new SystemSnapshot(romCrc32(cartridge), cpu.snapshot(), ppu.snapshot(), apu.snapshot(), ram.snapshot(),
+                cartridge.snapshot());
+    }
+
+    /**
+     * Puts the whole system back as {@code snapshot} captured it. Same "paused or not running"
+     * precondition as {@link #captureSnapshot()}.
+     *
+     * @throws IllegalStateException if the clock is running and not paused
+     * @throws IllegalArgumentException if {@code snapshot} was taken with a different cartridge, or any of
+     * its parts is the wrong shape - checked up front, so a rejected snapshot changes nothing
+     */
+    public void restoreSnapshot(final SystemSnapshot snapshot){
+        requireNothingTicking();
+        if (snapshot.romCrc32() != romCrc32(cartridge)){
+            throw new IllegalArgumentException("Snapshot was taken with a different cartridge");
+        }
+        //every component that can reject a malformed snapshot (array sizes, mapper type) is checked before
+        //any is restored - a CRC-valid save file can still decode to the wrong shapes, and stopping
+        //part-way would leave a mix of old and restored state. The APU and CPU snapshots are plain
+        //values with nothing to reject.
+        cartridge.checkRestorable(snapshot.mapper());
+        ram.checkRestorable(snapshot.ram());
+        ppu.checkRestorable(snapshot.ppu());
+        cartridge.restore(snapshot.mapper());
+        ram.restore(snapshot.ram());
+        ppu.restore(snapshot.ppu());
+        apu.restore(snapshot.apu());
+        cpu.restore(snapshot.cpu());
+    }
+
+    /** Ticks until the CPU is between instructions - callers must already know nothing else is ticking. */
+    private void finishInFlightInstruction(){
+        while (!cpu.isAtInstructionBoundary()){
+            clock.tick();
+        }
+    }
+
+    private void requireNothingTicking(){
+        if (clock.isRunning() && !paused){
+            throw new IllegalStateException("Pause the NES before capturing or restoring its state");
+        }
+    }
+
+    /** Identifies a cartridge's ROM (PRG then CHR) - what {@link SystemSnapshot#romCrc32()} is checked against. */
+    private static long romCrc32(final Cartridge cartridge){
+        final CRC32 crc = new CRC32();
+        crc.update(cartridge.rom().prgRom());
+        crc.update(cartridge.rom().chrRom());
+        return crc.getValue();
     }
 
     public void powerOff(){

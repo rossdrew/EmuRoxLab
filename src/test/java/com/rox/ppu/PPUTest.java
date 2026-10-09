@@ -3,9 +3,13 @@ package com.rox.ppu;
 import com.rox.cartridge.Cartridge;
 import com.rox.cartridge.INesRom;
 import com.rox.cartridge.Mapper;
+import com.rox.cartridge.MapperSnapshot;
 import com.rox.cartridge.Mirroring;
+import com.rox.cartridge.NromMapperSnapshot;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static com.rox.ppu.PPU.FrameTiming.DOTS_PER_CPU_CYCLE;
 import static com.rox.ppu.PPU.FrameTiming.DOTS_PER_SCANLINE;
@@ -13,8 +17,11 @@ import static com.rox.ppu.PPU.FrameTiming.SCANLINES_PER_FRAME;
 import static com.rox.ppu.PPU.FrameTiming.TICKS_UNTIL_VBLANK_END;
 import static com.rox.ppu.PPU.FrameTiming.TICKS_UNTIL_VBLANK_START;
 import static com.rox.ppu.PPU.FrameTiming.VBLANK_END_SCANLINE;
+import static com.rox.RecordAssertions.assertRecordsEqual;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -66,6 +73,12 @@ public class PPUTest {
         @Override public Mirroring nametableMirroring(){ return mirroring; }
         @Override public int[] prgRam(){ return prgRam.clone(); }
         @Override public void restorePrgRam(final int[] prgRam){ System.arraycopy(prgRam, 0, this.prgRam, 0, prgRam.length); }
+        @Override public MapperSnapshot snapshot(){ return new NromMapperSnapshot(prgRam.clone(), chr.clone()); }
+        @Override public void checkRestorable(final MapperSnapshot snapshot){ }
+        @Override public void restore(final MapperSnapshot snapshot){
+            System.arraycopy(snapshot.prgRam(), 0, prgRam, 0, prgRam.length);
+            System.arraycopy(snapshot.chrRam(), 0, chr, 0, chr.length);
+        }
     }
 
     private FakeMapper mapper;
@@ -83,6 +96,19 @@ public class PPUTest {
         final INesRom rom = INesRom.parse(fileBytes);
         mapper = new FakeMapper();
         ppu = new PPU(new Cartridge(rom, mapper));
+    }
+
+    /** A second, independent PPU over a fresh {@link FakeMapper} holding the same CHR data as {@link #mapper}. */
+    private PPU freshPpuSharingChr(){
+        final byte[] fileBytes = new byte[16 + 16384];
+        fileBytes[0] = 'N';
+        fileBytes[1] = 'E';
+        fileBytes[2] = 'S';
+        fileBytes[3] = 0x1A;
+        fileBytes[4] = 1;
+        final FakeMapper otherMapper = new FakeMapper();
+        System.arraycopy(mapper.chr, 0, otherMapper.chr, 0, mapper.chr.length);
+        return new PPU(new Cartridge(INesRom.parse(fileBytes), otherMapper));
     }
 
     private void tick(final int times){
@@ -1740,5 +1766,146 @@ public class PPUTest {
     /** Ticks past the end of the given scanline (dot 341), guaranteeing every one of its pixels (dots 1-256) was drawn. */
     private void tickThroughScanline(final int frame, final int scanline){
         tickTo(frame, scanline + 1, 0);
+    }
+
+    // --- snapshot/restore ---
+
+    /**
+     * Background tiles, 10 sprites on one line (so sprite overflow sets) including sprite 0 over an
+     * opaque background pixel (so sprite-0 hit sets), fine/coarse scroll, NMI enabled, both layers on.
+     */
+    private void buildBusyScene(){
+        writeChrTileUniform(1, 0xF0, 0x0F); //every pixel opaque, so sprite 0 is guaranteed to hit
+        writeChrTileUniform(3, 0x3C, 0xC3);
+        writeChrTileUniform(2, 0xFF, 0xAA);
+        for (int row = 0; row < 30; row++){
+            for (int col = 0; col < 32; col++){
+                writeNametableTile(col, row, (col + row) % 2 == 0 ? 1 : 3);
+            }
+        }
+        writeAttributeByte(1, 3, 0xE4);
+        for (int group = 0; group < 4; group++){
+            for (int entry = 1; entry < 4; entry++){
+                writeBackgroundPaletteEntry(group, entry, group * 4 + entry);
+                writeSpritePaletteEntry(group, entry, 0x20 + group * 4 + entry);
+            }
+        }
+        pushAllSpritesOffscreen();
+        for (int sprite = 0; sprite < 10; sprite++){
+            writeSprite(sprite, 100, 2, sprite % 4 | (sprite % 2 == 0 ? SPRITE_FLIP_HORIZONTAL : SPRITE_FLIP_VERTICAL), 8 + sprite * 20);
+        }
+        ppu.write(PPUSCROLL, 0x0B); //coarse X 1, fine X 3
+        ppu.write(PPUSCROLL, 0x05);
+        ppu.write(PPUCTRL, NMI_ENABLE);
+        enableBackgroundAndSpriteRendering();
+    }
+
+    /** Restores {@link #ppu}'s current state into a fresh PPU, then runs both for a frame and a bit, checking they never drift apart. */
+    private void assertRestoredPpuRunsInLockstep(){
+        final PPU restored = freshPpuSharingChr();
+        restored.restore(ppu.snapshot());
+        assertRecordsEqual(ppu.snapshot(), restored.snapshot());
+
+        final int ticksPerFrame = SCANLINES_PER_FRAME * DOTS_PER_SCANLINE / DOTS_PER_CPU_CYCLE;
+        for (int i = 0; i < ticksPerFrame + 1000; i++){
+            ppu.tick();
+            restored.tick();
+            assertEquals(ppu.consumeNmiEdge(), restored.consumeNmiEdge(), "NMI edge at tick " + i);
+            assertEquals(ppu.consumeFrameReady(), restored.consumeFrameReady(), "frame-ready at tick " + i);
+        }
+        assertRecordsEqual(ppu.snapshot(), restored.snapshot());
+        //a whole frame has been redrawn since the restore, so even the framebuffer (not in the snapshot) agrees
+        assertArrayEquals(ppu.framebuffer(), restored.framebuffer());
+    }
+
+    @Test
+    public void restoredMidScanlineWithSpritesInFlightRunsInLockstep(){
+        buildBusyScene();
+        tickTo(1, 101, 150); //sprites on this line already evaluated and part-drawn
+        final PpuSnapshot.SpritePipeline sprites = ppu.snapshot().sprites();
+        assertTrue(sprites.spriteOverflow() && sprites.spriteZeroHitFlag() && sprites.activeSpriteCount() == 8,
+                "test setup: expected a full, overflowing sprite line with a sprite-0 hit");
+
+        assertRestoredPpuRunsInLockstep();
+    }
+
+    @Test
+    public void restoredInVblankWithLatchesAndPendingFlagsSetRunsInLockstep(){
+        buildBusyScene();
+        tickTo(1, 241, 10); //vblank: NMI edge pending, frame ready, neither consumed yet
+        writeAddress(0x0010);
+        ppu.read(PPUDATA); //read buffer now holds CHR byte $0010
+        ppu.write(PPUADDR, 0x21); //write toggle left mid-pair
+        ppu.writeOamDma(new int[256]); //OAM DMA pending, stall not yet consumed
+        final PpuSnapshot.Timing timing = ppu.snapshot().timing();
+        assertTrue(timing.vblankFlag() && timing.nmiEdgePending() && timing.frameReady() && timing.oamDmaPending(),
+                "test setup: expected vblank with every one-shot flag still set");
+
+        assertRestoredPpuRunsInLockstep();
+    }
+
+    @Test
+    public void snapshotArraysAreCopiesNotLiveViews(){
+        final PpuSnapshot snapshot = ppu.snapshot();
+
+        writeSprite(0, 1, 2, 3, 4);
+        writeNametableTile(0, 0, 9);
+        writeBackgroundPaletteEntry(0, 1, 0x11);
+
+        assertEquals(0, snapshot.oam()[0]);
+        assertEquals(0, snapshot.nametableRam()[0]);
+        assertEquals(0, snapshot.paletteRam()[1]);
+    }
+
+    @Test
+    public void restoreRejectsWronglySizedArrays(){
+        final PpuSnapshot valid = ppu.snapshot();
+        final PpuSnapshot.SpritePipeline s = valid.sprites();
+
+        assertThrows(IllegalArgumentException.class, () -> ppu.restore(new PpuSnapshot(new int[10], valid.nametableRam(),
+                valid.paletteRam(), valid.timing(), valid.registers(), valid.background(), s)));
+        assertThrows(IllegalArgumentException.class, () -> ppu.restore(new PpuSnapshot(valid.oam(), valid.nametableRam(),
+                valid.paletteRam(), valid.timing(), valid.registers(), valid.background(),
+                new PpuSnapshot.SpritePipeline(s.secondaryOam(), s.secondaryOamCount(), s.secondaryOamSpriteZeroSlot(),
+                        s.spriteOverflow(), s.spriteZeroHitFlag(), s.patternLowBytes(), s.patternHighBytes(),
+                        s.attributes(), s.xPositions(), new boolean[3], s.activeSpriteCount()))));
+    }
+
+    /** {@code snapshot} with just one of its arrays, named by {@code which}, one element too short. */
+    private static PpuSnapshot withOneArrayTooShort(final PpuSnapshot snapshot, final String which){
+        final PpuSnapshot.SpritePipeline s = snapshot.sprites();
+        final java.util.function.UnaryOperator<int[]> shortenIf = array -> java.util.Arrays.copyOf(array, array.length - 1);
+        final PpuSnapshot.SpritePipeline sprites = new PpuSnapshot.SpritePipeline(
+                which.equals("secondaryOam") ? shortenIf.apply(s.secondaryOam()) : s.secondaryOam(),
+                s.secondaryOamCount(), s.secondaryOamSpriteZeroSlot(), s.spriteOverflow(), s.spriteZeroHitFlag(),
+                which.equals("patternLowBytes") ? shortenIf.apply(s.patternLowBytes()) : s.patternLowBytes(),
+                which.equals("patternHighBytes") ? shortenIf.apply(s.patternHighBytes()) : s.patternHighBytes(),
+                which.equals("attributes") ? shortenIf.apply(s.attributes()) : s.attributes(),
+                which.equals("xPositions") ? shortenIf.apply(s.xPositions()) : s.xPositions(),
+                which.equals("isSpriteZero") ? java.util.Arrays.copyOf(s.isSpriteZero(), s.isSpriteZero().length - 1) : s.isSpriteZero(),
+                s.activeSpriteCount());
+        return new PpuSnapshot(
+                which.equals("oam") ? shortenIf.apply(snapshot.oam()) : snapshot.oam(),
+                which.equals("nametableRam") ? shortenIf.apply(snapshot.nametableRam()) : snapshot.nametableRam(),
+                which.equals("paletteRam") ? shortenIf.apply(snapshot.paletteRam()) : snapshot.paletteRam(),
+                snapshot.timing(), snapshot.registers(), snapshot.background(), sprites);
+    }
+
+    /**
+     * CodeRabbit's PR #41 finding: whichever array is wrong, the restore is rejected before anything -
+     * including OAM, copied first - is overwritten. The snapshot's other contents differ from the
+     * PPU's current state, so a part-applied restore would show.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"oam", "nametableRam", "paletteRam", "secondaryOam", "patternLowBytes",
+            "patternHighBytes", "attributes", "xPositions", "isSpriteZero"})
+    public void rejectedRestoreChangesNothingWhicheverArrayIsWrong(final String which){
+        final PpuSnapshot freshState = ppu.snapshot();
+        writeSprite(0, 1, 2, 3, 4);
+        writeNametableTile(0, 0, 9);
+        final PpuSnapshot before = ppu.snapshot();
+
+        assertThrows(IllegalArgumentException.class, () -> ppu.restore(withOneArrayTooShort(freshState, which)));
+        assertRecordsEqual(before, ppu.snapshot());
     }
 }

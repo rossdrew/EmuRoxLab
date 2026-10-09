@@ -101,6 +101,41 @@ public class MOS6502 implements ClockWatcher {
         return opsInTicksStack.isEmpty() && stallCycles == 0;
     }
 
+    /**
+     * Captures the CPU's complete state - only meaningful at an instruction boundary, where nothing is
+     * left part-way through {@code opsInTicksStack} or a DMA stall to be lost.
+     *
+     * @throws IllegalStateException if not {@link #isAtInstructionBoundary()}
+     */
+    public MOS6502Snapshot snapshot(){
+        if (!isAtInstructionBoundary()){
+            throw new IllegalStateException("CPU state can only be captured at an instruction boundary");
+        }
+        return new MOS6502Snapshot(environment.getPC(), environment.getA(), environment.getX(), environment.getY(),
+                environment.getStackPointer(), environment.getIR(), environment.getADL(), environment.getADH(),
+                environment.negative, environment.signedOverflow, environment.breakFlag, environment.d,
+                environment.i, environment.zero, environment.carry,
+                environment.isIRQLineAsserted(), environment.isNMIPending());
+    }
+
+    /** Puts the CPU back exactly as {@code snapshot} captured it, abandoning anything part-way through. */
+    public void restore(final MOS6502Snapshot snapshot){
+        final MOS6502Environment restored = new MOS6502Environment(snapshot.carry(), snapshot.zero(), snapshot.negative(),
+                snapshot.signedOverflow(), snapshot.breakFlag(), snapshot.pc(), snapshot.ir(), snapshot.adl(), snapshot.adh(),
+                snapshot.a(), snapshot.x(), snapshot.y());
+        restored.d = snapshot.decimal();
+        restored.i = snapshot.interruptDisable();
+        restored.setStackPointer(snapshot.stackPointer());
+        restored.setIRQLine(snapshot.irqLineAsserted());
+        if (snapshot.nmiPending()){
+            restored.signalNMI();
+        }
+        environment = restored;
+        alu = new MOS6502ALU(environment); //the ALU reads/writes flags through its own environment reference
+        opsInTicksStack.clear();
+        stallCycles = 0;
+    }
+
     @Override
     public void tick() {
         if (stallCycles > 0){

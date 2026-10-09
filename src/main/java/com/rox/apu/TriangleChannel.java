@@ -132,4 +132,23 @@ public class TriangleChannel implements ClockWatcher {
     boolean isEnabled(){
         return enabled;
     }
+
+    /** Everything a {@link TriangleChannel} needs to carry on exactly where it was, sub-units included. */
+    public record Snapshot(int timerPeriod, int timerCounter, int sequencePosition, boolean enabled,
+                           LinearCounter.Snapshot linearCounter, LengthCounter.Snapshot lengthCounter) {
+    }
+
+    public Snapshot snapshot(){
+        return new Snapshot(timerPeriod, timerCounter, sequencePosition, enabled, linearCounter.snapshot(),
+                lengthCounter.snapshot());
+    }
+
+    public void restore(final Snapshot snapshot){
+        timerPeriod = snapshot.timerPeriod();
+        timerCounter = snapshot.timerCounter();
+        sequencePosition = snapshot.sequencePosition();
+        enabled = snapshot.enabled();
+        linearCounter.restore(snapshot.linearCounter());
+        lengthCounter.restore(snapshot.lengthCounter());
+    }
 }

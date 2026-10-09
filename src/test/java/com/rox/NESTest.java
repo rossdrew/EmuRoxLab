@@ -3,17 +3,22 @@ package com.rox;
 import com.rox.apu.APU;
 import com.rox.audio.AudioOutput;
 import com.rox.cartridge.Cartridge;
+import com.rox.cartridge.NromMapperSnapshot;
 import com.rox.cartridge.RomLoader;
 import com.rox.clock.Clock;
 import com.rox.input.Controller;
 import com.rox.input.ControllerConfiguration;
+import com.rox.ppu.PpuSnapshot;
+import com.rox.save.SystemSnapshot;
 import com.rox.video.VideoOutput;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.rox.RecordAssertions.assertRecordsEqual;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
@@ -106,6 +111,33 @@ public class NESTest {
         fileBytes[nmiVectorOffset + 1] = (byte) 0x91; //NMI vector -> $9100
 
         return RomLoader.fromBytes(fileBytes);
+    }
+
+    /**
+     * Reset vector -> $9000: INX; STX $10 (RAM); STX $2001 (PPUMASK); STX $6000 (PRG-RAM); JMP $9000 -
+     * every loop changes CPU, RAM, PPU and mapper state.
+     * {@code variant} only changes an unused PRG byte, giving a different ROM with identical behaviour.
+     */
+    private static Cartridge busyLoopCartridge(final int variant){
+        final byte[] header = {'N', 'E', 'S', 0x1A, 0x01, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0};
+        final byte[] fileBytes = new byte[header.length + PRG_ROM_SIZE];
+        System.arraycopy(header, 0, fileBytes, 0, header.length);
+        final int programOffset = header.length + ((0x9000 - 0x8000) % PRG_ROM_SIZE);
+        final byte[] program = {(byte) 0xE8, (byte) 0x86, 0x10, (byte) 0x8E, 0x01, 0x20, (byte) 0x8E, 0x00, 0x60,
+                0x4C, 0x00, (byte) 0x90};
+        System.arraycopy(program, 0, fileBytes, programOffset, program.length);
+        final int resetVectorOffset = header.length + ((0xFFFC - 0x8000) % PRG_ROM_SIZE);
+        fileBytes[resetVectorOffset] = 0x00;
+        fileBytes[resetVectorOffset + 1] = (byte) 0x90;
+        fileBytes[header.length + 0x100] = (byte) variant;
+        return RomLoader.fromBytes(fileBytes);
+    }
+
+    /** An NES on a manually-ticked clock, reset to its cartridge's reset vector as powerOn() would. */
+    private static NES manuallyTickedNes(final Cartridge cartridge){
+        final NES nes = new NES(mock(AudioOutput.class), cartridge, new ManuallyTickedClock());
+        nes.cpu().reset();
+        return nes;
     }
 
     @Test
@@ -630,5 +662,125 @@ public class NESTest {
 
         assertFalse(thread.isAlive(), "a parked clock must not keep powerOn() blocked after powerOff()");
         verify(audioOutput).stop();
+    }
+
+    // --- snapshots ---
+
+    /**
+     * Behavioural proof the whole-system snapshot is complete: a second NES restored from it runs in
+     * lockstep with the original - CPU, RAM, PPU, APU and mapper all compared again afterwards.
+     */
+    @Test
+    public void restoredNesRunsInLockstepWithTheOriginal(){
+        final NES original = manuallyTickedNes(busyLoopCartridge(0));
+        for (int i = 0; i < 50_000 || !original.cpu().isAtInstructionBoundary(); i++){
+            original.clock().tick();
+        }
+        final NES restored = manuallyTickedNes(busyLoopCartridge(0));
+
+        restored.restoreSnapshot(original.captureSnapshot());
+        assertRecordsEqual(original.captureSnapshot(), restored.captureSnapshot());
+
+        for (int i = 0; i < 100_000 || !original.cpu().isAtInstructionBoundary(); i++){
+            original.clock().tick();
+            restored.clock().tick();
+        }
+        final SystemSnapshot after = original.captureSnapshot();
+        assertRecordsEqual(after, restored.captureSnapshot());
+        assertTrue(after.ram()[0x10] != 0 && after.mapper().prgRam()[0] != 0,
+                "test setup: expected the program to have been writing RAM and PRG-RAM");
+    }
+
+    @Test
+    public void restoreRefusesASnapshotFromADifferentCartridge(){
+        final SystemSnapshot snapshot = manuallyTickedNes(busyLoopCartridge(1)).captureSnapshot();
+        final NES nes = manuallyTickedNes(busyLoopCartridge(2));
+
+        assertThrows(IllegalArgumentException.class, () -> nes.restoreSnapshot(snapshot));
+    }
+
+    @Test
+    public void captureAndRestoreAreRefusedWhileRunningButAllowedOncePaused() throws InterruptedException {
+        final AudioOutput audioOutput = mock(AudioOutput.class);
+        final NES nes = new NES(audioOutput, busyLoopCartridge(0));
+        final Thread thread = new Thread(nes::powerOn);
+        thread.start();
+        verify(audioOutput, timeout(2000)).start();
+        try {
+            //checked by message: the CPU's own "not at an instruction boundary" refusal is the same type
+            assertTrue(assertThrows(IllegalStateException.class, nes::captureSnapshot).getMessage().contains("Pause"));
+
+            assertTrue(nes.pause());
+            final SystemSnapshot snapshot = nes.captureSnapshot();
+            nes.restoreSnapshot(snapshot);
+            nes.resume();
+
+            assertTrue(assertThrows(IllegalStateException.class, () -> nes.restoreSnapshot(snapshot)).getMessage().contains("Pause"));
+        } finally {
+            nes.powerOff();
+            thread.join(5000);
+        }
+        assertFalse(thread.isAlive());
+    }
+
+    /** Same PRG-ROM, one CHR-ROM bank whose first byte is {@code chrByte}. */
+    private static Cartridge cartridgeWithChrRom(final int chrByte){
+        final byte[] header = {'N', 'E', 'S', 0x1A, 0x01, 0x01, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0};
+        final byte[] fileBytes = new byte[header.length + PRG_ROM_SIZE + 0x2000];
+        System.arraycopy(header, 0, fileBytes, 0, header.length);
+        fileBytes[header.length + PRG_ROM_SIZE] = (byte) chrByte;
+        return RomLoader.fromBytes(fileBytes);
+    }
+
+    @Test
+    public void restoreRefusesASnapshotFromACartridgeDifferingOnlyInChrRom(){
+        final SystemSnapshot snapshot = new NES(mock(AudioOutput.class), cartridgeWithChrRom(1), new ManuallyTickedClock()).captureSnapshot();
+        final NES nes = new NES(mock(AudioOutput.class), cartridgeWithChrRom(2), new ManuallyTickedClock());
+
+        assertThrows(IllegalArgumentException.class, () -> nes.restoreSnapshot(snapshot));
+    }
+
+    /**
+     * CodeRabbit's PR #41 finding: a CRC-valid save file can still decode to wrongly-shaped parts. Every
+     * part is checked before any is restored, so the mapper/RAM restored ahead of the bad part must
+     * not have been touched.
+     */
+    @Test
+    public void restoreRejectingAMalformedPartChangesNothing(){
+        final NES nes = manuallyTickedNes(busyLoopCartridge(0));
+        for (int i = 0; i < 20_000 || !nes.cpu().isAtInstructionBoundary(); i++){
+            nes.clock().tick();
+        }
+        final SystemSnapshot before = nes.captureSnapshot();
+        final SystemSnapshot fresh = manuallyTickedNes(busyLoopCartridge(0)).captureSnapshot();
+        final PpuSnapshot ppu = fresh.ppu();
+        final SystemSnapshot badRam = new SystemSnapshot(fresh.romCrc32(), fresh.cpu(), fresh.ppu(), fresh.apu(),
+                new int[0x800], fresh.mapper());
+        final SystemSnapshot badPpu = new SystemSnapshot(fresh.romCrc32(), fresh.cpu(),
+                new PpuSnapshot(new int[3], ppu.nametableRam(), ppu.paletteRam(), ppu.timing(), ppu.registers(),
+                        ppu.background(), ppu.sprites()),
+                fresh.apu(), fresh.ram(), fresh.mapper());
+
+        final SystemSnapshot badMapper = new SystemSnapshot(fresh.romCrc32(), fresh.cpu(), fresh.ppu(), fresh.apu(),
+                fresh.ram(), new NromMapperSnapshot(new int[0x1000], new int[0x2000]));
+
+        assertThrows(IllegalArgumentException.class, () -> nes.restoreSnapshot(badRam));
+        assertThrows(IllegalArgumentException.class, () -> nes.restoreSnapshot(badPpu));
+        assertThrows(IllegalArgumentException.class, () -> nes.restoreSnapshot(badMapper));
+
+        assertRecordsEqual(before, nes.captureSnapshot());
+    }
+
+    /** CodeRabbit's PR #41 aside: a merely-stopped clock (unlike a pause) can leave the CPU mid-instruction. */
+    @Test
+    public void captureWithTheClockStoppedMidInstructionFinishesThatInstructionFirst(){
+        final NES nes = manuallyTickedNes(busyLoopCartridge(0));
+        nes.clock().tick(); //INX fetched - 1 cycle still to go
+        assertFalse(nes.cpu().isAtInstructionBoundary(), "test setup: expected to be mid-instruction");
+
+        final SystemSnapshot snapshot = nes.captureSnapshot();
+
+        assertTrue(nes.cpu().isAtInstructionBoundary());
+        assertEquals(1, snapshot.cpu().x(), "the in-flight INX should have completed");
     }
 }
