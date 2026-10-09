@@ -8,6 +8,8 @@ import net.jqwik.api.*;
 import net.jqwik.api.lifecycle.BeforeTry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.ParameterizedTest;
 import org.mockito.ArgumentCaptor;
 
 import static com.rox.mem.NESMemoryBus.CARTRIDGE_START_ADDRESS;
@@ -98,11 +100,11 @@ public class NESMemoryBusTest extends Arbitraries {
     }
 
     @Property
-    public void writeBelowPpuRangeHitsRamUntouched(@ForAll("belowPpuRange") int address,
-                                                  @ForAll("byteValue") int value){
+    public void writeBelowPpuRangeHitsRamMirroredDownTo2KB(@ForAll("belowPpuRange") int address,
+                                                         @ForAll("byteValue") int value){
         memoryBus.write(address, value);
 
-        verify(ramBus, times(1)).write(address, value);
+        verify(ramBus, times(1)).write(address & 0x07FF, value);
         verifyNoInteractions(io);
         verifyNoInteractions(cartridge);
         verifyNoInteractions(ppu);
@@ -120,11 +122,11 @@ public class NESMemoryBusTest extends Arbitraries {
     }
 
     @Property
-    public void writeAboveIORangeBelowCartridgeRangeHitsRamUntouched(
+    public void writeAboveIORangeBelowCartridgeRangeGoesNowhere(
             @ForAll("aboveIORangeBelowCartridgeRange") int address, @ForAll("byteValue") int value){
         memoryBus.write(address, value);
 
-        verify(ramBus, times(1)).write(address, value);
+        verifyNoInteractions(ramBus);
         verifyNoInteractions(io);
         verifyNoInteractions(cartridge);
         verifyNoInteractions(ppu);
@@ -153,11 +155,11 @@ public class NESMemoryBusTest extends Arbitraries {
     }
 
     @Property
-    public void readBelowPpuRangeHitsRamUntouched(@ForAll("belowPpuRange") int address){
-        when(ramBus.read(address)).thenReturn(0x42);
+    public void readBelowPpuRangeHitsRamMirroredDownTo2KB(@ForAll("belowPpuRange") int address){
+        when(ramBus.read(address & 0x07FF)).thenReturn(0x42);
 
         assertEquals(0x42, memoryBus.read(address));
-        verify(ramBus, times(1)).read(address);
+        verify(ramBus, times(1)).read(address & 0x07FF);
         verifyNoInteractions(io);
         verifyNoInteractions(cartridge);
         verifyNoInteractions(ppu);
@@ -175,12 +177,10 @@ public class NESMemoryBusTest extends Arbitraries {
     }
 
     @Property
-    public void readAboveIORangeBelowCartridgeRangeHitsRamUntouched(
+    public void readAboveIORangeBelowCartridgeRangeIsUnmapped(
             @ForAll("aboveIORangeBelowCartridgeRange") int address){
-        when(ramBus.read(address)).thenReturn(0x42);
-
-        assertEquals(0x42, memoryBus.read(address));
-        verify(ramBus, times(1)).read(address);
+        assertEquals(0, memoryBus.read(address));
+        verifyNoInteractions(ramBus);
         verifyNoInteractions(io);
         verifyNoInteractions(cartridge);
         verifyNoInteractions(ppu);
@@ -277,10 +277,10 @@ public class NESMemoryBusTest extends Arbitraries {
     }
 
     @Test
-    public void writeJustBelowPpuRangeHitsRam(){
+    public void writeJustBelowPpuRangeHitsTheLastByteOfRamThroughItsLastMirror(){
         memoryBus.write(PPU_START_ADDRESS - 1, 0x11);
 
-        verify(ramBus, times(1)).write(PPU_START_ADDRESS - 1, 0x11);
+        verify(ramBus, times(1)).write(0x07FF, 0x11);
         verifyNoInteractions(io);
         verifyNoInteractions(cartridge);
         verifyNoInteractions(ppu);
@@ -317,20 +317,20 @@ public class NESMemoryBusTest extends Arbitraries {
     }
 
     @Test
-    public void writeJustAboveIORangeHitsRam(){
+    public void writeJustAboveIORangeGoesNowhere(){
         memoryBus.write(0x4018, 0x11);
 
-        verify(ramBus, times(1)).write(0x4018, 0x11);
+        verifyNoInteractions(ramBus);
         verifyNoInteractions(io);
         verifyNoInteractions(cartridge);
         verifyNoInteractions(ppu);
     }
 
     @Test
-    public void writeJustBelowCartridgeRangeHitsRam(){
+    public void writeJustBelowCartridgeRangeGoesNowhere(){
         memoryBus.write(CARTRIDGE_START_ADDRESS - 1, 0x11);
 
-        verify(ramBus, times(1)).write(CARTRIDGE_START_ADDRESS - 1, 0x11);
+        verifyNoInteractions(ramBus);
         verifyNoInteractions(io);
         verifyNoInteractions(cartridge);
         verifyNoInteractions(ppu);
@@ -391,5 +391,40 @@ public class NESMemoryBusTest extends Arbitraries {
         verify(cartridge, times(0x100)).read(anyInt());
         verifyNoInteractions(ramBus);
         verifyNoInteractions(io);
+    }
+
+    /** Real hardware never decodes A11/A12 for RAM - each 2KB mirror lands on the same byte. */
+    @ParameterizedTest(name = "${0} -> ${1}")
+    @CsvSource({"0042, 0042", "0842, 0042", "1042, 0042", "1842, 0042", "07FF, 07FF", "0800, 0000", "1FFF, 07FF"})
+    public void ramMirrorsResolveToTheSame2KB(final String hexAddress, final String hexRamAddress){
+        final int address = Integer.parseInt(hexAddress, 16);
+        final int ramAddress = Integer.parseInt(hexRamAddress, 16);
+        when(ramBus.read(ramAddress)).thenReturn(0x5A);
+
+        memoryBus.write(address, 0x11);
+        assertEquals(0x5A, memoryBus.read(address));
+
+        verify(ramBus).write(ramAddress, 0x11);
+        verify(ramBus).read(ramAddress);
+    }
+
+    @Test
+    public void readJustAboveIORangeIsUnmapped(){
+        assertEquals(0, memoryBus.read(0x4018));
+        verifyNoInteractions(ramBus);
+        verifyNoInteractions(io);
+        verifyNoInteractions(cartridge);
+    }
+
+    /** End to end with real RAM: a byte written through one mirror reads back through every other. */
+    @Test
+    public void writeThroughOneMirrorReadsBackThroughAllOfThem(){
+        final NESMemoryBus bus = new NESMemoryBus(new MemoryBus8Bit(new RAM(0x800)), io, cartridge, ppu, ControllerConfiguration.NONE);
+
+        bus.write(0x1842, 0x99);
+
+        assertEquals(0x99, bus.read(0x0042));
+        assertEquals(0x99, bus.read(0x0842));
+        assertEquals(0x99, bus.read(0x1042));
     }
 }

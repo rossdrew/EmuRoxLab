@@ -22,6 +22,8 @@ import java.util.zip.CRC32;
 
 public class NES {
     private static final long CPU_HZ = 1_789_773;
+    /** The NES's 2KB of CPU RAM - NESMemoryBus mirrors it across $0000-$1FFF. */
+    private static final int CPU_RAM_SIZE = NESMemoryBus.CPU_RAM_MIRROR_MASK + 1;
     private static final long AUDIO_SAMPLE_RATE_HZ = 44_100;
     //gives the JVM's JIT time to compile the emulation's hot per-cycle tick loop, and lets the
     //ring buffer build up a cushion, before audio playback (and thus underrun risk) begins - see
@@ -82,7 +84,7 @@ public class NES {
     /** Test-only entry point for injecting a fake {@link Clock} alongside a real {@link ControllerConfiguration}. */
     NES(final AudioOutput audioOutput, final VideoOutput videoOutput, final ControllerConfiguration controllers,
         final Cartridge cartridge, final Clock clock){
-        this.ram = new RAM(0x10000);
+        this.ram = new RAM(CPU_RAM_SIZE);
         this.cartridge = cartridge;
         final MemoryBus ramBus = new MemoryBus8Bit(ram);
         //DMC's own sample-address generator (see DMCChannel) only ever produces addresses in
