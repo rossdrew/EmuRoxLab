@@ -61,4 +61,18 @@ public class ParityCountdownFrequencyDivider implements ClockWatcher {
             }
         }
     }
+
+    /** Everything a {@link ParityCountdownFrequencyDivider} needs to carry on exactly where it was (its action is wiring, not state). */
+    public record Snapshot(boolean parityGate, int countdown, int counterPeriod) {
+    }
+
+    public Snapshot snapshot(){
+        return new Snapshot(parityGate, countdown, counterPeriod);
+    }
+
+    public void restore(final Snapshot snapshot){
+        parityGate = snapshot.parityGate();
+        countdown = snapshot.countdown();
+        counterPeriod = snapshot.counterPeriod();
+    }
 }

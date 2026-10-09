@@ -154,4 +154,23 @@ public class NoiseChannel implements ClockWatcher {
     boolean isEnabled(){
         return enabled;
     }
+
+    /** Everything a {@link NoiseChannel} needs to carry on exactly where it was, sub-units included. */
+    public record Snapshot(boolean mode, boolean enabled, int shiftRegister, Envelope.Snapshot envelope,
+                           LengthCounter.Snapshot lengthCounter, ParityCountdownFrequencyDivider.Snapshot frequencyDivider) {
+    }
+
+    public Snapshot snapshot(){
+        return new Snapshot(mode, enabled, shiftRegister, envelope.snapshot(), lengthCounter.snapshot(),
+                frequencyDivider.snapshot());
+    }
+
+    public void restore(final Snapshot snapshot){
+        mode = snapshot.mode();
+        enabled = snapshot.enabled();
+        shiftRegister = snapshot.shiftRegister();
+        envelope.restore(snapshot.envelope());
+        lengthCounter.restore(snapshot.lengthCounter());
+        frequencyDivider.restore(snapshot.frequencyDivider());
+    }
 }

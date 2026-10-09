@@ -195,4 +195,20 @@ public class APU implements ClockWatcher, MemoryBus {
     private static int bitIf(boolean condition, int bitMask){
         return condition ? bitMask : 0;
     }
+
+    /** Every channel's and the frame sequencer's complete state - see {@link ApuSnapshot}. */
+    public ApuSnapshot snapshot(){
+        return new ApuSnapshot(frameSequencer.snapshot(), pulse1.snapshot(), pulse2.snapshot(), triangle.snapshot(),
+                noise.snapshot(), dmc.snapshot());
+    }
+
+    /** Puts every channel and the frame sequencer back exactly as {@code snapshot} captured them. */
+    public void restore(final ApuSnapshot snapshot){
+        frameSequencer.restore(snapshot.frameSequencer());
+        pulse1.restore(snapshot.pulse1());
+        pulse2.restore(snapshot.pulse2());
+        triangle.restore(snapshot.triangle());
+        noise.restore(snapshot.noise());
+        dmc.restore(snapshot.dmc());
+    }
 }

@@ -88,4 +88,21 @@ public class Sweep {
         }
         return onesComplementNegate ? currentPeriod - changeAmount - 1 : currentPeriod - changeAmount;
     }
+
+    /** Everything a {@link Sweep} needs to carry on exactly where it was (its negate style is fixed by construction, not state). */
+    public record Snapshot(boolean enabled, int periodReload, boolean negate, int shiftCount, boolean reloadRequested, int divider) {
+    }
+
+    public Snapshot snapshot(){
+        return new Snapshot(enabled, periodReload, negate, shiftCount, reloadRequested, divider);
+    }
+
+    public void restore(final Snapshot snapshot){
+        enabled = snapshot.enabled();
+        periodReload = snapshot.periodReload();
+        negate = snapshot.negate();
+        shiftCount = snapshot.shiftCount();
+        reloadRequested = snapshot.reloadRequested();
+        divider = snapshot.divider();
+    }
 }
