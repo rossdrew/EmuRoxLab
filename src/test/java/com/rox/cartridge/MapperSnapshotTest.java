@@ -2,15 +2,10 @@ package com.rox.cartridge;
 
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.RecordComponent;
-import java.util.Objects;
-
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static com.rox.RecordAssertions.assertRecordsEqual;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Snapshot/restore for every {@link Mapper}: each round trip goes into a <em>fresh</em> board, with the
@@ -37,25 +32,6 @@ public class MapperSnapshotTest {
         return INesRom.parse(fileBytes);
     }
 
-    /** Record equality compares arrays by reference - this compares every component by value instead. */
-    private static void assertSnapshotsEqual(final MapperSnapshot expected, final MapperSnapshot actual){
-        assertSame(expected.getClass(), actual.getClass());
-        for (final RecordComponent component : expected.getClass().getRecordComponents()){
-            try {
-                final Object expectedValue = component.getAccessor().invoke(expected);
-                final Object actualValue = component.getAccessor().invoke(actual);
-                if (expectedValue instanceof int[] expectedArray){
-                    assertArrayEquals(expectedArray, (int[]) actualValue, component.getName());
-                } else {
-                    assertTrue(Objects.equals(expectedValue, actualValue),
-                            component.getName() + ": expected " + expectedValue + " but was " + actualValue);
-                }
-            } catch (ReflectiveOperationException e){
-                fail(e);
-            }
-        }
-    }
-
     private static void writeFiveBits(final Mmc1Mapper mapper, final int address, final int fiveBitValue){
         for (int i = 0; i < 5; i++){
             mapper.write(address, (fiveBitValue >> i) & 1);
@@ -73,7 +49,7 @@ public class MapperSnapshotTest {
 
         restored.restore(original.snapshot());
 
-        assertSnapshotsEqual(original.snapshot(), restored.snapshot());
+        assertRecordsEqual(original.snapshot(), restored.snapshot());
         assertEquals(0x12, restored.read(0x6000));
         assertEquals(0x34, restored.readChr(0x0010));
     }
@@ -171,7 +147,7 @@ public class MapperSnapshotTest {
 
         restored.restore(original.snapshot());
 
-        assertSnapshotsEqual(original.snapshot(), restored.snapshot());
+        assertRecordsEqual(original.snapshot(), restored.snapshot());
     }
 
     @Test
@@ -187,7 +163,7 @@ public class MapperSnapshotTest {
         }
 
         assertEquals(original.read(0x8000), restored.read(0x8000));
-        assertSnapshotsEqual(original.snapshot(), restored.snapshot());
+        assertRecordsEqual(original.snapshot(), restored.snapshot());
     }
 
     // --- MMC3 ---
@@ -216,7 +192,7 @@ public class MapperSnapshotTest {
 
         restored.restore(original.snapshot());
 
-        assertSnapshotsEqual(original.snapshot(), restored.snapshot());
+        assertRecordsEqual(original.snapshot(), restored.snapshot());
         assertEquals(original.nametableMirroring(), restored.nametableMirroring());
         for (int address = 0x8000; address < 0x10000; address += 0x2000){
             assertEquals(original.read(address), restored.read(address), String.format("PRG window at $%04X", address));
@@ -235,7 +211,7 @@ public class MapperSnapshotTest {
 
         restored.restore(original.snapshot());
 
-        assertSnapshotsEqual(original.snapshot(), restored.snapshot());
+        assertRecordsEqual(original.snapshot(), restored.snapshot());
         assertTrue(restored.isIrqAsserted());
     }
 
