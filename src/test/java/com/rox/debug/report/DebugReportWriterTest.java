@@ -160,6 +160,8 @@ public class DebugReportWriterTest {
         assertTrue(state.contains("> $8123  JMP $9000\n  $9000  INX\n"), state);
         assertTrue(state.contains("PPUCTRL: $80  PPUMASK: $00  OAMADDR: $11\n"), state);
         assertTrue(state.contains("write toggle: 0\n"), state);
+        assertTrue(state.contains("VBlank: no\n"), state);
+        assertTrue(state.contains("Sprite overflow: no  Sprite 0 hit: no\n"), state);
         assertTrue(state.contains("R0: $02\nIRQ latch: $20\n"), state);
     }
 
@@ -170,10 +172,16 @@ public class DebugReportWriterTest {
                 false, true, false, true, false, true, false, true, false);
         final PpuSnapshot ppu = sample.ppu();
         final PpuSnapshot.Registers r = ppu.registers();
-        final PpuSnapshot toggledPpu = new PpuSnapshot(ppu.oam(), ppu.nametableRam(), ppu.paletteRam(), ppu.timing(),
+        final PpuSnapshot.Timing t = ppu.timing();
+        final PpuSnapshot.SpritePipeline sp = ppu.sprites();
+        final PpuSnapshot toggledPpu = new PpuSnapshot(ppu.oam(), ppu.nametableRam(), ppu.paletteRam(),
+                new PpuSnapshot.Timing(t.dot(), t.scanline(), true, t.previousNmiLine(), t.nmiEdgePending(), t.frameReady(), t.oamDmaPending()),
                 new PpuSnapshot.Registers(r.control(), r.mask(), r.oamAddress(), true, r.temporaryVramAddress(),
                         r.currentVramAddress(), r.fineXScroll(), r.readBuffer()),
-                ppu.background(), ppu.sprites());
+                ppu.background(),
+                new PpuSnapshot.SpritePipeline(sp.secondaryOam(), sp.secondaryOamCount(), sp.secondaryOamSpriteZeroSlot(),
+                        true, true, sp.patternLowBytes(), sp.patternHighBytes(), sp.attributes(), sp.xPositions(),
+                        sp.isSpriteZero(), sp.activeSpriteCount()));
         final SystemSnapshot invertedCpu = new SystemSnapshot(sample.romCrc32(), inverted, toggledPpu, sample.apu(),
                 sample.ram(), sample.mapper());
 
@@ -183,6 +191,8 @@ public class DebugReportWriterTest {
         assertTrue(state.contains("IRQ line: asserted  NMI pending: no\n"), state);
         assertTrue(state.contains("(fixed mapping, no bank registers)\n"), state);
         assertTrue(state.contains("write toggle: 1\n"), state);
+        assertTrue(state.contains("VBlank: yes\n"), state);
+        assertTrue(state.contains("Sprite overflow: yes  Sprite 0 hit: yes\n"), state);
     }
 
     @Test
