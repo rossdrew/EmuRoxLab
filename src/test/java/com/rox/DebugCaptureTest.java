@@ -89,25 +89,23 @@ public class DebugCaptureTest {
     @ParameterizedTest(name = "${0}")
     @CsvSource({
             "0000, 0x11",   //RAM
-            "1FFF, 0x22",   //last byte before the PPU registers
+            "07FF, 0x22",   //last byte of the 2KB
+            "0800, 0x11",   //RAM mirrors, as NESMemoryBus resolves them
+            "1FFF, 0x22",
             "2000, 0xFF",   //PPU registers: placeholder
             "3FFF, 0xFF",
             "4000, 0xFF",   //APU/IO registers: placeholder
             "4017, 0xFF",
-            "4018, 0x33",   //back to RAM, as NESMemoryBus routes it
-            "5FFF, 0x44",
+            "4018, 0x00",   //unmapped, as NESMemoryBus treats it
+            "5FFF, 0x00",
             "6000, 0x66",   //cartridge PRG-RAM, from its very first byte
             "8000, 0x42",   //cartridge PRG-ROM
             "C000, 0x42",   //16KB PRG mirrored
     })
     public void peekRoutesLikeTheBusButNeverTouchesRegisters(final String hexAddress, final String hexExpected){
-        final int[] ram = new int[0x10000];
+        final int[] ram = new int[0x800];
         ram[0x0000] = 0x11;
-        ram[0x1FFF] = 0x22;
-        ram[0x2000] = 0x99; //must never be returned: the bus would route this address to the PPU
-        ram[0x4018] = 0x33;
-        ram[0x5FFF] = 0x44;
-        ram[0x6000] = 0x55; //must never be returned: the bus would route this address to the cartridge
+        ram[0x07FF] = 0x22;
         final Cartridge cartridge = cartridge();
         cartridge.write(0x6000, 0x66);
         final IntUnaryOperator peek = DebugCapture.sideEffectFreePeek(ram, cartridge);

@@ -29,9 +29,9 @@ public final class SystemSnapshots {
         for (int i = 0; i < 1000; i++){
             ppu.tick();
         }
-        final RAM ram = new RAM(0x10000);
+        final RAM ram = new RAM(0x800); //the NES's 2KB of CPU RAM
         ram.write(0x0123, 0x78);
-        final APU apu = new APU(new MemoryBus8Bit(ram));
+        final APU apu = new APU(new MemoryBus8Bit(new RAM(0x10000))); //DMC sample bus - not part of the snapshot's RAM
         apu.write(0x4015, 0x0F);
         apu.write(0x4003, 0x08);
         final MOS6502Snapshot cpu = new MOS6502Snapshot(0x8123, 1, 2, 3, 0xFD, 0x4C, 0x23, 0x81,

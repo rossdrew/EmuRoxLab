@@ -37,13 +37,12 @@ public class DebugReportWriterTest {
         return frame;
     }
 
-    /** {@link SystemSnapshots#sample()} with RAM marked either side of the dumped $0000-$1FFF window. */
+    /** {@link SystemSnapshots#sample()} with its 2KB of RAM marked at both ends. */
     private static SystemSnapshot snapshot(){
         final SystemSnapshot sample = SystemSnapshots.sample();
         final int[] ram = sample.ram().clone();
         ram[0x0000] = 0x11;
-        ram[0x1FFF] = 0xAB;
-        ram[0x2000] = 0xCD; //outside the dump - the PPU register range on a real bus
+        ram[0x07FF] = 0xAB;
         return new SystemSnapshot(sample.romCrc32(), sample.cpu(), sample.ppu(), sample.apu(), ram, sample.mapper());
     }
 
@@ -112,16 +111,15 @@ public class DebugReportWriterTest {
     }
 
     @Test
-    public void dumpsTheCpuRamWindowOnly(@TempDir final Path tempDir) throws IOException {
-        DebugReportWriter.write(tempDir, report());
+    public void dumpsAllOfCpuRam(@TempDir final Path tempDir) throws IOException {
+        final DebugReport report = report();
 
-        final int[] ram = readBytes(tempDir.resolve("ram.bin"));
-        assertEquals(0x2000, ram.length);
-        assertEquals(0x11, ram[0x0000]);
-        assertEquals(0xAB, ram[0x1FFF]);
+        DebugReportWriter.write(tempDir, report);
+
+        assertArrayEquals(report.snapshot().ram(), readBytes(tempDir.resolve("ram.bin")));
         final String hex = Files.readString(tempDir.resolve("ram.hex.txt"));
         assertTrue(hex.startsWith("0000: 11 00"), hex.substring(0, 20));
-        assertTrue(hex.endsWith("1FF0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 AB\n"));
+        assertTrue(hex.endsWith("07F0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 AB\n"));
     }
 
     @Test
