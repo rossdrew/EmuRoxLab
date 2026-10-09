@@ -224,9 +224,7 @@ public class NES {
             return false;
         }
         //safe to tick from this thread: a true pause() guarantees the clock thread is parked
-        while (!cpu.isAtInstructionBoundary()){
-            clock.tick();
-        }
+        finishInFlightInstruction();
         audioOutput.pause();
         paused = true;
         return true;
@@ -241,8 +239,10 @@ public class NES {
 
     /**
      * The whole system's state, for a save state or debug capture. Only while {@link #pause()}d (or
-     * before/after the clock runs at all) - otherwise the clock thread would be changing it mid-copy,
-     * and the CPU could be part-way through an instruction.
+     * before/after the clock runs at all) - otherwise the clock thread would be changing it mid-copy.
+     * A clock that simply stopped (e.g. after {@link #powerOff()}) can leave the CPU part-way through an
+     * instruction, unlike a pause; that instruction is finished first, so this may advance the system
+     * by a few cycles.
      *
      * <p>Not captured: controller shift registers (a pause landing mid-controller-read could misread
      * one frame of input after a restore), and the audio resampler's fractional position.
@@ -251,6 +251,7 @@ public class NES {
      */
     public SystemSnapshot captureSnapshot(){
         requireNothingTicking();
+        finishInFlightInstruction();
         return new SystemSnapshot(romCrc32(cartridge), cpu.snapshot(), ppu.snapshot(), apu.snapshot(), ram.snapshot(),
                 cartridge.snapshot());
     }
@@ -280,6 +281,13 @@ public class NES {
         ppu.restore(snapshot.ppu());
         apu.restore(snapshot.apu());
         cpu.restore(snapshot.cpu());
+    }
+
+    /** Ticks until the CPU is between instructions - callers must already know nothing else is ticking. */
+    private void finishInFlightInstruction(){
+        while (!cpu.isAtInstructionBoundary()){
+            clock.tick();
+        }
     }
 
     private void requireNothingTicking(){

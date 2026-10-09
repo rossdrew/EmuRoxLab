@@ -770,4 +770,17 @@ public class NESTest {
 
         assertRecordsEqual(before, nes.captureSnapshot());
     }
+
+    /** CodeRabbit's PR #41 aside: a merely-stopped clock (unlike a pause) can leave the CPU mid-instruction. */
+    @Test
+    public void captureWithTheClockStoppedMidInstructionFinishesThatInstructionFirst(){
+        final NES nes = manuallyTickedNes(busyLoopCartridge(0));
+        nes.clock().tick(); //INX fetched - 1 cycle still to go
+        assertFalse(nes.cpu().isAtInstructionBoundary(), "test setup: expected to be mid-instruction");
+
+        final SystemSnapshot snapshot = nes.captureSnapshot();
+
+        assertTrue(nes.cpu().isAtInstructionBoundary());
+        assertEquals(1, snapshot.cpu().x(), "the in-flight INX should have completed");
+    }
 }
