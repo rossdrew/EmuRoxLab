@@ -77,15 +77,28 @@ public class NesCpuDebugSourceTest {
         assertEquals(List.of("STX $10", "JMP $9000", "INX", "STX $10", "JMP $9000", "INX"), formatted(recent));
     }
 
+    /** Read live, the CPU is usually mid-instruction, with the PC already pointing at operand bytes. */
     @Test
-    public void recentInstructionsKeepTheNewestWhenItIsNotThePc(){
+    public void midInstructionBothListsAreAnchoredOnTheInstructionInProgressNotThePc(){
         final NES nes = nes();
         tickToStxOnTheThirdLoop(nes);
-        nes.clock().tick(); //part-way into STX: the trace's newest entry ($9001) is no longer "about to start"
+        nes.clock().tick(); //part-way into STX $10: the PC now points at its $10 operand
+        assertEquals(0x9002, nes.cpu().programCounter(), "test setup");
+        final NesCpuDebugSource source = new NesCpuDebugSource(nes);
 
-        final List<DisassembledInstruction> recent = new NesCpuDebugSource(nes).recentInstructions();
+        final List<DisassembledInstruction> upcoming = source.upcomingInstructions(2);
+        final List<DisassembledInstruction> recent = source.recentInstructions();
 
-        assertEquals("STX $10", recent.get(recent.size() - 1).formatted());
+        assertEquals(List.of("STX $10", "JMP $9000"), formatted(upcoming));
+        assertEquals(0x9001, upcoming.get(0).address());
+        assertEquals("INX", recent.get(recent.size() - 1).formatted());
+    }
+
+    @Test
+    public void beforeAnythingRunsUpcomingInstructionsStartAtThePc(){
+        final List<DisassembledInstruction> upcoming = new NesCpuDebugSource(nes()).upcomingInstructions(1);
+
+        assertEquals(0x9000, upcoming.get(0).address());
     }
 
     @Test

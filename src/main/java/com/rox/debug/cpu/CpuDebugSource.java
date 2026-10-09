@@ -14,10 +14,10 @@ public interface CpuDebugSource {
     /** Registers and flags right now - see {@code MOS6502.liveState()}. */
     MOS6502Snapshot state();
 
-    /** {@code count} instructions disassembled forward from the PC. */
+    /** {@code count} instructions disassembled forward from the current one (about to start, or part-way through). */
     List<DisassembledInstruction> upcomingInstructions(int count);
 
-    /** Recently executed instructions, oldest first - not including the one at the PC, which hasn't run yet. */
+    /** Recently executed instructions, oldest first - not including the current one. */
     List<DisassembledInstruction> recentInstructions();
 
     /** The clock rate actually being achieved - see {@code TickRateMonitor}. */
