@@ -1,16 +1,28 @@
 package com.rox.video;
 
+import javax.swing.JButton;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
 import javax.swing.SwingUtilities;
+import javax.swing.event.AncestorEvent;
+import javax.swing.event.AncestorListener;
+import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -29,6 +41,9 @@ public final class SwingVideoOutput implements VideoOutput {
     private static final int WIDTH_PX = 256;
     private static final int HEIGHT_PX = 240;
     private static final int SCALE = 3;
+    private static final String TITLE = "EmuRoxLab";
+    private static final int DESCRIPTION_ROWS = 8;
+    private static final int DESCRIPTION_COLUMNS = 50;
 
     private final BufferedImage image = new BufferedImage(WIDTH_PX, HEIGHT_PX, BufferedImage.TYPE_INT_RGB);
     private final JPanel canvas = new JPanel(){
@@ -41,13 +56,15 @@ public final class SwingVideoOutput implements VideoOutput {
             g2.drawImage(image, rect[0], rect[1], rect[2], rect[3], null);
         }
     };
-    private final JFrame frame = new JFrame("EmuRoxLab");
+    private final JFrame frame = new JFrame(TITLE);
     //present() is called once per emulated frame (~60/sec) from the clock thread, far faster than a
     //loaded EDT can necessarily keep up with - rather than queuing one invokeLater (and one retained
     //rgbFrame array) per call, which would grow unboundedly under any EDT backpressure, only the
     //latest frame is kept and at most one render task is ever pending at a time
     private final AtomicReference<int[]> pendingFrame = new AtomicReference<>();
     private final AtomicBoolean renderPending = new AtomicBoolean(false);
+    //EDT-only, like every other Swing interaction here - set once the caller has something to flag issues against
+    private Runnable onFlagIssue = () -> { };
 
     /** The X button does nothing - see {@link #SwingVideoOutput(Runnable)} to opt into closing meaning something. */
     public SwingVideoOutput(){
@@ -62,7 +79,18 @@ public final class SwingVideoOutput implements VideoOutput {
      */
     public SwingVideoOutput(final Runnable onClose){
         canvas.setPreferredSize(new Dimension(WIDTH_PX * SCALE, HEIGHT_PX * SCALE));
-        frame.getContentPane().add(canvas);
+        frame.getContentPane().add(canvas, BorderLayout.CENTER);
+        frame.getContentPane().add(buildFlagIssueBar(), BorderLayout.SOUTH);
+        //F12 via a plain frame KeyListener - the same path controller input already takes, so it works
+        //whenever the game itself is receiving keys
+        frame.addKeyListener(new KeyAdapter(){
+            @Override
+            public void keyPressed(final KeyEvent e){
+                if (e.getKeyCode() == KeyEvent.VK_F12){
+                    onFlagIssue.run();
+                }
+            }
+        });
         frame.pack();
         //DO_NOTHING_ON_CLOSE + the listener below (rather than the confusing default of HIDE_ON_CLOSE,
         //which would hide the window without disposing it) - onClose is the caller's decision, not this
@@ -84,6 +112,66 @@ public final class SwingVideoOutput implements VideoOutput {
      */
     public void addKeyListener(final KeyListener listener){
         frame.addKeyListener(listener);
+    }
+
+    private JPanel buildFlagIssueBar(){
+        final JButton flagIssue = new JButton("Flag issue (F12)");
+        //never takes keyboard focus away from the frame, whose KeyListeners are the game's controllers
+        flagIssue.setFocusable(false);
+        flagIssue.addActionListener(e -> onFlagIssue.run());
+        final JPanel bar = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        bar.add(flagIssue);
+        return bar;
+    }
+
+    /**
+     * What the "Flag issue" button and F12 do - nothing until set. Must be called on the EDT, and
+     * {@code handler} runs on the EDT too, so it can show dialogs directly.
+     */
+    public void setOnFlagIssue(final Runnable handler){
+        this.onFlagIssue = handler;
+    }
+
+    /**
+     * Asks what went wrong, in a modal multi-line text box. EDT only.
+     *
+     * @return the description (possibly empty), or empty if cancelled
+     */
+    public Optional<String> askForIssueDescription(){
+        final JTextArea description = new JTextArea(DESCRIPTION_ROWS, DESCRIPTION_COLUMNS);
+        description.setLineWrap(true);
+        description.setWrapStyleWord(true);
+        //JOptionPane focuses its OK button by default - put the cursor in the text box instead
+        description.addAncestorListener(new AncestorListener(){
+            @Override
+            public void ancestorAdded(final AncestorEvent event){
+                description.requestFocusInWindow();
+            }
+
+            @Override
+            public void ancestorRemoved(final AncestorEvent event){
+            }
+
+            @Override
+            public void ancestorMoved(final AncestorEvent event){
+            }
+        });
+        final JPanel panel = new JPanel(new BorderLayout(0, 4));
+        panel.add(new JLabel("Emulation is frozen. What went wrong?"), BorderLayout.NORTH);
+        panel.add(new JScrollPane(description), BorderLayout.CENTER);
+        final int choice = JOptionPane.showConfirmDialog(frame, panel, "Flag issue", JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.PLAIN_MESSAGE);
+        return choice == JOptionPane.OK_OPTION ? Optional.of(description.getText()) : Optional.empty();
+    }
+
+    /** A modal error message. EDT only. */
+    public void showError(final String title, final String message){
+        JOptionPane.showMessageDialog(frame, message, title, JOptionPane.ERROR_MESSAGE);
+    }
+
+    /** Appends {@code status} to the window title (or clears it, for {@code null}) - a quiet, non-modal notice. EDT only. */
+    public void showStatus(final String status){
+        frame.setTitle(status == null ? TITLE : TITLE + " - " + status);
     }
 
     @Override

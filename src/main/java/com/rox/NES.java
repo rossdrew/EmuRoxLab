@@ -322,6 +322,10 @@ public class NES {
         return ppu;
     }
 
+    Cartridge cartridge(){
+        return cartridge;
+    }
+
     Clock clock(){
         return clock;
     }

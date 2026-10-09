@@ -1,6 +1,11 @@
 package com.rox.save;
 
+import java.io.IOException;
+import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 /**
  * Where a ROM's save files live: a directory named after the ROM (its filename without extension),
@@ -10,6 +15,8 @@ import java.nio.file.Path;
 public final class SavePaths {
     private static final String BATTERY_SAVE_FILE_NAME = "battery.sav";
     private static final String LIVE_SAVE_FILE_NAME = "latest.sav";
+    private static final String DEBUG_SNAPSHOT_PREFIX = "debug-snapshot-";
+    private static final DateTimeFormatter DEBUG_SNAPSHOT_TIMESTAMP = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
 
     private SavePaths(){
     }
@@ -28,5 +35,34 @@ public final class SavePaths {
 
     public static Path liveSaveFile(final Path romPath){
         return saveDirectory(romPath).resolve(LIVE_SAVE_FILE_NAME);
+    }
+
+    /** {@code debug-snapshot-<yyyyMMdd-HHmmss>} - names both a flagged issue's folder and the {@code .sav} inside it. */
+    public static String debugSnapshotName(final LocalDateTime capturedAt){
+        return DEBUG_SNAPSHOT_PREFIX + DEBUG_SNAPSHOT_TIMESTAMP.format(capturedAt);
+    }
+
+    /** Where a flagged issue's files go: a {@link #debugSnapshotName} folder in the ROM's save directory. */
+    public static Path debugSnapshotDirectory(final Path romPath, final LocalDateTime capturedAt){
+        return saveDirectory(romPath).resolve(debugSnapshotName(capturedAt));
+    }
+
+    /**
+     * Creates and returns a fresh folder for a flagged issue: {@link #debugSnapshotDirectory} itself, or
+     * that name plus {@code -2}, {@code -3}... if a capture in the same second already took it. Creating
+     * the folder is the claim - {@link Files#createDirectory} fails if it exists - so two captures can't
+     * both end up writing into the same one.
+     */
+    public static Path reserveDebugSnapshotDirectory(final Path romPath, final LocalDateTime capturedAt) throws IOException {
+        final Path base = debugSnapshotDirectory(romPath, capturedAt);
+        Files.createDirectories(base.getParent());
+        Path candidate = base;
+        for (int suffix = 2; ; suffix++){
+            try {
+                return Files.createDirectory(candidate);
+            } catch (FileAlreadyExistsException e){
+                candidate = base.resolveSibling(base.getFileName() + "-" + suffix);
+            }
+        }
     }
 }
