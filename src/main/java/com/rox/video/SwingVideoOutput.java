@@ -46,6 +46,9 @@ public final class SwingVideoOutput implements VideoOutput {
     private static final String TITLE = "EmuRoxLab";
     private static final int DESCRIPTION_ROWS = 8;
     private static final int DESCRIPTION_COLUMNS = 50;
+    //a large explicit size, like the debug panels': Swing's default font is unreadably small on a
+    //high-DPI display here
+    private static final float TOOL_BUTTON_FONT_SIZE = 24f;
 
     private final BufferedImage image = new BufferedImage(WIDTH_PX, HEIGHT_PX, BufferedImage.TYPE_INT_RGB);
     private final JPanel canvas = new JPanel(){
@@ -126,6 +129,7 @@ public final class SwingVideoOutput implements VideoOutput {
      */
     public void addToolButton(final String label, final int hotkey, final Runnable action){
         final JButton button = new JButton(label);
+        button.setFont(button.getFont().deriveFont(TOOL_BUTTON_FONT_SIZE));
         button.setFocusable(false);
         button.addActionListener(e -> action.run());
         toolBar.add(button);
