@@ -51,4 +51,30 @@ public final class CpuStateText {
         //Locale.ROOT: the same ',' grouping and '.' decimal point whatever the machine's locale
         return String.format(Locale.ROOT, "Clock: %,.0f Hz of %,d Hz (%.1f%%)", measuredHz, intendedHz, 100.0 * measuredHz / intendedHz);
     }
+
+    /**
+     * The whole CPU state view as text: run state and clock rate, registers, flags, interrupt lines,
+     * then the recent-instruction history leading into the next {@code upcomingCount} instructions -
+     * read top to bottom as "how we got here, then what's next".
+     */
+    public static String panel(final CpuDebugSource source, final int upcomingCount){
+        final MOS6502Snapshot cpu = source.state();
+        final StringBuilder out = new StringBuilder();
+        out.append(source.isPaused() ? "PAUSED" : "Running").append("  ")
+                .append(clockRate(source.measuredHz(), source.intendedHz())).append('\n');
+        out.append(registers(cpu)).append('\n');
+        out.append("Flags: ").append(flags(cpu)).append("  (NV-BDIZC)\n");
+        out.append(interruptLines(cpu)).append("\n\n");
+        out.append("--- Recent (oldest first) ---\n");
+        for (final DisassembledInstruction instruction : source.recentInstructions()){
+            out.append(instruction(instruction, false)).append('\n');
+        }
+        out.append("--- Next ---\n");
+        boolean first = true;
+        for (final DisassembledInstruction instruction : source.upcomingInstructions(upcomingCount)){
+            out.append(instruction(instruction, first)).append('\n');
+            first = false;
+        }
+        return out.toString();
+    }
 }
