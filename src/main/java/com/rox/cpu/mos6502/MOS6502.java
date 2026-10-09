@@ -63,6 +63,11 @@ public class MOS6502 implements ClockWatcher {
         environment.signalNMI();
     }
 
+    /** The current program counter - cheap enough to read every instruction, unlike {@link #getEnvironmentSnapshot()}'s copy. */
+    public int programCounter(){
+        return environment.getPC();
+    }
+
     /** Set the program counter, e.g. to point at the start of an assembled program */
     public void setPC(final int newPC){
         environment.setPC(newPC);
