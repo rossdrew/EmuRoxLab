@@ -2,6 +2,7 @@ package com.rox.debug.report;
 
 import com.rox.cartridge.NromMapperSnapshot;
 import com.rox.cpu.mos6502.assembler.DisassembledInstruction;
+import com.rox.ppu.PpuSnapshot;
 import com.rox.save.LiveSaveFile;
 import com.rox.save.SaveFileFormat;
 import com.rox.save.SystemSnapshot;
@@ -169,7 +170,13 @@ public class DebugReportWriterTest {
         final SystemSnapshot sample = snapshot();
         final com.rox.cpu.mos6502.MOS6502Snapshot inverted = new com.rox.cpu.mos6502.MOS6502Snapshot(0, 0, 0, 0, 0, 0, 0, 0,
                 false, true, false, true, false, true, false, true, false);
-        final SystemSnapshot invertedCpu = new SystemSnapshot(sample.romCrc32(), inverted, sample.ppu(), sample.apu(),
+        final PpuSnapshot ppu = sample.ppu();
+        final PpuSnapshot.Registers r = ppu.registers();
+        final PpuSnapshot toggledPpu = new PpuSnapshot(ppu.oam(), ppu.nametableRam(), ppu.paletteRam(), ppu.timing(),
+                new PpuSnapshot.Registers(r.control(), r.mask(), r.oamAddress(), true, r.temporaryVramAddress(),
+                        r.currentVramAddress(), r.fineXScroll(), r.readBuffer()),
+                ppu.background(), ppu.sprites());
+        final SystemSnapshot invertedCpu = new SystemSnapshot(sample.romCrc32(), inverted, toggledPpu, sample.apu(),
                 sample.ram(), sample.mapper());
 
         final String state = DebugReportWriter.formatState(report(null, invertedCpu, Map.of()));
@@ -177,6 +184,7 @@ public class DebugReportWriterTest {
         assertTrue(state.contains("Flags: nV-bDiZc"), state);
         assertTrue(state.contains("IRQ line: asserted  NMI pending: no\n"), state);
         assertTrue(state.contains("(fixed mapping, no bank registers)\n"), state);
+        assertTrue(state.contains("write toggle: 1\n"), state);
     }
 
     @Test
