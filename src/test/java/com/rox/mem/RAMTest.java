@@ -64,4 +64,63 @@ public class RAMTest extends Arbitraries {
         ram.write(writeAddress, 42);
         assertEquals(42, ram.read(expectedAddress));
     }
+
+    @Test
+    public void snapshotCapturesEveryByte(){
+        final RAM ram = new RAM(4);
+        ram.write(0, 0x11);
+        ram.write(3, 0xFF);
+
+        assertArrayEquals(new int[]{0x11, 0, 0, 0xFF}, ram.snapshot());
+    }
+
+    @Test
+    public void snapshotIsACopyNotALiveView(){
+        final RAM ram = new RAM(4);
+        final int[] snapshot = ram.snapshot();
+
+        ram.write(0, 0x42);
+
+        assertEquals(0, snapshot[0]);
+    }
+
+    @Test
+    public void restorePutsBackASnapshot(){
+        final RAM ram = new RAM(4);
+        ram.write(1, 0x22);
+        final int[] snapshot = ram.snapshot();
+        ram.write(1, 0x99);
+        ram.write(2, 0x33);
+
+        ram.restore(snapshot);
+
+        assertArrayEquals(new int[]{0, 0x22, 0, 0}, ram.snapshot());
+    }
+
+    @Test
+    public void restoreCopiesRatherThanKeepingTheCallersArray(){
+        final RAM ram = new RAM(4);
+        final int[] contents = {1, 2, 3, 4};
+
+        ram.restore(contents);
+        contents[0] = 0x77;
+
+        assertEquals(1, ram.read(0));
+    }
+
+    @Test
+    public void restoreMasksValuesToBytes(){
+        final RAM ram = new RAM(2);
+
+        ram.restore(new int[]{0x1AB, 0});
+
+        assertEquals(0xAB, ram.read(0));
+    }
+
+    @Test
+    public void restoreRejectsTheWrongSize(){
+        final RAM ram = new RAM(4);
+
+        assertThrows(IllegalArgumentException.class, () -> ram.restore(new int[8]));
+    }
 }

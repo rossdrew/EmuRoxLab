@@ -22,4 +22,24 @@ public class RAM implements Memory {
     public void write(final int address, final int value) {
         memory[address & (memory.length - 1)] = value & BYTE_MASK;
     }
+
+    /** A copy of every byte, for a save state. */
+    public int[] snapshot() {
+        return memory.clone();
+    }
+
+    /**
+     * Overwrites every byte with {@code contents} (copied, not kept) - the counterpart of {@link #snapshot()}.
+     *
+     * @throws IllegalArgumentException if {@code contents} isn't exactly this RAM's size
+     */
+    public void restore(final int[] contents) {
+        if (contents.length != memory.length) {
+            throw new IllegalArgumentException(
+                    "Expected " + memory.length + " bytes of RAM, got " + contents.length);
+        }
+        for (int i = 0; i < memory.length; i++) {
+            memory[i] = contents[i] & BYTE_MASK;
+        }
+    }
 }
