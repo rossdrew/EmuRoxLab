@@ -5,7 +5,6 @@ import com.rox.cpu.mos6502.assembler.DisassembledInstruction;
 import com.rox.cpu.mos6502.assembler.Disassembler;
 import com.rox.debug.cpu.CpuDebugSource;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.function.IntUnaryOperator;
 
@@ -36,15 +35,10 @@ final class NesCpuDebugSource implements CpuDebugSource {
 
     @Override
     public List<DisassembledInstruction> recentInstructions(){
-        final int[] trace = nes.instructionTrace().recent();
+        //decoded from the bytes recorded as each instruction ran, not today's memory - see InstructionTrace
+        final List<DisassembledInstruction> trace = nes.instructionTrace().recentInstructions();
         //the newest entry is the current instruction (about to start, or part-way through) - not history yet
-        final int count = Math.max(0, trace.length - 1);
-        final IntUnaryOperator peek = peek();
-        final List<DisassembledInstruction> instructions = new ArrayList<>(count);
-        for (int i = 0; i < count; i++){
-            instructions.add(Disassembler.disassembleOne(peek, trace[i]));
-        }
-        return instructions;
+        return trace.isEmpty() ? trace : trace.subList(0, trace.size() - 1);
     }
 
     @Override

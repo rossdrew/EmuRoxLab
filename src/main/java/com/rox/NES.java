@@ -100,7 +100,8 @@ public class NES {
         this.memoryBus = new Latched8BitMemoryBus(new NESMemoryBus(ramBus, apu, cartridge, ppu, controllers));
         this.cpu = new MOS6502(memoryBus);
         this.tickRateMonitor = new TickRateMonitor(new SystemTimeSource());
-        this.instructionTrace = new InstructionTrace(cpu::isAtInstructionBoundary, cpu::programCounter);
+        this.instructionTrace = new InstructionTrace(cpu::isAtInstructionBoundary, cpu::programCounter,
+                DebugCapture.sideEffectFreePeek(ram::read, cartridge));
         this.clock = clock;
         this.audioOutput = audioOutput;
 
