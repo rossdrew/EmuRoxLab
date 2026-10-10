@@ -2,6 +2,7 @@ package com.rox.debug.report;
 
 import com.rox.cpu.mos6502.MOS6502Snapshot;
 import com.rox.cpu.mos6502.assembler.DisassembledInstruction;
+import com.rox.debug.cpu.CpuStateText;
 import com.rox.ppu.PpuSnapshot;
 import com.rox.save.SaveFileFormat;
 import com.rox.save.SaveMetadata;
@@ -78,16 +79,14 @@ public final class DebugReportWriter {
         out.append("Captured: ").append(HEADER_TIMESTAMP.format(report.capturedAt())).append("\n\n");
 
         out.append("--- CPU ---\n");
-        out.append(String.format("PC: $%04X  A: $%02X  X: $%02X  Y: $%02X  SP: $%02X%n",
-                cpu.pc(), cpu.a(), cpu.x(), cpu.y(), cpu.stackPointer()));
-        out.append("Flags: ").append(flags(cpu)).append("  (NV-BDIZC, uppercase = set)\n");
-        out.append("IRQ line: ").append(cpu.irqLineAsserted() ? "asserted" : "clear")
-                .append("  NMI pending: ").append(yesNo(cpu.nmiPending())).append("\n\n");
+        out.append(CpuStateText.registers(cpu)).append('\n');
+        out.append("Flags: ").append(CpuStateText.flags(cpu)).append("  (NV-BDIZC, uppercase = set)\n");
+        out.append(CpuStateText.interruptLines(cpu)).append("\n\n");
 
         out.append("--- Next instructions ---\n");
         boolean first = true;
         for (final DisassembledInstruction instruction : report.upcomingInstructions()){
-            out.append(first ? "> " : "  ").append(String.format("$%04X  %s%n", instruction.address(), instruction.formatted()));
+            out.append(CpuStateText.instruction(instruction, first)).append('\n');
             first = false;
         }
         out.append('\n');
@@ -111,19 +110,6 @@ public final class DebugReportWriter {
             out.append(entry.getKey()).append(": ").append(entry.getValue()).append('\n');
         }
         return out.toString();
-    }
-
-    private static String flags(final MOS6502Snapshot cpu){
-        return new StringBuilder()
-                .append(cpu.negative() ? 'N' : 'n')
-                .append(cpu.signedOverflow() ? 'V' : 'v')
-                .append('-')
-                .append(cpu.breakFlag() ? 'B' : 'b')
-                .append(cpu.decimal() ? 'D' : 'd')
-                .append(cpu.interruptDisable() ? 'I' : 'i')
-                .append(cpu.zero() ? 'Z' : 'z')
-                .append(cpu.carry() ? 'C' : 'c')
-                .toString();
     }
 
     private static String yesNo(final boolean value){

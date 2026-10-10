@@ -22,6 +22,8 @@ import java.awt.event.KeyListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -44,6 +46,9 @@ public final class SwingVideoOutput implements VideoOutput {
     private static final String TITLE = "EmuRoxLab";
     private static final int DESCRIPTION_ROWS = 8;
     private static final int DESCRIPTION_COLUMNS = 50;
+    //a large explicit size, like the debug panels': Swing's default font is unreadably small on a
+    //high-DPI display here
+    private static final float TOOL_BUTTON_FONT_SIZE = 24f;
 
     private final BufferedImage image = new BufferedImage(WIDTH_PX, HEIGHT_PX, BufferedImage.TYPE_INT_RGB);
     private final JPanel canvas = new JPanel(){
@@ -63,8 +68,9 @@ public final class SwingVideoOutput implements VideoOutput {
     //latest frame is kept and at most one render task is ever pending at a time
     private final AtomicReference<int[]> pendingFrame = new AtomicReference<>();
     private final AtomicBoolean renderPending = new AtomicBoolean(false);
-    //EDT-only, like every other Swing interaction here - set once the caller has something to flag issues against
-    private Runnable onFlagIssue = () -> { };
+    //tool buttons and their hotkeys - EDT-only, like every other Swing interaction here
+    private final JPanel toolBar = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+    private final Map<Integer, Runnable> hotkeys = new HashMap<>();
 
     /** The X button does nothing - see {@link #SwingVideoOutput(Runnable)} to opt into closing meaning something. */
     public SwingVideoOutput(){
@@ -80,14 +86,15 @@ public final class SwingVideoOutput implements VideoOutput {
     public SwingVideoOutput(final Runnable onClose){
         canvas.setPreferredSize(new Dimension(WIDTH_PX * SCALE, HEIGHT_PX * SCALE));
         frame.getContentPane().add(canvas, BorderLayout.CENTER);
-        frame.getContentPane().add(buildFlagIssueBar(), BorderLayout.SOUTH);
-        //F12 via a plain frame KeyListener - the same path controller input already takes, so it works
-        //whenever the game itself is receiving keys
+        frame.getContentPane().add(toolBar, BorderLayout.SOUTH);
+        //hotkeys via a plain frame KeyListener - the same path controller input already takes, so they
+        //work whenever the game itself is receiving keys
         frame.addKeyListener(new KeyAdapter(){
             @Override
             public void keyPressed(final KeyEvent e){
-                if (e.getKeyCode() == KeyEvent.VK_F12){
-                    onFlagIssue.run();
+                final Runnable action = hotkeys.get(e.getKeyCode());
+                if (action != null){
+                    action.run();
                 }
             }
         });
@@ -114,22 +121,20 @@ public final class SwingVideoOutput implements VideoOutput {
         frame.addKeyListener(listener);
     }
 
-    private JPanel buildFlagIssueBar(){
-        final JButton flagIssue = new JButton("Flag issue (F12)");
-        //never takes keyboard focus away from the frame, whose KeyListeners are the game's controllers
-        flagIssue.setFocusable(false);
-        flagIssue.addActionListener(e -> onFlagIssue.run());
-        final JPanel bar = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        bar.add(flagIssue);
-        return bar;
-    }
-
     /**
-     * What the "Flag issue" button and F12 do - nothing until set. Must be called on the EDT, and
-     * {@code handler} runs on the EDT too, so it can show dialogs directly.
+     * Adds a button to the bar under the game, also triggered by {@code hotkey} (a {@link KeyEvent}
+     * {@code VK_} code). Buttons never take keyboard focus away from the frame, whose key listeners
+     * are the game's controllers. EDT only, and {@code action} runs on the EDT too, so it can show
+     * dialogs directly.
      */
-    public void setOnFlagIssue(final Runnable handler){
-        this.onFlagIssue = handler;
+    public void addToolButton(final String label, final int hotkey, final Runnable action){
+        final JButton button = new JButton(label);
+        button.setFont(button.getFont().deriveFont(TOOL_BUTTON_FONT_SIZE));
+        button.setFocusable(false);
+        button.addActionListener(e -> action.run());
+        toolBar.add(button);
+        hotkeys.put(hotkey, action);
+        frame.pack(); //make room for the bar - buttons are added at startup, before anyone resizes the window
     }
 
     /**
