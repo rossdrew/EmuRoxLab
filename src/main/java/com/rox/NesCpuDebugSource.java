@@ -11,9 +11,11 @@ import java.util.function.IntUnaryOperator;
 /** {@link CpuDebugSource} over a live {@link NES}, reading memory through {@link DebugCapture}'s side-effect-free peek. */
 final class NesCpuDebugSource implements CpuDebugSource {
     private final NES nes;
+    private final NesMemoryDebugSource memory;
 
     NesCpuDebugSource(final NES nes){
         this.nes = nes;
+        this.memory = new NesMemoryDebugSource(nes);
     }
 
     @Override
@@ -66,8 +68,7 @@ final class NesCpuDebugSource implements CpuDebugSource {
         return nes.isPaused();
     }
 
-    /** Over a copy of RAM taken now - one copy per refresh, not per byte read. */
     private IntUnaryOperator peek(){
-        return DebugCapture.sideEffectFreePeek(nes.ram().snapshot(), nes.cartridge());
+        return memory.peek();
     }
 }
