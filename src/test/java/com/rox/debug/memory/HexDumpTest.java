@@ -36,4 +36,12 @@ public class HexDumpTest {
         assertEquals(1, reads[0x011F]);
         assertEquals(0, reads[0x0120]);
     }
+
+    @Test
+    public void eachRowHasItsOwnAsciiColumn(){
+        assertEquals("""
+                0000: 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41  |AAAAAAAAAAAAAAAA|
+                0010: 42  |B|
+                """, HexDump.format(address -> address < 0x10 ? 'A' : 'B', 0x0000, 0x0010, true));
+    }
 }
