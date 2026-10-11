@@ -3,6 +3,7 @@ package com.rox.debug.report;
 import com.rox.cpu.mos6502.MOS6502Snapshot;
 import com.rox.cpu.mos6502.assembler.DisassembledInstruction;
 import com.rox.debug.cpu.CpuStateText;
+import com.rox.debug.memory.HexDump;
 import com.rox.ppu.PpuSnapshot;
 import com.rox.save.SaveFileFormat;
 import com.rox.save.SaveMetadata;
@@ -35,7 +36,6 @@ import java.util.Map;
 public final class DebugReportWriter {
     private static final int SCREEN_WIDTH = 256;
     private static final int SCREEN_HEIGHT = 240;
-    private static final int HEX_BYTES_PER_ROW = 16;
     private static final DateTimeFormatter HEADER_TIMESTAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private DebugReportWriter(){
@@ -118,15 +118,7 @@ public final class DebugReportWriter {
 
     /** 16 bytes per row, each row prefixed with its address: {@code 0010: 00 01 ... 0F}. */
     static String hexDump(final int[] bytes){
-        final StringBuilder out = new StringBuilder();
-        for (int row = 0; row < bytes.length; row += HEX_BYTES_PER_ROW){
-            out.append(String.format("%04X:", row));
-            for (int i = row; i < Math.min(row + HEX_BYTES_PER_ROW, bytes.length); i++){
-                out.append(String.format(" %02X", bytes[i]));
-            }
-            out.append('\n');
-        }
-        return out.toString();
+        return HexDump.format(address -> bytes[address], 0, bytes.length - 1, false);
     }
 
     private static void writePng(final Path path, final int[] rgb) throws IOException {
