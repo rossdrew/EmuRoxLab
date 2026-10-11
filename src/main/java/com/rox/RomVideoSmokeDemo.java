@@ -2,7 +2,8 @@ package com.rox;
 
 import com.rox.cartridge.Cartridge;
 import com.rox.cartridge.RomLoader;
-import com.rox.debug.cpu.CpuDebugFrame;
+import com.rox.debug.RefreshingDebugFrame;
+import com.rox.debug.cpu.CpuStatePanel;
 import com.rox.debug.report.DebugReport;
 import com.rox.debug.report.DebugReportWriter;
 import com.rox.input.Controller;
@@ -18,10 +19,11 @@ import java.awt.event.KeyEvent;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Manual visual smoke test: loads a real {@code .nes} ROM file and shows its video output in a real
@@ -31,6 +33,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * <pre>./gradlew compileJava &amp;&amp; java -cp build/classes/java/main com.rox.RomVideoSmokeDemo path/to/rom.nes [path/to/controllers.properties] [seconds]</pre>
  */
 public final class RomVideoSmokeDemo {
+    private static final int CPU_STATE_REFRESH_MILLIS = 100;
+
     private RomVideoSmokeDemo(){
     }
 
@@ -89,9 +93,9 @@ public final class RomVideoSmokeDemo {
             Thread.currentThread().interrupt();
         }
         attachKeyboardControllers(videoOutput, controllers);
-        //set on the EDT once the NES exists, disposed alongside the video window - a visible JFrame keeps
-        //a non-daemon EDT alive, so leaving it would hang the JVM on exit
-        final AtomicReference<CpuDebugFrame> cpuDebugFrameHolder = new AtomicReference<>();
+        //added on the EDT once the NES exists, disposed alongside the video window - a visible JFrame keeps
+        //a non-daemon EDT alive, so leaving one would hang the JVM on exit
+        final List<RefreshingDebugFrame> debugFrames = new CopyOnWriteArrayList<>();
 
         //outer try/finally so the window is always closed, even if NES construction itself throws
         //(e.g. no audio line available) - a visible, undisposed JFrame keeps a non-daemon EDT thread
@@ -99,8 +103,10 @@ public final class RomVideoSmokeDemo {
         try {
             final NES nes = new NES(videoOutput, controllers, cartridge);
             SwingUtilities.invokeLater(() -> {
-                final CpuDebugFrame cpuDebugFrame = new CpuDebugFrame(new NesCpuDebugSource(nes));
-                cpuDebugFrameHolder.set(cpuDebugFrame);
+                final CpuStatePanel cpuStatePanel = new CpuStatePanel(new NesCpuDebugSource(nes));
+                final RefreshingDebugFrame cpuDebugFrame = new RefreshingDebugFrame("EmuRoxLab - CPU state",
+                        cpuStatePanel, cpuStatePanel::refresh, CPU_STATE_REFRESH_MILLIS);
+                debugFrames.add(cpuDebugFrame);
                 videoOutput.addToolButton("CPU state (F11)", KeyEvent.VK_F11, cpuDebugFrame::showWindow);
                 videoOutput.addToolButton("Flag issue (F12)", KeyEvent.VK_F12, () -> flagIssue(nes, videoOutput, romPath));
             });
@@ -135,12 +141,7 @@ public final class RomVideoSmokeDemo {
                 Thread.currentThread().interrupt();
             }
         } finally {
-            SwingUtilities.invokeLater(() -> {
-                final CpuDebugFrame cpuDebugFrame = cpuDebugFrameHolder.get();
-                if (cpuDebugFrame != null){
-                    cpuDebugFrame.dispose();
-                }
-            });
+            SwingUtilities.invokeLater(() -> debugFrames.forEach(RefreshingDebugFrame::dispose));
             videoOutput.close();
             //only reached once the emulation thread (and thus all gamepad polling and cartridge
             //writes) has genuinely terminated - see the inner finally's join loop above. Nested in its

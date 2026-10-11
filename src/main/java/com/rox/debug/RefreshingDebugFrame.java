@@ -1,26 +1,27 @@
-package com.rox.debug.cpu;
+package com.rox.debug;
 
+import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.Timer;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 
 /**
- * A standalone window around a {@link CpuStatePanel}, refreshed ~10 times a second - until the
- * unified debug console (plan Phase 5) gives the panel a tab of its own. Closing it just hides it;
- * {@link #showWindow()} brings it back. EDT only.
+ * A standalone debug window around one panel, re-drawn on a timer while shown - until the unified
+ * debug console (plan Phase 5) gives each panel a tab of its own. Closing it just hides it (and stops
+ * refreshing); {@link #showWindow()} brings it back. EDT only.
  */
-public final class CpuDebugFrame extends JFrame {
-    private static final int REFRESH_MILLIS = 100;
-
+public final class RefreshingDebugFrame extends JFrame {
     private final Timer refreshTimer;
 
-    public CpuDebugFrame(final CpuDebugSource source){
-        super("EmuRoxLab - CPU state");
-        final CpuStatePanel panel = new CpuStatePanel(source);
-        getContentPane().add(panel);
+    /**
+     * @param refresh how {@code content} redraws itself - run every {@code refreshMillis} while shown
+     */
+    public RefreshingDebugFrame(final String title, final JComponent content, final Runnable refresh, final int refreshMillis){
+        super(title);
+        getContentPane().add(content);
         pack();
-        refreshTimer = new Timer(REFRESH_MILLIS, e -> panel.refresh());
+        refreshTimer = new Timer(refreshMillis, e -> refresh.run());
         setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
         addWindowListener(new WindowAdapter(){
             @Override
