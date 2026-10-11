@@ -108,4 +108,23 @@ public class MOS6502SnapshotTest {
         }
         assertEquals(0x05 + 1 + 4, restored.snapshot().a(), "test setup: expected 4 loop iterations' ADCs to have run (A = 5 + carry + 4)");
     }
+
+    @Test
+    public void liveStateIsAvailableMidInstructionUnlikeSnapshot(){
+        final MOS6502 cpu = cpuRunningProgram();
+        cpu.tick(); //LDA #$05 fetched, operand still to come
+
+        final MOS6502Snapshot live = cpu.liveState();
+
+        assertEquals(0x0001, live.pc(), "PC has moved past the opcode, mid-instruction");
+        assertEquals(0xA9, live.ir());
+    }
+
+    @Test
+    public void liveStateMatchesSnapshotAtAnInstructionBoundary(){
+        final MOS6502 cpu = cpuRunningProgram();
+        tickToInstructionBoundary(cpu);
+
+        assertEquals(cpu.snapshot(), cpu.liveState());
+    }
 }

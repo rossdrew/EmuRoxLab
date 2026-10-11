@@ -2,6 +2,7 @@ package com.rox;
 
 import com.rox.cartridge.Cartridge;
 import com.rox.cartridge.RomLoader;
+import com.rox.debug.cpu.CpuDebugFrame;
 import com.rox.debug.report.DebugReport;
 import com.rox.debug.report.DebugReportWriter;
 import com.rox.input.Controller;
@@ -13,12 +14,14 @@ import com.rox.save.SavePaths;
 import com.rox.video.SwingVideoOutput;
 
 import javax.swing.SwingUtilities;
+import java.awt.event.KeyEvent;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Manual visual smoke test: loads a real {@code .nes} ROM file and shows its video output in a real
@@ -86,13 +89,21 @@ public final class RomVideoSmokeDemo {
             Thread.currentThread().interrupt();
         }
         attachKeyboardControllers(videoOutput, controllers);
+        //set on the EDT once the NES exists, disposed alongside the video window - a visible JFrame keeps
+        //a non-daemon EDT alive, so leaving it would hang the JVM on exit
+        final AtomicReference<CpuDebugFrame> cpuDebugFrameHolder = new AtomicReference<>();
 
         //outer try/finally so the window is always closed, even if NES construction itself throws
         //(e.g. no audio line available) - a visible, undisposed JFrame keeps a non-daemon EDT thread
         //alive, so skipping close() here would hang the JVM on exit instead of surfacing the error
         try {
             final NES nes = new NES(videoOutput, controllers, cartridge);
-            SwingUtilities.invokeLater(() -> videoOutput.setOnFlagIssue(() -> flagIssue(nes, videoOutput, romPath)));
+            SwingUtilities.invokeLater(() -> {
+                final CpuDebugFrame cpuDebugFrame = new CpuDebugFrame(new NesCpuDebugSource(nes));
+                cpuDebugFrameHolder.set(cpuDebugFrame);
+                videoOutput.addToolButton("CPU state (F11)", KeyEvent.VK_F11, cpuDebugFrame::showWindow);
+                videoOutput.addToolButton("Flag issue (F12)", KeyEvent.VK_F12, () -> flagIssue(nes, videoOutput, romPath));
+            });
 
             System.out.println("Showing " + romPath
                     + (runSeconds != null ? " for up to " + runSeconds + " seconds" : "")
@@ -124,6 +135,12 @@ public final class RomVideoSmokeDemo {
                 Thread.currentThread().interrupt();
             }
         } finally {
+            SwingUtilities.invokeLater(() -> {
+                final CpuDebugFrame cpuDebugFrame = cpuDebugFrameHolder.get();
+                if (cpuDebugFrame != null){
+                    cpuDebugFrame.dispose();
+                }
+            });
             videoOutput.close();
             //only reached once the emulation thread (and thus all gamepad polling and cartridge
             //writes) has genuinely terminated - see the inner finally's join loop above. Nested in its
@@ -146,7 +163,9 @@ public final class RomVideoSmokeDemo {
      * folder beside the ROM's saves.
      */
     private static void flagIssue(final NES nes, final SwingVideoOutput videoOutput, final Path romPath){
-        if (!nes.pause()){
+        //already paused from the CPU state window: capture there, and leave it paused afterwards
+        final boolean alreadyPaused = nes.isPaused();
+        if (!alreadyPaused && !nes.pause()){
             return; //nothing running to flag - not started yet, or already shutting down
         }
         final DebugReport report;
@@ -160,7 +179,9 @@ public final class RomVideoSmokeDemo {
             }
             report = captured.withDescription(description.get());
         } finally {
-            nes.resume();
+            if (!alreadyPaused){
+                nes.resume();
+            }
         }
         //everything in the report is already a copy, so the game carries on while it's written - and
         //off the EDT, so slow storage can't freeze the window. Not a daemon thread: closing the window

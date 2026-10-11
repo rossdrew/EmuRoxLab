@@ -46,9 +46,17 @@ final class DebugCapture {
      * {@code $4018-$5FFF} - minus the registers whose reads have side effects.
      */
     static IntUnaryOperator sideEffectFreePeek(final int[] ram, final Cartridge cartridge){
+        return sideEffectFreePeek(ramAddress -> ram[ramAddress], cartridge);
+    }
+
+    /**
+     * As {@link #sideEffectFreePeek(int[], Cartridge)}, but reading RAM through {@code ramRead} (given an
+     * already-mirrored {@code $0000-$07FF} address) - e.g. live RAM, from the clock thread itself.
+     */
+    static IntUnaryOperator sideEffectFreePeek(final IntUnaryOperator ramRead, final Cartridge cartridge){
         return address -> {
             if (address <= NESMemoryBus.CPU_RAM_END_ADDRESS){
-                return ram[address & NESMemoryBus.CPU_RAM_MIRROR_MASK];
+                return ramRead.applyAsInt(address & NESMemoryBus.CPU_RAM_MIRROR_MASK);
             }
             if (address <= NESMemoryBus.IO_END_ADDRESS){
                 return REGISTER_PLACEHOLDER_BYTE;
