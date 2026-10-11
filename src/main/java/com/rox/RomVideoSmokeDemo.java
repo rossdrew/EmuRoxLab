@@ -4,6 +4,7 @@ import com.rox.cartridge.Cartridge;
 import com.rox.cartridge.RomLoader;
 import com.rox.debug.RefreshingDebugFrame;
 import com.rox.debug.cpu.CpuStatePanel;
+import com.rox.debug.memory.MemoryViewerPanel;
 import com.rox.debug.report.DebugReport;
 import com.rox.debug.report.DebugReportWriter;
 import com.rox.input.Controller;
@@ -34,6 +35,8 @@ import java.util.concurrent.TimeUnit;
  */
 public final class RomVideoSmokeDemo {
     private static final int CPU_STATE_REFRESH_MILLIS = 100;
+    //slower than the CPU view: a region can be 32KB, and memory changes are easier to follow at this pace
+    private static final int MEMORY_VIEWER_REFRESH_MILLIS = 250;
 
     private RomVideoSmokeDemo(){
     }
@@ -107,6 +110,11 @@ public final class RomVideoSmokeDemo {
                 final RefreshingDebugFrame cpuDebugFrame = new RefreshingDebugFrame("EmuRoxLab - CPU state",
                         cpuStatePanel, cpuStatePanel::refresh, CPU_STATE_REFRESH_MILLIS);
                 debugFrames.add(cpuDebugFrame);
+                final MemoryViewerPanel memoryViewerPanel = new MemoryViewerPanel(new NesMemoryDebugSource(nes));
+                final RefreshingDebugFrame memoryDebugFrame = new RefreshingDebugFrame("EmuRoxLab - Memory",
+                        memoryViewerPanel, memoryViewerPanel::refresh, MEMORY_VIEWER_REFRESH_MILLIS);
+                debugFrames.add(memoryDebugFrame);
+                videoOutput.addToolButton("Memory (F10)", KeyEvent.VK_F10, memoryDebugFrame::showWindow);
                 videoOutput.addToolButton("CPU state (F11)", KeyEvent.VK_F11, cpuDebugFrame::showWindow);
                 videoOutput.addToolButton("Flag issue (F12)", KeyEvent.VK_F12, () -> flagIssue(nes, videoOutput, romPath));
             });
