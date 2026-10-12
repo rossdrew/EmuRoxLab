@@ -112,11 +112,9 @@ public final class LabelFile {
         if (end < start){
             throw new LabelFileException(lineNumber, String.format("range ends ($%04X) before it starts ($%04X)", end, start));
         }
-        try {
-            return MemoryLabel.spanning(parts[1], start, end);
-        } catch (IllegalArgumentException e){
-            throw new LabelFileException(lineNumber, e.getMessage());
-        }
+        //can't throw: the name is one non-empty word (split on whitespace) and both addresses are already
+        //checked as in range, with end >= start - everything MemoryLabel itself rejects
+        return MemoryLabel.spanning(parts[1], start, end);
     }
 
     private static int parseAddress(final String text, final int lineNumber) throws LabelFileException {
