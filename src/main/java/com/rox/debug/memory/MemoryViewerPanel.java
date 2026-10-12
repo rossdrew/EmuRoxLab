@@ -36,7 +36,8 @@ public final class MemoryViewerPanel extends JPanel {
         //never move the caret on setText(), so a refresh doesn't scroll the view back to the top
         ((DefaultCaret) text.getCaret()).setUpdatePolicy(DefaultCaret.NEVER_UPDATE);
         regionSelector.setFont(regionSelector.getFont().deriveFont(SELECTOR_FONT_SIZE));
-        regionSelector.setFocusable(false); //keep keyboard focus (and controller input) on the game window
+        //focusable, so the keyboard can switch regions once this window is clicked into - it's a separate
+        //window from the game's, so making it unfocusable never kept focus on the game anyway
         regionSelector.addActionListener(e -> {
             refresh();
             scrollPane.getViewport().setViewPosition(new Point(0, 0)); //a new region starts at its top
