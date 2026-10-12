@@ -342,4 +342,78 @@ public class LabelWatchModelTest {
 
         assertEquals(List.of("lock $0670=3", "lock $0671=4"), target.calls);
     }
+
+    // --- reload and locks (CodeRabbit's PR #49 finding) ---
+
+    @Test
+    public void reloadReleasesTheLockOfALabelRemovedFromTheFile(){
+        final LabelWatchModel model = modelWith(MemoryLabel.at("rupees", 0x066D), MemoryLabel.at("bombs", 0x0658));
+        model.setLocked(0, true);
+        store.saved = new ArrayList<>(List.of(MemoryLabel.at("bombs", 0x0658))); //rupees deleted by hand
+
+        model.reload();
+
+        assertTrue(target.locks.isEmpty(), "no row left to release it, so reload must");
+    }
+
+    @Test
+    public void reloadKeepsTheLockOfALabelOnlyRenamedInTheFile(){
+        final LabelWatchModel model = modelWith(MemoryLabel.at("rupees", 0x066D));
+        model.setLocked(0, true);
+        store.saved = new ArrayList<>(List.of(MemoryLabel.at("money", 0x066D)));
+
+        model.reload();
+
+        assertEquals(Map.of(0x066D, 0), target.locks);
+        assertTrue(model.rows().get(0).locked());
+    }
+
+    @Test
+    public void reloadKeepsLockedBytesANewLabelStillCoversThroughAMirror(){
+        final LabelWatchModel model = modelWith(MemoryLabel.at("hp", 0x0010));
+        model.setLocked(0, true);
+        store.saved = new ArrayList<>(List.of(MemoryLabel.at("hp_mirror", 0x0810)));
+
+        model.reload();
+
+        assertEquals(Map.of(0x0010, 0), target.locks);
+    }
+
+    @Test
+    public void reloadReleasesOnlyTheBytesNoLongerCovered(){
+        final LabelWatchModel model = modelWith(MemoryLabel.spanning("pair", 0x0670, 0x0671));
+        model.setLocked(0, true);
+        store.saved = new ArrayList<>(List.of(MemoryLabel.at("first", 0x0670))); //shrunk to one byte
+
+        model.reload();
+
+        assertEquals(Map.of(0x0670, 0), target.locks);
+    }
+
+    @Test
+    public void reloadLeavesLocksNoLabelEverCovered(){
+        final LabelWatchModel model = modelWith(MemoryLabel.at("rupees", 0x066D));
+        target.locks.put(0x0300, 9); //e.g. from some other editing tool
+        store.saved = new ArrayList<>();
+
+        model.reload();
+
+        assertEquals(Map.of(0x0300, 9), target.locks);
+    }
+
+    @Test
+    public void aFailedReloadKeepsTheRowsAndTheirLocksButStillBlocksLabelChanges() throws Exception {
+        final LabelWatchModel model = modelWith(MemoryLabel.at("rupees", 0x066D));
+        model.setLocked(0, true);
+        store.failNextLoad = new LabelFileException(2, "nonsense");
+
+        model.reload();
+
+        assertEquals(List.of(MemoryLabel.at("rupees", 0x066D)), model.labels(), "the rows stay");
+        assertEquals(Map.of(0x066D, 0), target.locks, "and so do their locks");
+        assertEquals("Line 2: nonsense", model.loadProblem().orElseThrow());
+        assertThrows(IllegalStateException.class, () -> model.add("$0001 x"));
+        model.setLocked(0, false); //but a lock can still be released from its row
+        assertTrue(target.locks.isEmpty());
+    }
 }

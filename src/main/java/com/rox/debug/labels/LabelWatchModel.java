@@ -7,6 +7,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.IntUnaryOperator;
 
 /**
@@ -14,9 +16,9 @@ import java.util.function.IntUnaryOperator;
  * as display {@link Row}s, and the actions on them. Label changes are saved straight away; a save that
  * fails is undone, so the list never drifts from the file.
  *
- * <p>If the labels file couldn't be read (e.g. a line being hand-edited), the labels are read-only until
- * a {@link #reload()} succeeds - so saving from the watch list can never overwrite a file the user is
- * part-way through fixing.
+ * <p>If the labels file couldn't be read (e.g. a line being hand-edited), labels can't be added, renamed
+ * or removed until a {@link #reload()} succeeds - so saving from the watch list can never overwrite a
+ * file the user is part-way through fixing.
  */
 public final class LabelWatchModel {
     /** One label as displayed: {@code address} like {@code $066D} or {@code $0670-$0671}; values per {@link LabelValues}. */
@@ -34,15 +36,47 @@ public final class LabelWatchModel {
         reload();
     }
 
-    /** Re-reads the labels file - e.g. after editing it by hand. */
+    /**
+     * Re-reads the labels file - e.g. after editing it by hand. If that fails, the current labels stay (so
+     * their values can still be set and their locks released) but can't be changed until a reload works.
+     * After a successful reload, any locked byte that a label covered before but none covers now is
+     * released - otherwise it would stay held with no row left to unlock it. Locks no label ever covered
+     * are left alone.
+     */
     public void reload(){
-        labels.clear();
+        final List<MemoryLabel> loaded;
         try {
-            labels.addAll(store.load());
-            loadProblem = null;
+            loaded = store.load();
         } catch (IOException | LabelFileException e){
             loadProblem = e.getMessage();
+            return;
         }
+        final List<MemoryLabel> previous = List.copyOf(labels);
+        labels.clear();
+        labels.addAll(loaded);
+        loadProblem = null;
+        releaseLocksNoLongerCovered(previous);
+    }
+
+    private void releaseLocksNoLongerCovered(final List<MemoryLabel> previous){
+        final Set<Integer> stillCovered = coveredBytes(labels);
+        final Map<Integer, Integer> locks = target.locks();
+        for (final int formerlyCovered : coveredBytes(previous)){
+            if (locks.containsKey(formerlyCovered) && !stillCovered.contains(formerlyCovered)){
+                target.unlock(formerlyCovered);
+            }
+        }
+    }
+
+    /** Every byte the labels cover, by {@link MemoryEditor#canonical} address - so RAM mirrors compare equal. */
+    private static Set<Integer> coveredBytes(final List<MemoryLabel> labels){
+        final Set<Integer> covered = new TreeSet<>();
+        for (final MemoryLabel label : labels){
+            for (int address = label.start(); address <= label.end(); address++){
+                covered.add(MemoryEditor.canonical(address));
+            }
+        }
+        return covered;
     }
 
     /** Why the labels file couldn't be read, if it couldn't - labels are read-only meanwhile. */
