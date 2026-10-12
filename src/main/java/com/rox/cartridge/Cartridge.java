@@ -15,6 +15,7 @@ public final class Cartridge implements MemoryBus {
     //starting at $8000 - safe to hardcode here rather than asking Mapper, since a Mapper's own
     //read/write are only ever called with addresses already known to be in $6000-$FFFF (see Mapper's
     //class doc)
+    private static final int PRG_RAM_START_ADDRESS = 0x6000;
     private static final int PRG_ROM_START_ADDRESS = 0x8000;
 
     private final INesRom rom;
@@ -39,6 +40,20 @@ public final class Cartridge implements MemoryBus {
         if (address < PRG_ROM_START_ADDRESS){
             onPrgRamWrite.run();
         }
+    }
+
+    /**
+     * A debugging edit of PRG-RAM: the same write the game would make, minus the {@link #setOnPrgRamWrite}
+     * notification - so a battery-backed save on disk only changes if the game itself writes afterwards.
+     *
+     * @throws IllegalArgumentException outside the {@code $6000-$7FFF} PRG-RAM window - a write anywhere
+     * above it would be a mapper register write (e.g. a bank switch), not an edit
+     */
+    public void writePrgRamWithoutSaving(final int address, final int value){
+        if (address < PRG_RAM_START_ADDRESS || address >= PRG_ROM_START_ADDRESS){
+            throw new IllegalArgumentException(String.format("$%04X isn't PRG-RAM ($6000-$7FFF)", address));
+        }
+        mapper.write(address, value);
     }
 
     /** Notified (on whatever thread called {@link #write}) after every write to the {@code $6000-$7FFF} PRG-RAM window. */
