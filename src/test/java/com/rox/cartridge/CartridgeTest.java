@@ -8,6 +8,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -157,5 +158,25 @@ public class CartridgeTest {
         cartridge.checkRestorable(snapshot);
 
         verify(mapper).checkRestorable(snapshot);
+    }
+
+    @Test
+    public void writePrgRamWithoutSavingWritesThroughTheMapperButDoesNotNotify(){
+        final Runnable onPrgRamWrite = mock(Runnable.class);
+        cartridge.setOnPrgRamWrite(onPrgRamWrite);
+
+        cartridge.writePrgRamWithoutSaving(0x6000, 0x11);
+        cartridge.writePrgRamWithoutSaving(0x7FFF, 0x22);
+
+        verify(mapper).write(0x6000, 0x11);
+        verify(mapper).write(0x7FFF, 0x22);
+        verify(onPrgRamWrite, never()).run();
+    }
+
+    @Test
+    public void writePrgRamWithoutSavingRefusesAnythingButPrgRam(){
+        assertThrows(IllegalArgumentException.class, () -> cartridge.writePrgRamWithoutSaving(0x5FFF, 0));
+        assertThrows(IllegalArgumentException.class, () -> cartridge.writePrgRamWithoutSaving(0x8000, 0)); //a mapper register
+        verify(mapper, never()).write(org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt());
     }
 }

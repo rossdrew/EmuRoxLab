@@ -26,9 +26,16 @@ public class MemoryLabelTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"", " ", "two words", "tab\there", "new\nline"})
-    public void namesMustBeOneWord(final String name){
+    @ValueSource(strings = {"", " ", "two words", "tab\there", "new\nline", "em\u2003space",
+            "hp#2", "$066D", "a/b", "a:b", "caf\u00e9"})
+    public void namesAreRestrictedSoTheyAlwaysRoundTripThroughALabelsFile(final String name){
         assertThrows(IllegalArgumentException.class, () -> MemoryLabel.at(name, 0));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"rupees", "Key_Count", "link.x", "hp-max", "a", "_", "0", "A1_b.c-D"})
+    public void lettersDigitsUnderscoreDotAndHyphenAreAllowed(final String name){
+        assertDoesNotThrow(() -> MemoryLabel.at(name, 0));
     }
 
     @Test

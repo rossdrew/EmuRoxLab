@@ -176,4 +176,16 @@ public class LabelFileTest {
         assertEquals(List.of(MemoryLabel.at("hp", 0x0010)),
                 LabelFile.parse(List.of("\u2003\u3000$0010\u2002hp\u2003")));
     }
+
+    /** CodeRabbit's PR #47 merge-risk note: '#' starts a comment, so it can't be part of a name that reads back. */
+    @Test
+    public void aNameNeverChangesOnTheWayThroughTheFile(@TempDir final Path tempDir) throws IOException, LabelFileException {
+        final Path file = tempDir.resolve("labels.txt");
+        final List<MemoryLabel> labels = List.of(MemoryLabel.at("A1_b.c-D", 0x0010));
+
+        LabelFile.write(file, labels);
+
+        assertEquals(labels, LabelFile.read(file));
+        assertThrows(IllegalArgumentException.class, () -> MemoryLabel.at("hp#2", 0x0010), "such a name can't be made at all");
+    }
 }
