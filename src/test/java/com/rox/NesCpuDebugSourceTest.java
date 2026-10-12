@@ -149,4 +149,23 @@ public class NesCpuDebugSourceTest {
 
         assertFalse(new NesCpuDebugSource(notRunning).pause());
     }
+
+    @Test
+    public void stepInstructionStepsTheNes(){
+        final NES nes = nes();
+        final NesCpuDebugSource source = new NesCpuDebugSource(nes);
+
+        source.stepInstruction();
+
+        assertEquals(0x9001, source.state().pc());
+    }
+
+    @Test
+    public void stepCyclesStepsTheNes(){
+        final NES nes = nes();
+
+        new NesCpuDebugSource(nes).stepCycles(7);
+
+        assertEquals(7, nes.tickRateMonitor().ticks());
+    }
 }

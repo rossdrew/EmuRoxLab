@@ -63,6 +63,8 @@ public class CpuStateTextTest {
             @Override public boolean pause(){ return true; }
             @Override public void resume(){ }
             @Override public boolean isPaused(){ return paused; }
+            @Override public void stepInstruction(){ }
+            @Override public void stepCycles(final int cycles){ }
         };
     }
 
