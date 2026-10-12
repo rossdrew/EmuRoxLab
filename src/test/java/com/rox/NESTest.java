@@ -984,4 +984,95 @@ public class NESTest {
         assertTrue(assertThrows(IllegalStateException.class, nes::stepFrame).getMessage().contains("Pause"));
         org.mockito.Mockito.verify(runningClock, never()).tick();
     }
+
+    // --- memory editing ---
+
+    @Test
+    public void pokeWhileNotRunningAppliesImmediatelyIncludingThroughMirrors(){
+        final NES nes = manuallyTickedNes(busyLoopCartridge(0));
+
+        nes.pokeMemory(0x0010, 5);
+        assertEquals(5, nes.ram().read(0x0010));
+
+        nes.pokeMemory(0x1810, 6);
+        assertEquals(6, nes.ram().read(0x0010), "a mirror edits the real byte");
+    }
+
+    @Test
+    public void pokeWhileRunningWaitsForTheClockThreadsNextTick(){
+        final ManuallyTickedClock clock = new ManuallyTickedClock();
+        final NES nes = new NES(mock(AudioOutput.class), busyLoopCartridge(0), clock);
+        nes.cpu().reset();
+        clock.setRunning(true);
+
+        nes.pokeMemory(0x0300, 7); //an address the program never writes
+
+        assertEquals(0, nes.ram().read(0x0300), "not written from this thread while running");
+        clock.tick();
+        assertEquals(7, nes.ram().read(0x0300));
+    }
+
+    @Test
+    public void pokeWhilePausedAppliesImmediately(){
+        final NES nes = manuallyTickedNes(busyLoopCartridge(0));
+        assertTrue(nes.pause()); //ManuallyTickedClock "pauses" fine
+
+        nes.pokeMemory(0x0300, 8);
+
+        assertEquals(8, nes.ram().read(0x0300));
+    }
+
+    @Test
+    public void prgRamEditsDoNotTriggerABatterySave(){
+        final NES nes = manuallyTickedNes(busyLoopCartridge(0));
+        final Runnable onPrgRamWrite = mock(Runnable.class);
+        nes.cartridge().setOnPrgRamWrite(onPrgRamWrite);
+
+        nes.pokeMemory(0x6123, 9);
+
+        assertEquals(9, nes.cartridge().read(0x6123));
+        verify(onPrgRamWrite, never()).run();
+    }
+
+    @Test
+    public void pokeRefusesRegistersAndRomWithoutTouchingAnything(){
+        final NES nes = manuallyTickedNes(busyLoopCartridge(0));
+        final int romByte = nes.cartridge().read(0x9000);
+
+        assertThrows(IllegalArgumentException.class, () -> nes.pokeMemory(0x9000, 0x00));
+        assertThrows(IllegalArgumentException.class, () -> nes.pokeMemory(0x2000, 0x00));
+        assertEquals(romByte, nes.cartridge().read(0x9000));
+    }
+
+    /** The busy loop stores X to $10 every 16 cycles - a lock must win over that while it lasts. */
+    @Test
+    public void aLockHoldsAgainstTheGamesOwnWritesUntilUnlocked(){
+        final ManuallyTickedClock clock = new ManuallyTickedClock();
+        final NES nes = new NES(mock(AudioOutput.class), busyLoopCartridge(0), clock);
+        nes.cpu().reset();
+        clock.setRunning(true);
+
+        nes.lockMemory(0x0010, 0x77);
+        for (int i = 0; i < 1000; i++){
+            clock.tick();
+            assertEquals(0x77, nes.ram().read(0x0010), "after tick " + i);
+        }
+        assertEquals(java.util.Map.of(0x0010, 0x77), nes.lockedMemory());
+
+        nes.unlockMemory(0x0010);
+        for (int i = 0; i < 100; i++){
+            clock.tick();
+        }
+        assertTrue(nes.ram().read(0x0010) != 0x77, "the game's own writes stick again");
+        assertTrue(nes.lockedMemory().isEmpty());
+    }
+
+    @Test
+    public void lockingWhileNotRunningSetsTheValueStraightAway(){
+        final NES nes = manuallyTickedNes(busyLoopCartridge(0));
+
+        nes.lockMemory(0x0300, 0x42);
+
+        assertEquals(0x42, nes.ram().read(0x0300));
+    }
 }

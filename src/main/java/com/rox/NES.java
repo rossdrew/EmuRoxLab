@@ -10,6 +10,7 @@ import com.rox.clock.FPSClock;
 import com.rox.clock.TickRateMonitor;
 import com.rox.cpu.mos6502.MOS6502;
 import com.rox.debug.cpu.InstructionTrace;
+import com.rox.debug.memory.MemoryEditor;
 import com.rox.input.ControllerConfiguration;
 import com.rox.mem.*;
 import com.rox.ppu.PPU;
@@ -19,6 +20,7 @@ import com.rox.time.ThreadSleeper;
 import com.rox.video.VideoOutput;
 
 import javax.sound.sampled.LineUnavailableException;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.zip.CRC32;
 
@@ -49,6 +51,7 @@ public class NES {
     private final RAM ram;
     private final Cartridge cartridge;
     private final TickRateMonitor tickRateMonitor;
+    private final MemoryEditor memoryEditor;
     private final InstructionTrace instructionTrace;
     //set only once pause() has genuinely parked the clock - the precondition for capturing/restoring
     //state while powered on (see captureSnapshot())
@@ -110,6 +113,7 @@ public class NES {
         this.memoryBus = new Latched8BitMemoryBus(new NESMemoryBus(ramBus, apu, cartridge, ppu, controllers));
         this.cpu = new MOS6502(memoryBus);
         this.tickRateMonitor = new TickRateMonitor(new SystemTimeSource());
+        this.memoryEditor = new MemoryEditor(ram::write, cartridge::writePrgRamWithoutSaving);
         this.instructionTrace = new InstructionTrace(cpu::isAtInstructionBoundary, cpu::programCounter,
                 DebugCapture.sideEffectFreePeek(ram::read, cartridge));
         this.clock = clock;
@@ -118,6 +122,8 @@ public class NES {
         final Resampler resampler = new Resampler(CPU_HZ, AUDIO_SAMPLE_RATE_HZ);
         clock.addListener(tickRateMonitor);
         clock.addListener(cpu);
+        //right after the CPU, so a locked byte is back at its value before anything else sees the tick's state
+        clock.addListener(memoryEditor);
         clock.addListener(apu);
         clock.addListener(ppu);
         clock.addListener(() -> cpu.setIRQLine(apu.isIrqAsserted() || cartridge.isIrqAsserted()));
@@ -383,8 +389,48 @@ public class NES {
         }
     }
 
+    /**
+     * A debugging edit: sets one byte of CPU RAM ({@code $0000-$1FFF}, mirrored) or PRG-RAM
+     * ({@code $6000-$7FFF}) - any time, running or not. While running it's applied by the clock thread at
+     * its next tick, never written from this thread into memory the emulation is using; while paused (or
+     * not running) it's applied now. A PRG-RAM edit doesn't trigger a battery save.
+     *
+     * @throws IllegalArgumentException for any other address, or a value outside 0-255
+     */
+    public void pokeMemory(final int address, final int value){
+        if (nothingTicking()){
+            memoryEditor.write(address, value);
+        } else {
+            memoryEditor.queue(address, value);
+        }
+    }
+
+    /**
+     * Holds a byte at {@code value} - set now (as {@link #pokeMemory}), then re-applied every tick, so
+     * whatever the game writes there doesn't stick - until {@link #unlockMemory}.
+     *
+     * @throws IllegalArgumentException as {@link #pokeMemory}
+     */
+    public void lockMemory(final int address, final int value){
+        memoryEditor.lock(address, value);
+        pokeMemory(address, value);
+    }
+
+    public void unlockMemory(final int address){
+        memoryEditor.unlock(address);
+    }
+
+    /** Locked bytes, address to value, in address order (RAM by its real {@code $0000-$07FF} address). */
+    public Map<Integer, Integer> lockedMemory(){
+        return memoryEditor.locks();
+    }
+
+    private boolean nothingTicking(){
+        return !clock.isRunning() || paused;
+    }
+
     private void requireNothingTicking(){
-        if (clock.isRunning() && !paused){
+        if (!nothingTicking()){
             throw new IllegalStateException("Pause the NES before capturing, restoring or stepping it");
         }
     }
