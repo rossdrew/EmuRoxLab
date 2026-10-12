@@ -96,4 +96,9 @@ public class SavePathsTest {
         assertEquals("debug-snapshot-20261009-143000-3", third.getFileName().toString());
         assertTrue(Files.isDirectory(third));
     }
+
+    @Test
+    public void labelsFileIsInTheRomsSaveDirectory(){
+        assertEquals(Path.of("/roms/loz/labels.txt"), SavePaths.labelsFile(Path.of("/roms/loz.nes")));
+    }
 }
