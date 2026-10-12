@@ -1075,4 +1075,26 @@ public class NESTest {
 
         assertEquals(0x42, nes.ram().read(0x0300));
     }
+
+    /**
+     * CodeRabbit's PR #48 finding: stop() alone lets the clock thread finish its current frame after
+     * powerOff() returns, while pokeMemory()/captureSnapshot()/steps already treat it as stopped. The
+     * negative check is a fixed window - a still-running frame (~30,000 ticks) shows within microseconds.
+     */
+    @Test
+    public void powerOffReturnsOnlyOnceTheClockHasStoppedTicking() throws InterruptedException {
+        final AudioOutput audioOutput = mock(AudioOutput.class);
+        final NES nes = new NES(audioOutput, busyLoopCartridge(0));
+        final Thread thread = new Thread(nes::powerOn);
+        thread.start();
+        verify(audioOutput, timeout(2000)).start();
+
+        nes.powerOff();
+        final long ticksAtPowerOff = nes.tickRateMonitor().ticks();
+        Thread.sleep(100);
+
+        assertEquals(ticksAtPowerOff, nes.tickRateMonitor().ticks(), "nothing may tick after powerOff() returns");
+        thread.join(5000);
+        assertFalse(thread.isAlive());
+    }
 }

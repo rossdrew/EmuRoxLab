@@ -443,8 +443,15 @@ public class NES {
         return crc.getValue();
     }
 
+    /**
+     * Stops the emulation for good. Returns only once the clock thread has genuinely stopped ticking -
+     * {@code stop()} alone just flags the clock to stop after its current frame, which would leave a window
+     * where {@link #pokeMemory}, {@link #captureSnapshot} or a step saw "not running" and acted from this
+     * thread while the clock thread was still mid-frame.
+     */
     public void powerOff(){
         stopRequested = true;
+        clock.pause(); //waits for the in-flight frame to finish and the loop to park (a no-op if not running)
         clock.stop();
         audioOutput.stop();
     }
