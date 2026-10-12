@@ -55,6 +55,20 @@ public final class LabelFile {
         return labels;
     }
 
+    /**
+     * One label from text in the file's own syntax, e.g. {@code $066D rupees} - for a UI adding a label,
+     * so it accepts exactly what the file does.
+     *
+     * @throws LabelFileException (reported as line 1) if it isn't a valid label
+     */
+    public static MemoryLabel parseLabel(final String text) throws LabelFileException {
+        final String content = stripComment(text).strip();
+        if (content.isEmpty()){
+            throw new LabelFileException(1, "expected '<address> <name>' or '<start>-<end> <name>', got nothing");
+        }
+        return parseLabel(content, 1);
+    }
+
     /** One line per label, in the given order: {@code $066D rupees} or {@code $0670-$0671 key_count}. */
     public static List<String> format(final List<MemoryLabel> labels){
         final List<String> lines = new ArrayList<>(labels.size());
