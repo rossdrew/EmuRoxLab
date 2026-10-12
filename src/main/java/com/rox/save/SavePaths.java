@@ -15,6 +15,7 @@ import java.time.format.DateTimeFormatter;
 public final class SavePaths {
     private static final String BATTERY_SAVE_FILE_NAME = "battery.sav";
     private static final String LIVE_SAVE_FILE_NAME = "latest.sav";
+    private static final String LABELS_FILE_NAME = "labels.txt";
     private static final String DEBUG_SNAPSHOT_PREFIX = "debug-snapshot-";
     private static final DateTimeFormatter DEBUG_SNAPSHOT_TIMESTAMP = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
 
@@ -35,6 +36,11 @@ public final class SavePaths {
 
     public static Path liveSaveFile(final Path romPath){
         return saveDirectory(romPath).resolve(LIVE_SAVE_FILE_NAME);
+    }
+
+    /** The ROM's memory labels - see {@code com.rox.debug.labels.LabelFile}. */
+    public static Path labelsFile(final Path romPath){
+        return saveDirectory(romPath).resolve(LABELS_FILE_NAME);
     }
 
     /** {@code debug-snapshot-<yyyyMMdd-HHmmss>} - names both a flagged issue's folder and the {@code .sav} inside it. */
