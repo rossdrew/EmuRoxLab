@@ -68,6 +68,21 @@ final class NesCpuDebugSource implements CpuDebugSource {
         return nes.isPaused();
     }
 
+    @Override
+    public void stepInstruction(){
+        nes.stepInstruction();
+    }
+
+    @Override
+    public void stepCycles(final int cycles){
+        nes.stepCycles(cycles);
+    }
+
+    @Override
+    public void stepFrame(){
+        nes.stepFrame();
+    }
+
     private IntUnaryOperator peek(){
         return memory.peek();
     }

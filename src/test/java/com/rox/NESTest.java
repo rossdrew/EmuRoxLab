@@ -841,4 +841,147 @@ public class NESTest {
             assertEquals(loop[(i - offset) % loop.length], recent[i], "trace entry " + i);
         }
     }
+
+    // --- stepping ---
+
+    @Test
+    public void stepInstructionRunsExactlyOneInstruction(){
+        final NES nes = manuallyTickedNes(busyLoopCartridge(0)); //$9000: INX; STX $10; STX $2001; STX $6000; JMP
+
+        nes.stepInstruction();
+        assertEquals(0x9001, nes.cpu().programCounter());
+        assertEquals(1, nes.cpu().liveState().x());
+
+        nes.stepInstruction();
+        assertEquals(0x9003, nes.cpu().programCounter());
+        assertEquals(1, nes.ram().read(0x10));
+        assertTrue(nes.cpu().isAtInstructionBoundary());
+    }
+
+    @Test
+    public void stepInstructionFromMidInstructionJustFinishesIt(){
+        final NES nes = manuallyTickedNes(busyLoopCartridge(0));
+        nes.clock().tick(); //INX fetched, 1 cycle to go
+
+        nes.stepInstruction();
+
+        assertEquals(0x9001, nes.cpu().programCounter(), "finished INX, didn't also run STX");
+        assertEquals(2, nes.tickRateMonitor().ticks(), "INX is 2 cycles in total");
+    }
+
+    /** $9000: LDA #$02; STA $4014 (OAM DMA); NOP; JMP $9000 - stepping over the STA includes its whole stall. */
+    @Test
+    public void stepInstructionIncludesAnOamDmaStallThatFollows(){
+        final byte[] header = {'N', 'E', 'S', 0x1A, 0x01, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0};
+        final byte[] fileBytes = new byte[header.length + PRG_ROM_SIZE];
+        System.arraycopy(header, 0, fileBytes, 0, header.length);
+        final byte[] program = {(byte) 0xA9, 0x02, (byte) 0x8D, 0x14, 0x40, (byte) 0xEA, 0x4C, 0x00, (byte) 0x90};
+        System.arraycopy(program, 0, fileBytes, header.length + 0x1000, program.length);
+        fileBytes[header.length + 0x3FFC] = 0x00;
+        fileBytes[header.length + 0x3FFD] = (byte) 0x90;
+        final NES nes = manuallyTickedNes(RomLoader.fromBytes(fileBytes));
+        nes.stepInstruction(); //LDA #$02
+        final long before = nes.tickRateMonitor().ticks();
+
+        nes.stepInstruction(); //STA $4014, then the DMA stall
+
+        assertEquals(0x9005, nes.cpu().programCounter());
+        assertTrue(nes.tickRateMonitor().ticks() - before >= 514, "the 514-cycle DMA stall belongs to this step");
+        assertTrue(nes.cpu().isAtInstructionBoundary());
+    }
+
+    @Test
+    public void stepInstructionGivesUpRatherThanHangingOnAnInstructionThatNeverEnds(){
+        final NES nes = manuallyTickedNes(busyLoopCartridge(0));
+        nes.cpu().stall(NES.MAX_CYCLES_PER_STEPPED_INSTRUCTION + 1);
+
+        assertThrows(IllegalStateException.class, nes::stepInstruction);
+        assertEquals(NES.MAX_CYCLES_PER_STEPPED_INSTRUCTION, nes.tickRateMonitor().ticks(), "gives up at exactly the cap");
+    }
+
+    /** A stall taking exactly the cap still completes - the cap is "more than this many cycles", not "this many". */
+    @Test
+    public void stepInstructionCompletesAStepTakingExactlyTheCap(){
+        final NES nes = manuallyTickedNes(busyLoopCartridge(0));
+        nes.cpu().stall(NES.MAX_CYCLES_PER_STEPPED_INSTRUCTION); //a stall between instructions is a step of its own
+
+        nes.stepInstruction();
+
+        assertEquals(NES.MAX_CYCLES_PER_STEPPED_INSTRUCTION, nes.tickRateMonitor().ticks());
+        assertTrue(nes.cpu().isAtInstructionBoundary());
+    }
+
+    @Test
+    public void stepCyclesRunsExactlyThatManyCycles(){
+        final NES nes = manuallyTickedNes(busyLoopCartridge(0));
+
+        nes.stepCycles(1);
+        assertEquals(1, nes.tickRateMonitor().ticks());
+        assertFalse(nes.cpu().isAtInstructionBoundary(), "can leave the CPU mid-instruction");
+
+        nes.stepCycles(29_781);
+        assertEquals(29_782, nes.tickRateMonitor().ticks());
+    }
+
+    @Test
+    public void stepCyclesRejectsNothingOrLess(){
+        final NES nes = manuallyTickedNes(busyLoopCartridge(0));
+
+        assertThrows(IllegalArgumentException.class, () -> nes.stepCycles(0));
+        assertThrows(IllegalArgumentException.class, () -> nes.stepCycles(-1));
+        assertEquals(0, nes.tickRateMonitor().ticks());
+    }
+
+    @Test
+    public void steppingIsRefusedWhileRunningUnpaused(){
+        final Clock runningClock = mock(Clock.class);
+        org.mockito.Mockito.when(runningClock.isRunning()).thenReturn(true);
+        final NES nes = new NES(mock(AudioOutput.class), busyLoopCartridge(0), runningClock);
+
+        assertTrue(assertThrows(IllegalStateException.class, nes::stepInstruction).getMessage().contains("Pause"));
+        assertTrue(assertThrows(IllegalStateException.class, () -> nes.stepCycles(1)).getMessage().contains("Pause"));
+        org.mockito.Mockito.verify(runningClock, never()).tick();
+    }
+
+    @Test
+    public void stepFrameRunsToTheNextPresentedFrameThenFinishesTheInstruction(){
+        final VideoOutput videoOutput = mock(VideoOutput.class);
+        final NES nes = new NES(mock(AudioOutput.class), videoOutput, busyLoopCartridge(0), new ManuallyTickedClock());
+        nes.cpu().reset();
+
+        nes.stepFrame();
+        verify(videoOutput, org.mockito.Mockito.times(1)).present(any());
+        assertTrue(nes.cpu().isAtInstructionBoundary());
+        final long afterFirst = nes.tickRateMonitor().ticks();
+        //frames end at varying points in this 16-cycle loop, so check a few - each must stop between instructions
+        for (int frame = 2; frame <= 6; frame++){
+            nes.stepFrame();
+            assertTrue(nes.cpu().isAtInstructionBoundary(), "frame " + frame);
+        }
+
+        verify(videoOutput, org.mockito.Mockito.times(6)).present(any());
+        final double averageFrameCycles = (nes.tickRateMonitor().ticks() - afterFirst) / 5.0;
+        //one NTSC frame (29,780.5 cycles), give or take the few cycles of finishing an instruction
+        assertTrue(averageFrameCycles >= 29_775 && averageFrameCycles <= 29_790, "a frame step averaged " + averageFrameCycles + " cycles");
+    }
+
+    @Test
+    public void stepFrameGivesUpRatherThanHangingIfNoFrameFinishes(){
+        final VideoOutput videoOutput = mock(VideoOutput.class);
+        final NES nes = new NES(mock(AudioOutput.class), videoOutput, busyLoopCartridge(0), new ManuallyTickedClock());
+
+        assertThrows(IllegalStateException.class, () -> nes.stepFrame(100));
+        assertEquals(100, nes.tickRateMonitor().ticks(), "gives up at exactly the cap");
+        verify(videoOutput, never()).present(any());
+    }
+
+    @Test
+    public void stepFrameIsRefusedWhileRunningUnpaused(){
+        final Clock runningClock = mock(Clock.class);
+        org.mockito.Mockito.when(runningClock.isRunning()).thenReturn(true);
+        final NES nes = new NES(mock(AudioOutput.class), busyLoopCartridge(0), runningClock);
+
+        assertTrue(assertThrows(IllegalStateException.class, nes::stepFrame).getMessage().contains("Pause"));
+        org.mockito.Mockito.verify(runningClock, never()).tick();
+    }
 }

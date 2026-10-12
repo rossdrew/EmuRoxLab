@@ -32,4 +32,13 @@ public interface CpuDebugSource {
     void resume();
 
     boolean isPaused();
+
+    /** Runs one instruction - only while paused. See {@code NES.stepInstruction()}. */
+    void stepInstruction();
+
+    /** Runs exactly {@code cycles} CPU cycles - only while paused. See {@code NES.stepCycles(int)}. */
+    void stepCycles(int cycles);
+
+    /** Runs until the next frame is finished - only while paused. See {@code NES.stepFrame()}. */
+    void stepFrame();
 }
