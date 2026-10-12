@@ -78,6 +78,11 @@ final class NesCpuDebugSource implements CpuDebugSource {
         nes.stepCycles(cycles);
     }
 
+    @Override
+    public void stepFrame(){
+        nes.stepFrame();
+    }
+
     private IntUnaryOperator peek(){
         return memory.peek();
     }

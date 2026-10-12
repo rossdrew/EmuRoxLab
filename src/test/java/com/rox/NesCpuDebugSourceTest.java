@@ -161,6 +161,16 @@ public class NesCpuDebugSourceTest {
     }
 
     @Test
+    public void stepFrameStepsTheNes(){
+        final NES nes = nes();
+
+        new NesCpuDebugSource(nes).stepFrame();
+
+        assertTrue(nes.tickRateMonitor().ticks() > 20_000, "ran (most of) a frame - the first frame starts mid-way");
+        assertTrue(nes.cpu().isAtInstructionBoundary());
+    }
+
+    @Test
     public void stepCyclesStepsTheNes(){
         final NES nes = nes();
 

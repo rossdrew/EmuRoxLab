@@ -942,4 +942,46 @@ public class NESTest {
         assertTrue(assertThrows(IllegalStateException.class, () -> nes.stepCycles(1)).getMessage().contains("Pause"));
         org.mockito.Mockito.verify(runningClock, never()).tick();
     }
+
+    @Test
+    public void stepFrameRunsToTheNextPresentedFrameThenFinishesTheInstruction(){
+        final VideoOutput videoOutput = mock(VideoOutput.class);
+        final NES nes = new NES(mock(AudioOutput.class), videoOutput, busyLoopCartridge(0), new ManuallyTickedClock());
+        nes.cpu().reset();
+
+        nes.stepFrame();
+        verify(videoOutput, org.mockito.Mockito.times(1)).present(any());
+        assertTrue(nes.cpu().isAtInstructionBoundary());
+        final long afterFirst = nes.tickRateMonitor().ticks();
+        //frames end at varying points in this 16-cycle loop, so check a few - each must stop between instructions
+        for (int frame = 2; frame <= 6; frame++){
+            nes.stepFrame();
+            assertTrue(nes.cpu().isAtInstructionBoundary(), "frame " + frame);
+        }
+
+        verify(videoOutput, org.mockito.Mockito.times(6)).present(any());
+        final double averageFrameCycles = (nes.tickRateMonitor().ticks() - afterFirst) / 5.0;
+        //one NTSC frame (29,780.5 cycles), give or take the few cycles of finishing an instruction
+        assertTrue(averageFrameCycles >= 29_775 && averageFrameCycles <= 29_790, "a frame step averaged " + averageFrameCycles + " cycles");
+    }
+
+    @Test
+    public void stepFrameGivesUpRatherThanHangingIfNoFrameFinishes(){
+        final VideoOutput videoOutput = mock(VideoOutput.class);
+        final NES nes = new NES(mock(AudioOutput.class), videoOutput, busyLoopCartridge(0), new ManuallyTickedClock());
+
+        assertThrows(IllegalStateException.class, () -> nes.stepFrame(100));
+        assertEquals(100, nes.tickRateMonitor().ticks(), "gives up at exactly the cap");
+        verify(videoOutput, never()).present(any());
+    }
+
+    @Test
+    public void stepFrameIsRefusedWhileRunningUnpaused(){
+        final Clock runningClock = mock(Clock.class);
+        org.mockito.Mockito.when(runningClock.isRunning()).thenReturn(true);
+        final NES nes = new NES(mock(AudioOutput.class), busyLoopCartridge(0), runningClock);
+
+        assertTrue(assertThrows(IllegalStateException.class, nes::stepFrame).getMessage().contains("Pause"));
+        org.mockito.Mockito.verify(runningClock, never()).tick();
+    }
 }

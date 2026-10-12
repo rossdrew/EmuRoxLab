@@ -38,4 +38,7 @@ public interface CpuDebugSource {
 
     /** Runs exactly {@code cycles} CPU cycles - only while paused. See {@code NES.stepCycles(int)}. */
     void stepCycles(int cycles);
+
+    /** Runs until the next frame is finished - only while paused. See {@code NES.stepFrame()}. */
+    void stepFrame();
 }

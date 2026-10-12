@@ -30,6 +30,8 @@ public class NES {
      * UI thread that asked for the step.
      */
     static final int MAX_CYCLES_PER_STEPPED_INSTRUCTION = 10_000;
+    /** Over three NTSC frames (29,780.5 CPU cycles each) - only reached if the PPU somehow stops finishing frames. */
+    static final int MAX_CYCLES_PER_STEPPED_FRAME = 100_000;
     /** The NES's 2KB of CPU RAM - NESMemoryBus mirrors it across $0000-$1FFF. */
     private static final int CPU_RAM_SIZE = NESMemoryBus.CPU_RAM_MIRROR_MASK + 1;
     private static final long AUDIO_SAMPLE_RATE_HZ = 44_100;
@@ -51,6 +53,8 @@ public class NES {
     //set only once pause() has genuinely parked the clock - the precondition for capturing/restoring
     //state while powered on (see captureSnapshot())
     private volatile boolean paused;
+    //every frame handed to videoOutput - what stepFrame() watches for
+    private volatile long framesPresented;
     //set by powerOff(), read by powerOn() - catches a powerOff() that races ahead of clockThread
     //even starting (see powerOn()'s comment on why clock.stop() alone can't catch that case)
     private volatile boolean stopRequested;
@@ -138,6 +142,7 @@ public class NES {
             //flag (it resets itself the moment it's read true), so a second listener also calling it
             //would simply never see true, having already been beaten to it by this one
             if (ppu.consumeFrameReady()){
+                framesPresented++;
                 videoOutput.present(ppu.rgbFramebuffer());
                 controllers.player1().poll();
                 controllers.player2().poll();
@@ -343,6 +348,33 @@ public class NES {
         for (int i = 0; i < cycles; i++){
             clock.tick();
         }
+    }
+
+    /**
+     * Runs until the next frame is finished and presented (the start of vertical blanking), then
+     * finishes the instruction in progress - so each step shows exactly one new frame and stops at the
+     * same point in it. A fixed cycle count can't do that: an NTSC frame is 29,780.5 CPU cycles. Same
+     * "paused or not running" precondition as {@link #stepInstruction()}.
+     *
+     * @throws IllegalStateException if the clock is running and not paused, or no frame finishes within
+     * {@link #MAX_CYCLES_PER_STEPPED_FRAME} cycles
+     */
+    public void stepFrame(){
+        stepFrame(MAX_CYCLES_PER_STEPPED_FRAME);
+    }
+
+    /** {@link #stepFrame()} with a given cap - a test seam, since a real PPU always finishes a frame well inside the real one. */
+    void stepFrame(final int maxCycles){
+        requireNothingTicking();
+        final long startingFrame = framesPresented;
+        int cycles = 0;
+        while (framesPresented <= startingFrame){
+            if (cycles++ == maxCycles){
+                throw new IllegalStateException("No frame finished within " + maxCycles + " cycles");
+            }
+            clock.tick();
+        }
+        finishInFlightInstruction();
     }
 
     private void finishInFlightInstruction(){
