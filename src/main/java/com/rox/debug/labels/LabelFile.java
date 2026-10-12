@@ -24,6 +24,7 @@ public final class LabelFile {
     private static final String COMMENT = "#";
     private static final String HEX_PREFIX = "$";
     private static final String RANGE_SEPARATOR = "-";
+    private static final String WHITESPACE = "\\p{javaWhitespace}+";
     private static final int HEX_RADIX = 16;
     private static final int MAX_HEX_DIGITS = 4;
     static final String HEADER = "# EmuRoxLab memory labels: '<address> <name>' or '<start>-<end> <name>', hex addresses."
@@ -40,7 +41,8 @@ public final class LabelFile {
         final Set<String> names = new HashSet<>();
         for (int i = 0; i < lines.size(); i++){
             final int lineNumber = i + 1;
-            final String content = stripComment(lines.get(i)).trim();
+            //strip(), not trim(): the same Unicode-aware whitespace as MemoryLabel's name rule (see parseLabel)
+            final String content = stripComment(lines.get(i)).strip();
             if (content.isEmpty()){
                 continue;
             }
@@ -99,7 +101,10 @@ public final class LabelFile {
     }
 
     private static MemoryLabel parseLabel(final String content, final int lineNumber) throws LabelFileException {
-        final String[] parts = content.split("\\s+");
+        //\p{javaWhitespace} is exactly Character.isWhitespace - what MemoryLabel rejects in a name. Plain \s is
+        //ASCII-only, so a name containing e.g. an em space would get through to MemoryLabel and fail there
+        //without a line number
+        final String[] parts = content.split(WHITESPACE);
         if (parts.length != 2){
             throw new LabelFileException(lineNumber, "expected '<address> <name>' or '<start>-<end> <name>', got '" + content + "'");
         }
@@ -112,8 +117,8 @@ public final class LabelFile {
         if (end < start){
             throw new LabelFileException(lineNumber, String.format("range ends ($%04X) before it starts ($%04X)", end, start));
         }
-        //can't throw: the name is one non-empty word (split on whitespace) and both addresses are already
-        //checked as in range, with end >= start - everything MemoryLabel itself rejects
+        //can't throw: the name is one non-empty word (split on MemoryLabel's own definition of whitespace)
+        //and both addresses are already checked as in range, with end >= start - everything MemoryLabel rejects
         return MemoryLabel.spanning(parts[1], start, end);
     }
 

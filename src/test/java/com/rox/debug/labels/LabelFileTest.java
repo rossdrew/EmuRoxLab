@@ -160,4 +160,20 @@ public class LabelFileTest {
         assertEquals(1, LabelFile.read(file).size(), "one complete write won");
         assertNoTemporaryFilesLeftIn(tempDir);
     }
+
+    /** CodeRabbit's PR #47 finding: Java's \s is ASCII-only, but MemoryLabel rejects any Unicode whitespace. */
+    @Test
+    public void aNameContainingUnicodeWhitespaceGetsANumberedError(){
+        final LabelFileException e = assertThrows(LabelFileException.class,
+                () -> LabelFile.parse(List.of("$0001 fine", "$0010 hp\u2003max"))); //em space
+
+        assertEquals(2, e.lineNumber());
+        assertTrue(e.getMessage().contains("expected '<address> <name>'"), e.getMessage());
+    }
+
+    @Test
+    public void unicodeWhitespaceAroundAndBetweenPartsIsJustSpacing() throws LabelFileException {
+        assertEquals(List.of(MemoryLabel.at("hp", 0x0010)),
+                LabelFile.parse(List.of("\u2003\u3000$0010\u2002hp\u2003")));
+    }
 }
