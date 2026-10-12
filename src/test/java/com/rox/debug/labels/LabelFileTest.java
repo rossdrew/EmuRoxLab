@@ -11,7 +11,6 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -91,7 +90,7 @@ public class LabelFileTest {
 
         assertEquals(labels, LabelFile.read(file));
         assertEquals(LabelFile.HEADER, Files.readAllLines(file).get(0));
-        assertFalse(Files.exists(file.resolveSibling("labels.txt.tmp")), "the temporary file is moved into place");
+        assertNoTemporaryFilesLeftIn(file.getParent());
     }
 
     @Test
@@ -115,5 +114,50 @@ public class LabelFileTest {
         Files.write(file, List.of("$0010 hp", "nonsense"));
 
         assertEquals(2, assertThrows(LabelFileException.class, () -> LabelFile.read(file)).lineNumber());
+    }
+
+    private static void assertNoTemporaryFilesLeftIn(final Path folder) throws IOException {
+        try (java.util.stream.Stream<Path> files = Files.list(folder)){
+            assertEquals(List.of(folder.resolve("labels.txt")), files.toList(), "only the labels file itself should remain");
+        }
+    }
+
+    /** CodeRabbit's PR #47 finding: a failed save must not leave its temporary file behind. */
+    @Test
+    public void aFailedWriteLeavesNoTemporaryFileBehind(@TempDir final Path tempDir) throws IOException {
+        final Path target = tempDir.resolve("labels.txt");
+        Files.createDirectory(target); //a non-empty directory where the file should go makes the final move fail
+        Files.createFile(target.resolve("blocker"));
+
+        assertThrows(IOException.class, () -> LabelFile.write(target, List.of(MemoryLabel.at("x", 1))));
+
+        try (java.util.stream.Stream<Path> files = Files.list(tempDir)){
+            assertEquals(List.of(target), files.toList(), "no .tmp file left alongside");
+        }
+    }
+
+    /** CodeRabbit's PR #47 finding: overlapping saves must not move each other's temporary file away. */
+    @Test
+    public void concurrentWritesAllSucceed(@TempDir final Path tempDir) throws Exception {
+        final Path file = tempDir.resolve("labels.txt");
+        final java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(4);
+        try {
+            final List<java.util.concurrent.Future<?>> writes = new java.util.ArrayList<>();
+            for (int i = 0; i < 40; i++){
+                final int value = i;
+                writes.add(pool.submit(() -> {
+                    LabelFile.write(file, List.of(MemoryLabel.at("v" + value, value)));
+                    return null;
+                }));
+            }
+            for (final java.util.concurrent.Future<?> write : writes){
+                write.get(); //rethrows any write's failure
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+
+        assertEquals(1, LabelFile.read(file).size(), "one complete write won");
+        assertNoTemporaryFilesLeftIn(tempDir);
     }
 }

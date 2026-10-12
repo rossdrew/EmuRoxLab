@@ -82,9 +82,15 @@ public final class LabelFile {
         final List<String> lines = new ArrayList<>();
         lines.add(HEADER);
         lines.addAll(format(labels));
-        final Path temporary = path.resolveSibling(path.getFileName() + ".tmp");
-        Files.write(temporary, lines, StandardCharsets.UTF_8);
-        Files.move(temporary, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        //a temporary file unique to this write (in the same folder, so the move stays atomic), always cleaned
+        //up - two saves at once can't move each other's file away, and a failed write leaves nothing behind
+        final Path temporary = Files.createTempFile(path.toAbsolutePath().getParent(), path.getFileName() + "-", ".tmp");
+        try {
+            Files.write(temporary, lines, StandardCharsets.UTF_8);
+            Files.move(temporary, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } finally {
+            Files.deleteIfExists(temporary);
+        }
     }
 
     private static String stripComment(final String line){
