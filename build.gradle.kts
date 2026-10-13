@@ -132,11 +132,15 @@ tasks.register("pitestBadge") {
                     .nodeValue
             }
 
+        //Pitest's own "detected" statuses (DetectionStatus.isDetected() in Pitest 1.22.1) - the mutants a test
+        //actually caught. Counting everything but NO_COVERAGE instead also counted SURVIVED mutants: code
+        //the tests run but wouldn't notice breaking, which overstated the score
+        val detectedStatuses = setOf("KILLED", "TIMED_OUT", "NON_VIABLE", "MEMORY_ERROR", "RUN_ERROR")
         val total = statuses.size
-        val covered = statuses.count { it != "NO_COVERAGE" }
+        val detected = statuses.count { it in detectedStatuses }
 
         val score = if (total == 0) 0 else
-            ((covered.toDouble() / total) * 100).roundToInt()
+            ((detected.toDouble() / total) * 100).roundToInt()
 
         val color = when {
             score >= 80 -> "brightgreen"
