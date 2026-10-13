@@ -1,14 +1,17 @@
 package com.rox.debug.cpu;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
  * Finds what to color in {@link CpuStateText#panel} output. Spans may overlap: a background kind
- * ({@link Kind#CHANGED}, {@link Kind#CURRENT_LINE}) layers over a text-colour kind.
+ * ({@link Kind#CHANGED}, {@link Kind#CURRENT_LINE}) layers over a text-colour kind. On instruction lines
+ * carrying a state, each value that differs from the next such line down is marked {@link Kind#CHANGED}.
  */
 public final class CpuTextHighlighter {
     public enum Kind {
@@ -31,7 +34,11 @@ public final class CpuTextHighlighter {
 
     private static final Pattern REGISTER = Pattern.compile("(PC|A|X|Y|SP): (\\$[0-9A-F]+)");
     private static final Pattern ACTIVE = Pattern.compile("\\b(asserted|yes)\\b");
-    private static final Pattern INSTRUCTION = Pattern.compile("([> ]) (\\$[0-9A-F]{4})  (.*)");
+    private static final Pattern INSTRUCTION = Pattern.compile("([> ]) (\\$[0-9A-F]{4})  (\\S+(?: \\S+)?)(?: +(A:.*))?");
+    private static final Pattern LINE_REGISTER = Pattern.compile("(A|X|Y|SP):([0-9A-F]{2})");
+    private static final Pattern LINE_FLAGS = Pattern.compile("[Nn][Vv]-[Bb][Dd][Ii][Zz][Cc]");
+    private static final Pattern LINE_INTERRUPT = Pattern.compile("\\b(irq|nmi)\\b");
+    private static final String FLAG_NAMES = "NV-BDIZC";
     private static final String FLAGS_PREFIX = "Flags: ";
     private static final int FLAG_COUNT = 8; //NV-BDIZC
 
@@ -48,16 +55,33 @@ public final class CpuTextHighlighter {
     /** @param flashCurrentAddress also mark the current instruction's address as {@link Kind#JUMP_FLASH} - see {@link JumpFlash} */
     public static List<Span> highlight(final String text, final Set<String> changed, final boolean flashCurrentAddress){
         final List<Span> spans = new ArrayList<>();
+        final List<LineState> states = new ArrayList<>();
         int lineStart = 0;
         for (final String line : text.split("\n", -1)){
-            highlightLine(line, lineStart, changed, flashCurrentAddress, spans);
+            highlightLine(line, lineStart, changed, flashCurrentAddress, spans, states);
             lineStart += line.length() + 1;
+        }
+        for (int i = 0; i + 1 < states.size(); i++){
+            markChangesFromBelow(states.get(i), states.get(i + 1), spans);
         }
         return spans;
     }
 
+    /** One instruction line's state values, by name ({@code A}, {@code N}, {@code irq}...), with where each sits. */
+    private record LineState(Map<String, String> values, Map<String, Integer> offsets) {
+    }
+
+    private static void markChangesFromBelow(final LineState line, final LineState below, final List<Span> spans){
+        line.values().forEach((name, value) -> {
+            if (!value.equals(below.values().get(name))){
+                spans.add(new Span(line.offsets().get(name), value.length(), Kind.CHANGED));
+            }
+        });
+    }
+
     private static void highlightLine(final String line, final int offset, final Set<String> changed,
-                                      final boolean flashCurrentAddress, final List<Span> spans){
+                                      final boolean flashCurrentAddress, final List<Span> spans,
+                                      final List<LineState> states){
         if (line.startsWith("PAUSED")){
             spans.add(new Span(offset, "PAUSED".length(), Kind.PAUSED));
         } else if (line.startsWith("PC: ")){
@@ -89,12 +113,12 @@ public final class CpuTextHighlighter {
         } else if (line.startsWith("---")){
             spans.add(new Span(offset, line.length(), Kind.HEADER));
         } else {
-            highlightInstruction(line, offset, flashCurrentAddress, spans);
+            highlightInstruction(line, offset, flashCurrentAddress, spans, states);
         }
     }
 
     private static void highlightInstruction(final String line, final int offset, final boolean flashCurrentAddress,
-                                             final List<Span> spans){
+                                             final List<Span> spans, final List<LineState> states){
         final Matcher instruction = INSTRUCTION.matcher(line);
         if (!instruction.matches()){
             return;
@@ -105,6 +129,9 @@ public final class CpuTextHighlighter {
         spans.add(new Span(offset + instruction.start(2), instruction.group(2).length(), Kind.ADDRESS));
         if (flashCurrentAddress && instruction.group(1).equals(">")){
             spans.add(new Span(offset + instruction.start(2), instruction.group(2).length(), Kind.JUMP_FLASH));
+        }
+        if (instruction.group(4) != null){
+            states.add(highlightState(instruction.group(4), offset + instruction.start(4), spans));
         }
         final String code = instruction.group(3);
         final int codeStart = offset + instruction.start(3);
@@ -127,6 +154,39 @@ public final class CpuTextHighlighter {
                 spans.add(new Span(operandStart, operand.length(), Kind.OPERAND));
             }
         }
+    }
+
+    /** Colours an instruction line's state, returning its values for the line-to-line comparison. */
+    private static LineState highlightState(final String state, final int offset, final List<Span> spans){
+        final Map<String, String> values = new HashMap<>();
+        final Map<String, Integer> offsets = new HashMap<>();
+        final Matcher register = LINE_REGISTER.matcher(state);
+        while (register.find()){
+            spans.add(new Span(offset + register.start(1), register.group(1).length(), Kind.REGISTER_NAME));
+            spans.add(new Span(offset + register.start(2), register.group(2).length(), Kind.REGISTER_VALUE));
+            values.put(register.group(1), register.group(2));
+            offsets.put(register.group(1), offset + register.start(2));
+        }
+        final Matcher flags = LINE_FLAGS.matcher(state);
+        if (flags.find()){
+            for (int i = 0; i < FLAG_NAMES.length(); i++){
+                final char flag = flags.group().charAt(i);
+                if (flag == '-'){
+                    continue;
+                }
+                final int at = offset + flags.start() + i;
+                spans.add(new Span(at, 1, Character.isUpperCase(flag) ? Kind.FLAG_SET : Kind.FLAG_CLEAR));
+                values.put(String.valueOf(FLAG_NAMES.charAt(i)), String.valueOf(flag));
+                offsets.put(String.valueOf(FLAG_NAMES.charAt(i)), at);
+            }
+        }
+        final Matcher interrupt = LINE_INTERRUPT.matcher(state);
+        while (interrupt.find()){
+            spans.add(new Span(offset + interrupt.start(), interrupt.group().length(), Kind.ACTIVE));
+            values.put(interrupt.group(), interrupt.group());
+            offsets.put(interrupt.group(), offset + interrupt.start());
+        }
+        return new LineState(values, offsets);
     }
 
     private static Kind mnemonicKind(final String mnemonic){

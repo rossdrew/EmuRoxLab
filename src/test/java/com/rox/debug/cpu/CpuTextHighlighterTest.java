@@ -130,4 +130,85 @@ public class CpuTextHighlighterTest {
         assertEquals(List.of("$8000"), flashing);
         assertTrue(CpuTextHighlighter.highlight(text, Set.of(), false).stream().noneMatch(s -> s.kind() == Kind.JUMP_FLASH));
     }
+
+    // --- per-line state ---
+
+    /** Just the CHANGED spans, as covered text, in text order. */
+    private static List<String> changedIn(final String text){
+        return CpuTextHighlighter.highlight(text, Set.of()).stream()
+                .filter(s -> s.kind() == Kind.CHANGED)
+                .sorted(java.util.Comparator.comparingInt(CpuTextHighlighter.Span::start))
+                .map(s -> s.start() + ":" + text.substring(s.start(), s.start() + s.length()))
+                .toList();
+    }
+
+    @Test
+    public void aLinesStateIsColouredLikeTheHeaderRegisters(){
+        final List<String> spans = spans("  $8121  LDA #$05       A:10 X:02 Y:00 SP:FF  nv-bdIzC  irq");
+
+        assertEquals(List.of("ADDRESS:$8121", "REGISTER_NAME:A", "REGISTER_VALUE:10", "REGISTER_NAME:X", "REGISTER_VALUE:02",
+                "REGISTER_NAME:Y", "REGISTER_VALUE:00", "REGISTER_NAME:SP", "REGISTER_VALUE:FF",
+                "FLAG_CLEAR:n", "FLAG_CLEAR:v", "FLAG_CLEAR:b", "FLAG_CLEAR:d", "FLAG_SET:I", "FLAG_CLEAR:z", "FLAG_SET:C",
+                "ACTIVE:irq", "LOAD_STORE:LDA", "IMMEDIATE:#$05"), spans);
+    }
+
+    @Test
+    public void eachLinesValuesThatDifferFromTheLineBelowAreMarked(){
+        final String text = String.join("\n",
+                "  $8122  STA $10        A:11 X:02 Y:00 SP:FF  nv-bdIzc",
+                "  $8121  ADC #$01       A:10 X:02 Y:00 SP:FF  nv-bdIzC",
+                "  $8120  INX            A:10 X:01 Y:00 SP:FF  nv-bdIzC");
+
+        final List<String> changed = changedIn(text);
+
+        assertEquals(3, changed.size(), changed.toString());
+        assertTrue(changed.get(0).endsWith(":11"), "A changed by the ADC below it: " + changed);
+        assertTrue(changed.get(1).endsWith(":c"), "and so did C: " + changed);
+        assertTrue(changed.get(2).endsWith(":02"), "X changed by the INX below: " + changed);
+    }
+
+    @Test
+    public void theLowestLineHasNothingBelowToCompareWith(){
+        assertTrue(changedIn("  $8120  INX            A:10 X:01 Y:00 SP:FF  nv-bdIzC").isEmpty());
+    }
+
+    @Test
+    public void anInterruptAppearingIsMarkedButOneGoingAwayHasNothingToMark(){
+        final String appeared = "  $8121  NOP            A:00 X:00 Y:00 SP:FF  nv-bdizc  nmi\n"
+                + "  $8120  NOP            A:00 X:00 Y:00 SP:FF  nv-bdizc";
+        final String cleared = "  $8121  NOP            A:00 X:00 Y:00 SP:FF  nv-bdizc\n"
+                + "  $8120  NOP            A:00 X:00 Y:00 SP:FF  nv-bdizc  nmi";
+
+        assertEquals(1, changedIn(appeared).size());
+        assertTrue(changedIn(appeared).get(0).endsWith(":nmi"));
+        assertTrue(changedIn(cleared).isEmpty());
+    }
+
+    /** The current line sits above the Recent header - the header mustn't break the comparison. */
+    @Test
+    public void theCurrentLineIsComparedWithTheLatestHistoryLineAcrossTheHeader(){
+        final String text = String.join("\n",
+                "  $8124  NOP",
+                "> $8123  NOP            A:01 X:02 Y:03 SP:FD  nv-bdizc",
+                "--- Recent (latest at top) ---",
+                "  $8121  LDA #$01       A:00 X:02 Y:03 SP:FD  nv-bdizc");
+
+        final List<String> changed = changedIn(text);
+
+        assertEquals(1, changed.size(), changed.toString());
+        assertTrue(changed.get(0).endsWith(":01"));
+    }
+
+    @Test
+    public void spansLineUpWithRealStateLines(){
+        final com.rox.cpu.mos6502.MOS6502Snapshot before = com.rox.cpu.mos6502.MOS6502Snapshot.unpack(0xFFFF,
+                com.rox.cpu.mos6502.MOS6502Snapshot.packRegisters(0xAB, 0, 0, 0xFD), 0);
+        final String text = CpuStateText.instruction(new DisassembledInstruction(0xFFFF, 2, "ORA", new int[]{0x40}, "ORA ($40),Y"),
+                false, before);
+
+        final List<String> spans = spans(text);
+
+        assertTrue(spans.contains("REGISTER_VALUE:AB"), spans.toString());
+        assertTrue(spans.contains("OPERAND:($40),Y"), spans.toString());
+    }
 }
