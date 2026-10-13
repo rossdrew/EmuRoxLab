@@ -37,9 +37,11 @@ public class NES {
     /** The NES's 2KB of CPU RAM - NESMemoryBus mirrors it across $0000-$1FFF. */
     private static final int CPU_RAM_SIZE = NESMemoryBus.CPU_RAM_MIRROR_MASK + 1;
     private static final long AUDIO_SAMPLE_RATE_HZ = 44_100;
-    //gives the JVM's JIT time to compile the emulation's hot per-cycle tick loop, and lets the
-    //ring buffer build up a cushion, before audio playback (and thus underrun risk) begins - see
-    //SpeakerAudioOutput's own class doc for why draining starts empty otherwise
+    /**
+     * Gives the JVM's JIT time to compile the emulation's hot per-cycle tick loop, and lets the ring buffer build
+     * up a cushion, before audio playback (and thus underrun risk) begins. See {@link SpeakerAudioOutput} class doc
+     * for why draining starts empty otherwise
+     */
     private static final long AUDIO_WARM_UP_MILLIS = 300;
 
     private final MOS6502 cpu;
@@ -53,13 +55,11 @@ public class NES {
     private final TickRateMonitor tickRateMonitor;
     private final MemoryEditor memoryEditor;
     private final InstructionTrace instructionTrace;
-    //set only once pause() has genuinely parked the clock - the precondition for capturing/restoring
-    //state while powered on (see captureSnapshot())
+    /** set only once pause() has genuinely parked the clock - the precondition for capturing/restoring state while powered on (see captureSnapshot()) */
     private volatile boolean paused;
-    //every frame handed to videoOutput - what stepFrame() watches for
+    /** every frame handed to videoOutput - what stepFrame() watches for */
     private volatile long framesPresented;
-    //set by powerOff(), read by powerOn() - catches a powerOff() that races ahead of clockThread
-    //even starting (see powerOn()'s comment on why clock.stop() alone can't catch that case)
+    /** set by {@link powerOff}, read by {@link powerOn} to catch a {@link powerOff} that races ahead of clockThread even starting, see {@link #powerOn()} for more*/
     private volatile boolean stopRequested;
 
     public NES(final Cartridge cartridge) throws LineUnavailableException {
@@ -391,10 +391,12 @@ public class NES {
 
     /**
      * A debugging edit: sets one byte of CPU RAM ({@code $0000-$1FFF}, mirrored) or PRG-RAM
-     * ({@code $6000-$7FFF}) - any time, running or not. While running it's applied by the clock thread at
-     * its next tick, never written from this thread into memory the emulation is using; while paused (or
-     * not running) it's applied now. A PRG-RAM edit doesn't trigger a battery save.
-     *
+     * ({@code $6000-$7FFF}) any time. A PRG-RAM edit doesn't trigger a battery save.
+     * <ul>
+     *     <li><b>running?</b>: applied by the clock thread at its next tick, never written from this thread into memory the emulation is using.</li>
+     *     <li><b>paused/not running?</b>: applied now!</li>
+     * </ul>
+     * 
      * @throws IllegalArgumentException for any other address, or a value outside 0-255
      */
     public void pokeMemory(final int address, final int value){
@@ -444,7 +446,7 @@ public class NES {
     }
 
     /**
-     * Stops the emulation for good. Returns only once the clock thread has genuinely stopped ticking -
+     * Stops the emulation for good. Returns only once the clock thread has genuinely stopped ticking.
      * {@code stop()} alone just flags the clock to stop after its current frame, which would leave a window
      * where {@link #pokeMemory}, {@link #captureSnapshot} or a step saw "not running" and acted from this
      * thread while the clock thread was still mid-frame.
