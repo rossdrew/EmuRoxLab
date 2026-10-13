@@ -69,4 +69,31 @@ public class JumpFlashTest {
         assertTrue(JumpFlash.landedByJump(lastRan(0x1234, 1), 0x1236));
         assertTrue(JumpFlash.landedByJump(lastRan(0x1234, 3), 0x1234), "JMP to itself");
     }
+
+    /** CodeRabbit's PR #52 finding: a quick sequential step mustn't inherit the previous jump's flash. */
+    @Test
+    public void aSequentialStepEndsAFlashStillShowingForTheInstructionBefore(){
+        flash.update(at(0x9000), true, List.of(), 0x9000);
+        flash.update(at(0x8000), true, lastRan(0x9000, 3), 0x8000); //jumped
+        now.addAndGet(100);
+
+        assertFalse(flash.update(at(0x8001), true, lastRan(0x8000, 1), 0x8001), "stepped straight on to $8001");
+    }
+
+    @Test
+    public void resumingEndsTheFlash(){
+        flash.update(at(0x9000), true, List.of(), 0x9000);
+        flash.update(at(0x8000), true, lastRan(0x9000, 3), 0x8000);
+        now.addAndGet(100);
+
+        assertFalse(flash.update(at(0x8000), false, List.of(), 0x8000));
+    }
+
+    @Test
+    public void pausingIsNotAStep(){
+        flash.update(at(0x9000), false, List.of(), 0x9000); //running
+
+        assertFalse(flash.update(at(0x8000), true, lastRan(0x9000, 3), 0x8000), "paused where a jump had just landed");
+        assertTrue(flash.update(at(0x8003), true, lastRan(0x7000, 3), 0x8003), "but the next step that jumps does flash");
+    }
 }

@@ -9,7 +9,8 @@ import java.util.function.LongSupplier;
 /**
  * Whether to flash the current instruction's address: for {@link #FLASH_MILLIS} after a step lands on it by a
  * jump - any way control moves other than to the next instruction (JMP, JSR, RTS/RTI, a taken branch, an
- * interrupt). Only while paused: running, nearly every refresh follows some jump, so it would never stop.
+ * interrupt) - while it's still the current instruction. Only while paused: running, nearly every refresh
+ * follows some jump, so it would never stop.
  */
 public final class JumpFlash {
     static final long FLASH_MILLIS = 600;
@@ -17,6 +18,7 @@ public final class JumpFlash {
 
     private final LongSupplier clockMillis;
     private MOS6502Snapshot last;
+    private boolean pausedLastTime;
     private long flashUntil = Long.MIN_VALUE;
 
     /** @param clockMillis e.g. {@code System::currentTimeMillis} */
@@ -32,9 +34,18 @@ public final class JumpFlash {
     public boolean update(final MOS6502Snapshot cpu, final boolean paused, final List<DisassembledInstruction> recent,
                           final int currentAddress){
         final long now = clockMillis.getAsLong();
-        if (paused && last != null && !cpu.equals(last) && landedByJump(recent, currentAddress)){
-            flashUntil = now + FLASH_MILLIS;
+        if (!paused){
+            flashUntil = Long.MIN_VALUE;
+            pausedLastTime = false;
+            last = cpu;
+            return false;
         }
+        //a state change while already paused is a step; the first look after pausing is not
+        if (pausedLastTime && !cpu.equals(last)){
+            //a step that didn't jump ends any flash still showing for the instruction before it
+            flashUntil = landedByJump(recent, currentAddress) ? now + FLASH_MILLIS : Long.MIN_VALUE;
+        }
+        pausedLastTime = true;
         last = cpu;
         return now < flashUntil;
     }
