@@ -117,4 +117,17 @@ public class CpuTextHighlighterTest {
         assertTrue(spans.contains("CURRENT_LINE:> $8123  JMP $9000"), spans.toString());
         assertTrue(spans.contains("OPERAND:$9000"), spans.toString());
     }
+
+    @Test
+    public void aJumpFlashMarksOnlyTheCurrentInstructionsAddress(){
+        final String text = "> $8000  JMP $9000\n  $9000  INX";
+
+        final List<String> flashing = CpuTextHighlighter.highlight(text, Set.of(), true).stream()
+                .filter(s -> s.kind() == Kind.JUMP_FLASH)
+                .map(s -> text.substring(s.start(), s.start() + s.length()))
+                .toList();
+
+        assertEquals(List.of("$8000"), flashing);
+        assertTrue(CpuTextHighlighter.highlight(text, Set.of(), false).stream().noneMatch(s -> s.kind() == Kind.JUMP_FLASH));
+    }
 }

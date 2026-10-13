@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
 public final class CpuTextHighlighter {
     public enum Kind {
         PAUSED, REGISTER_NAME, REGISTER_VALUE, CHANGED, FLAG_SET, FLAG_CLEAR, ACTIVE, HEADER,
-        CURRENT_LINE, ADDRESS, FLOW, LOAD_STORE, ARITHMETIC, FLAGS_AND_STACK, IMMEDIATE, OPERAND, UNKNOWN
+        CURRENT_LINE, ADDRESS, JUMP_FLASH, FLOW, LOAD_STORE, ARITHMETIC, FLAGS_AND_STACK, IMMEDIATE, OPERAND, UNKNOWN
     }
 
     /** {@code length} characters of the text from {@code start}. */
@@ -42,16 +42,22 @@ public final class CpuTextHighlighter {
      * @param changed register/flag names to mark as {@link Kind#CHANGED} - see {@link RegisterChanges}
      */
     public static List<Span> highlight(final String text, final Set<String> changed){
+        return highlight(text, changed, false);
+    }
+
+    /** @param flashCurrentAddress also mark the current instruction's address as {@link Kind#JUMP_FLASH} - see {@link JumpFlash} */
+    public static List<Span> highlight(final String text, final Set<String> changed, final boolean flashCurrentAddress){
         final List<Span> spans = new ArrayList<>();
         int lineStart = 0;
         for (final String line : text.split("\n", -1)){
-            highlightLine(line, lineStart, changed, spans);
+            highlightLine(line, lineStart, changed, flashCurrentAddress, spans);
             lineStart += line.length() + 1;
         }
         return spans;
     }
 
-    private static void highlightLine(final String line, final int offset, final Set<String> changed, final List<Span> spans){
+    private static void highlightLine(final String line, final int offset, final Set<String> changed,
+                                      final boolean flashCurrentAddress, final List<Span> spans){
         if (line.startsWith("PAUSED")){
             spans.add(new Span(offset, "PAUSED".length(), Kind.PAUSED));
         } else if (line.startsWith("PC: ")){
@@ -83,11 +89,12 @@ public final class CpuTextHighlighter {
         } else if (line.startsWith("---")){
             spans.add(new Span(offset, line.length(), Kind.HEADER));
         } else {
-            highlightInstruction(line, offset, spans);
+            highlightInstruction(line, offset, flashCurrentAddress, spans);
         }
     }
 
-    private static void highlightInstruction(final String line, final int offset, final List<Span> spans){
+    private static void highlightInstruction(final String line, final int offset, final boolean flashCurrentAddress,
+                                             final List<Span> spans){
         final Matcher instruction = INSTRUCTION.matcher(line);
         if (!instruction.matches()){
             return;
@@ -96,6 +103,9 @@ public final class CpuTextHighlighter {
             spans.add(new Span(offset, line.length(), Kind.CURRENT_LINE));
         }
         spans.add(new Span(offset + instruction.start(2), instruction.group(2).length(), Kind.ADDRESS));
+        if (flashCurrentAddress && instruction.group(1).equals(">")){
+            spans.add(new Span(offset + instruction.start(2), instruction.group(2).length(), Kind.JUMP_FLASH));
+        }
         final String code = instruction.group(3);
         final int codeStart = offset + instruction.start(3);
         if (code.startsWith("???")){

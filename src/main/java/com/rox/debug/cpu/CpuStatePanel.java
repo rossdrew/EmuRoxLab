@@ -23,6 +23,7 @@ import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -44,6 +45,7 @@ public final class CpuStatePanel extends JPanel {
     private final CpuDebugSource source;
     private final JTextPane text = new JTextPane();
     private final RegisterChanges changes = new RegisterChanges();
+    private final JumpFlash jumpFlash = new JumpFlash(System::currentTimeMillis);
     private final Map<CpuTextHighlighter.Kind, AttributeSet> styles = styles();
     private final JButton pauseResume = new JButton();
     private final JButton stepInstruction = new JButton("Step instruction");
@@ -100,11 +102,15 @@ public final class CpuStatePanel extends JPanel {
         } catch (BadLocationException e){
             throw new IllegalStateException(e); //can't happen: whole-document replace
         }
-        for (final CpuTextHighlighter.Span span : CpuTextHighlighter.highlight(content, changes.update(cpu))){
+        final boolean paused = source.isPaused();
+        //only worked out while paused: JumpFlash never flashes while running anyway
+        final boolean flashing = paused
+                ? jumpFlash.update(cpu, true, source.recentInstructions(), source.upcomingInstructions(1).get(0).address())
+                : jumpFlash.update(cpu, false, List.of(), cpu.pc());
+        for (final CpuTextHighlighter.Span span : CpuTextHighlighter.highlight(content, changes.update(cpu), flashing)){
             document.setCharacterAttributes(span.start(), span.length(), styles.get(span.kind()), false);
         }
         text.setCaretPosition(0);
-        final boolean paused = source.isPaused();
         pauseResume.setText(paused ? "Resume" : "Pause");
         stepInstruction.setEnabled(paused);
         stepFrame.setEnabled(paused);
@@ -125,6 +131,7 @@ public final class CpuStatePanel extends JPanel {
         styles.put(CpuTextHighlighter.Kind.HEADER, style(Color.GRAY, false, null));
         styles.put(CpuTextHighlighter.Kind.CURRENT_LINE, style(null, false, new Color(0xD6, 0xE9, 0xFF)));
         styles.put(CpuTextHighlighter.Kind.ADDRESS, style(Color.GRAY, false, null));
+        styles.put(CpuTextHighlighter.Kind.JUMP_FLASH, style(Color.WHITE, true, new Color(0xD0, 0x00, 0x90)));
         styles.put(CpuTextHighlighter.Kind.FLOW, style(new Color(0x80, 0x00, 0x80), true, null));
         styles.put(CpuTextHighlighter.Kind.LOAD_STORE, style(new Color(0x00, 0x40, 0xC0), true, null));
         styles.put(CpuTextHighlighter.Kind.ARITHMETIC, style(new Color(0x00, 0x70, 0x70), true, null));
