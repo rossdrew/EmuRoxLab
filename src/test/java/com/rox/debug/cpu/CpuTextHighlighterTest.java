@@ -211,4 +211,10 @@ public class CpuTextHighlighterTest {
         assertTrue(spans.contains("REGISTER_VALUE:AB"), spans.toString());
         assertTrue(spans.contains("OPERAND:($40),Y"), spans.toString());
     }
+
+    @Test
+    public void aStateWithoutFlagsStillColoursItsRegisters(){
+        assertEquals(List.of("ADDRESS:$8000", "REGISTER_NAME:A", "REGISTER_VALUE:01", "REGISTER_NAME:X", "REGISTER_VALUE:02",
+                "FLAGS_AND_STACK:NOP"), spans("  $8000  NOP            A:01 X:02"));
+    }
 }
