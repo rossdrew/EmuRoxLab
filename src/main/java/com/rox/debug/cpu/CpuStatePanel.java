@@ -147,11 +147,12 @@ public final class CpuStatePanel extends JPanel {
         final SimpleAttributeSet style = new SimpleAttributeSet();
         if (foreground != null){
             StyleConstants.setForeground(style, foreground);
+            //only alongside a colour: background-only styles layer over text and must leave its boldness alone
+            StyleConstants.setBold(style, bold);
         }
         if (background != null){
             StyleConstants.setBackground(style, background);
         }
-        StyleConstants.setBold(style, bold);
         return style;
     }
 
