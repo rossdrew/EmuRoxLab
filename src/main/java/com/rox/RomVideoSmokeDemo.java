@@ -4,6 +4,9 @@ import com.rox.cartridge.Cartridge;
 import com.rox.cartridge.RomLoader;
 import com.rox.debug.RefreshingDebugFrame;
 import com.rox.debug.cpu.CpuStatePanel;
+import com.rox.debug.labels.FileLabelStore;
+import com.rox.debug.labels.LabelWatchModel;
+import com.rox.debug.labels.LabelWatchPanel;
 import com.rox.debug.memory.MemoryViewerPanel;
 import com.rox.debug.report.DebugReport;
 import com.rox.debug.report.DebugReportWriter;
@@ -114,6 +117,12 @@ public final class RomVideoSmokeDemo {
                 final RefreshingDebugFrame memoryDebugFrame = new RefreshingDebugFrame("EmuRoxLab - Memory",
                         memoryViewerPanel, memoryViewerPanel::refresh, MEMORY_VIEWER_REFRESH_MILLIS);
                 debugFrames.add(memoryDebugFrame);
+                final LabelWatchPanel labelWatchPanel = new LabelWatchPanel(new LabelWatchModel(
+                        new FileLabelStore(SavePaths.labelsFile(romPath)), new NesLabelWatchTarget(nes)));
+                final RefreshingDebugFrame watchDebugFrame = new RefreshingDebugFrame("EmuRoxLab - Watch",
+                        labelWatchPanel, labelWatchPanel::refresh, MEMORY_VIEWER_REFRESH_MILLIS);
+                debugFrames.add(watchDebugFrame);
+                videoOutput.addToolButton("Watch (F9)", KeyEvent.VK_F9, watchDebugFrame::showWindow);
                 videoOutput.addToolButton("Memory (F10)", KeyEvent.VK_F10, memoryDebugFrame::showWindow);
                 videoOutput.addToolButton("CPU state (F11)", KeyEvent.VK_F11, cpuDebugFrame::showWindow);
                 videoOutput.addToolButton("Flag issue (F12)", KeyEvent.VK_F12, () -> flagIssue(nes, videoOutput, romPath));

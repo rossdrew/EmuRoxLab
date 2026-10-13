@@ -188,4 +188,16 @@ public class LabelFileTest {
         assertEquals(labels, LabelFile.read(file));
         assertThrows(IllegalArgumentException.class, () -> MemoryLabel.at("hp#2", 0x0010), "such a name can't be made at all");
     }
+
+    @Test
+    public void parseLabelAcceptsOneLabelInTheFilesOwnSyntax() throws LabelFileException {
+        assertEquals(MemoryLabel.spanning("key_count", 0x0670, 0x0671), LabelFile.parseLabel("  $0670-$0671 key_count  # keys"));
+    }
+
+    @Test
+    public void parseLabelRejectsNothingOrNonsenseAsLine1(){
+        assertEquals(1, assertThrows(LabelFileException.class, () -> LabelFile.parseLabel("   ")).lineNumber());
+        assertEquals(1, assertThrows(LabelFileException.class, () -> LabelFile.parseLabel("# only a comment")).lineNumber());
+        assertEquals(1, assertThrows(LabelFileException.class, () -> LabelFile.parseLabel("rupees")).lineNumber());
+    }
 }

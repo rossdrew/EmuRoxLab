@@ -110,8 +110,8 @@ public final class MemoryEditor implements ClockWatcher {
         return canonical(address);
     }
 
-    /** RAM mirrors reduced to the real byte, so $0810 and $0010 are the same edit/lock. */
-    private static int canonical(final int address){
+    /** RAM mirrors reduced to the real byte, so $0810 and $0010 are the same edit/lock - how {@link #locks()} keys its addresses. */
+    public static int canonical(final int address){
         return address <= CPU_RAM_END ? address & CPU_RAM_MIRROR_MASK : address;
     }
 
