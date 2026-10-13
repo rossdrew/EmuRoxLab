@@ -105,7 +105,8 @@ public final class CpuStatePanel extends JPanel {
         final boolean paused = source.isPaused();
         //only worked out while paused: JumpFlash never flashes while running anyway
         final boolean flashing = paused
-                ? jumpFlash.update(cpu, true, source.recentInstructions(), source.upcomingInstructions(1).get(0).address())
+                ? jumpFlash.update(cpu, true, source.recentInstructions().stream().map(TracedInstruction::instruction).toList(),
+                        source.upcomingInstructions(1).get(0).address())
                 : jumpFlash.update(cpu, false, List.of(), cpu.pc());
         for (final CpuTextHighlighter.Span span : CpuTextHighlighter.highlight(content, changes.update(cpu), flashing)){
             document.setCharacterAttributes(span.start(), span.length(), styles.get(span.kind()), false);

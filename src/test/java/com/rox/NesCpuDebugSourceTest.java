@@ -4,6 +4,7 @@ import com.rox.audio.AudioOutput;
 import com.rox.cartridge.Cartridge;
 import com.rox.cartridge.RomLoader;
 import com.rox.cpu.mos6502.assembler.DisassembledInstruction;
+import com.rox.debug.cpu.TracedInstruction;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -70,7 +71,8 @@ public class NesCpuDebugSourceTest {
         final NES nes = nes();
         tickToStxOnTheThirdLoop(nes);
 
-        final List<DisassembledInstruction> recent = new NesCpuDebugSource(nes).recentInstructions();
+        final List<DisassembledInstruction> recent = new NesCpuDebugSource(nes).recentInstructions().stream()
+                .map(TracedInstruction::instruction).toList();
 
         //the reset vector's first INX isn't recorded (reset() sets the PC without a tick), then two loops
         //and the third INX; STX at $9001 is current, so not included
@@ -87,7 +89,8 @@ public class NesCpuDebugSourceTest {
         final NesCpuDebugSource source = new NesCpuDebugSource(nes);
 
         final List<DisassembledInstruction> upcoming = source.upcomingInstructions(2);
-        final List<DisassembledInstruction> recent = source.recentInstructions();
+        final List<DisassembledInstruction> recent = source.recentInstructions().stream()
+                .map(TracedInstruction::instruction).toList();
 
         assertEquals(List.of("STX $10", "JMP $9000"), formatted(upcoming));
         assertEquals(0x9001, upcoming.get(0).address());
@@ -177,5 +180,24 @@ public class NesCpuDebugSourceTest {
         new NesCpuDebugSource(nes).stepCycles(7);
 
         assertEquals(7, nes.tickRateMonitor().ticks());
+    }
+
+    @Test
+    public void historyCarriesEachInstructionsStartingStateAndTheCurrentOnesToo(){
+        final NES nes = nes();
+        tickToStxOnTheThirdLoop(nes); //at STX $10 on the third loop, X has just become 3
+        final NesCpuDebugSource source = new NesCpuDebugSource(nes);
+
+        final List<TracedInstruction> recent = source.recentInstructions();
+
+        final TracedInstruction lastInx = recent.get(recent.size() - 1);
+        assertEquals("INX", lastInx.instruction().formatted());
+        assertEquals(2, lastInx.before().x(), "INX started with X=2");
+        assertEquals(3, source.currentInstructionState().orElseThrow().x(), "STX starts with X=3");
+    }
+
+    @Test
+    public void beforeAnythingRunsThereIsNoCurrentInstructionState(){
+        assertTrue(new NesCpuDebugSource(nes()).currentInstructionState().isEmpty());
     }
 }

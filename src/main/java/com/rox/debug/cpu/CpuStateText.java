@@ -4,6 +4,7 @@ import com.rox.cpu.mos6502.MOS6502Snapshot;
 import com.rox.cpu.mos6502.assembler.DisassembledInstruction;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Locale;
 
 /**
@@ -11,6 +12,9 @@ import java.util.Locale;
  * and the live CPU state panel - so both read the same way.
  */
 public final class CpuStateText {
+    /** Where a line's state starts: wide enough for the longest instruction, {@code   $FFFF  ORA ($40),Y}. */
+    private static final int STATE_COLUMN = 24;
+
     private CpuStateText(){
     }
 
@@ -37,6 +41,20 @@ public final class CpuStateText {
     /** {@code IRQ line: clear  NMI pending: yes} */
     public static String interruptLines(final MOS6502Snapshot cpu){
         return "IRQ line: " + (cpu.irqLineAsserted() ? "asserted" : "clear") + "  NMI pending: " + (cpu.nmiPending() ? "yes" : "no");
+    }
+
+    /**
+     * {@code > $E45B  JMP $E45B    A:B0 X:0F Y:26 SP:FF  Nv-bdIzc} - the instruction, then the state it started
+     * with (no PC: that's the instruction's own address), plus {@code irq}/{@code nmi} when active.
+     */
+    public static String instruction(final DisassembledInstruction instruction, final boolean atPc, final MOS6502Snapshot before){
+        return String.format("%-" + STATE_COLUMN + "s%s", instruction(instruction, atPc), state(before));
+    }
+
+    /** {@code A:B0 X:0F Y:26 SP:FF  Nv-bdIzc}, plus {@code  irq}/{@code  nmi} when active. */
+    public static String state(final MOS6502Snapshot cpu){
+        return String.format("A:%02X X:%02X Y:%02X SP:%02X  %s%s%s", cpu.a(), cpu.x(), cpu.y(), cpu.stackPointer(), flags(cpu),
+                cpu.irqLineAsserted() ? "  irq" : "", cpu.nmiPending() ? "  nmi" : "");
     }
 
     /** {@code > $8123  JMP $9000} for the instruction at the PC, {@code   $8126  INX} otherwise. */
@@ -73,13 +91,18 @@ public final class CpuStateText {
         out.append(interruptLines(cpu)).append("\n\n");
         out.append("--- Next (furthest ahead at top) ---\n");
         final List<DisassembledInstruction> upcoming = source.upcomingInstructions(upcomingCount);
+        final Optional<MOS6502Snapshot> currentState = source.currentInstructionState();
         for (int i = upcoming.size() - 1; i >= 0; i--){
-            out.append(instruction(upcoming.get(i), i == 0)).append('\n');
+            //only the current instruction has a state - the rest haven't run yet
+            final String line = i == 0 && currentState.isPresent()
+                    ? instruction(upcoming.get(i), true, currentState.get())
+                    : instruction(upcoming.get(i), i == 0);
+            out.append(line).append('\n');
         }
         out.append("--- Recent (latest at top) ---\n");
-        final List<DisassembledInstruction> recent = source.recentInstructions();
+        final List<TracedInstruction> recent = source.recentInstructions();
         for (int i = recent.size() - 1; i >= 0; i--){
-            out.append(instruction(recent.get(i), false)).append('\n');
+            out.append(instruction(recent.get(i).instruction(), false, recent.get(i).before())).append('\n');
         }
         return out.toString();
     }
