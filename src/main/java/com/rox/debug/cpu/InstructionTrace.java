@@ -114,29 +114,26 @@ public final class InstructionTrace implements ClockWatcher {
 
     /** The recorded instructions, oldest first, decoded from the bytes they had when they ran. */
     public List<DisassembledInstruction> recentInstructions(){
+        return history().stream().map(TracedInstruction::instruction).toList();
+    }
+
+    /**
+     * {@link #recentInstructions()} with the processor state each one started with, oldest first. Each entry's
+     * instruction and state come from the same slot in one pass, so they can't drift apart if the clock
+     * thread records more meanwhile - though while running, a slot being rewritten can still read half-old.
+     */
+    public List<TracedInstruction> history(){
         final int count = filled;
-        final List<DisassembledInstruction> result = new ArrayList<>(count);
         final int oldest = oldestSlot(count);
+        final List<TracedInstruction> result = new ArrayList<>(count);
         for (int i = 0; i < count; i++){
             final int slot = (oldest + i) % addresses.length;
             final int address = addresses[slot];
             final int bytes = packedBytes[slot];
-            result.add(Disassembler.disassembleOne(
+            final DisassembledInstruction instruction = Disassembler.disassembleOne(
                     peekAddress -> (bytes >> (((peekAddress - address) & ADDRESS_MASK) * BITS_PER_BYTE)) & BYTE_MASK,
-                    address));
-        }
-        return result;
-    }
-
-    /** {@link #recentInstructions()} with the processor state each one started with, oldest first. */
-    public List<TracedInstruction> history(){
-        final List<DisassembledInstruction> instructions = recentInstructions();
-        final int oldest = oldestSlot(instructions.size());
-        final List<TracedInstruction> result = new ArrayList<>(instructions.size());
-        for (int i = 0; i < instructions.size(); i++){
-            final int slot = (oldest + i) % addresses.length;
-            result.add(new TracedInstruction(instructions.get(i),
-                    MOS6502Snapshot.unpack(addresses[slot], registers[slot], flags[slot])));
+                    address);
+            result.add(new TracedInstruction(instruction, MOS6502Snapshot.unpack(address, registers[slot], flags[slot])));
         }
         return result;
     }
