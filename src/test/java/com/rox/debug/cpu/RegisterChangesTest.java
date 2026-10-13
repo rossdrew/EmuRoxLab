@@ -64,13 +64,16 @@ public class RegisterChangesTest {
         assertEquals(Set.of("PC", "X"), changes.update(with(0x8002, 5, 7, 3, 0xFD, NO_FLAGS)));
     }
 
+    /** CodeRabbit's PR #52 finding: a change to something untracked mustn't wipe the last highlights. */
     @Test
-    public void interruptLinesAloneDoNotCountAsARegisterChange(){
+    public void anUntrackedChangeAloneKeepsTheLastHighlights(){
         final RegisterChanges changes = new RegisterChanges();
         changes.update(BASE);
-        final MOS6502Snapshot nmiLatched = new MOS6502Snapshot(0x8000, 1, 2, 3, 0xFD, 0, 0, 0,
-                false, false, false, false, false, false, false, false, true);
+        final MOS6502Snapshot stepped = with(0x8001, 5, 2, 3, 0xFD, NO_FLAGS);
+        changes.update(stepped);
+        final MOS6502Snapshot nmiLatched = new MOS6502Snapshot(0x8001, 5, 2, 3, 0xFD, 0, 0, 0,
+                false, false, false, false, false, false, false, true, true);
 
-        assertTrue(changes.update(nmiLatched).isEmpty());
+        assertEquals(Set.of("PC", "A"), changes.update(nmiLatched));
     }
 }

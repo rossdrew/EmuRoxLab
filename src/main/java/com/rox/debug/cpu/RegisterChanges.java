@@ -16,8 +16,12 @@ public final class RegisterChanges {
 
     /** @return what differs from the last different state seen (nothing on the first call) */
     public Set<String> update(final MOS6502Snapshot current){
-        if (previous != null && !current.equals(previous)){
-            lastChanged = Set.copyOf(diff(previous, current));
+        if (previous != null){
+            final Set<String> changed = diff(previous, current);
+            //an untracked change (IRQ line, NMI latch) alone keeps the last highlights rather than clearing them
+            if (!changed.isEmpty()){
+                lastChanged = Set.copyOf(changed);
+            }
         }
         previous = current;
         return lastChanged;
