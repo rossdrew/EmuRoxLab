@@ -24,8 +24,7 @@ jacoco { //Test coverage
     toolVersion = "0.8.14"
 }
 
-// Scope pitest to a subset of classes for fast local verification, e.g.
-// ./gradlew pitest -PpitestScope=com.rox.apu.*
+// Scope pitest to a subset of classes for fast local verification, e.g. `./gradlew pitest -PpitestScope=com.rox.apu.*`
 // Defaults to the full project, which is the real CI/build gate.
 val pitestScope = (project.findProperty("pitestScope") as String?)?.split(",") ?: listOf("com.rox.*")
 
@@ -33,17 +32,11 @@ pitest {
     junit5PluginVersion.set("1.2.2")
     targetClasses.set(pitestScope)
     targetTests.set(pitestScope)
-    //AudioSmokeDemo/RomAudioSmokeDemo/PpuDebugViewerDemo are manual "run it and look/listen" entry
-    //points, not automatically testable - same for the Swing window/panels the debug viewer paints
-    //with (TileDecoder/ScrollViewport/PixelGridBufferedImage/CenteredScale are deliberately not
-    //excluded here - they're the pieces of this package that are pure, fully-testable functions;
-    //ScaledImageDrawer itself is excluded since all it has left is 2 lines of unavoidable
-    //Graphics2D/RenderingHints calls once CenteredScale's geometry math was pulled out of it)
-    //trailing "*" on PpuDebugViewerDemo/ChrViewerPanel also catches their anonymous inner classes
-    //(PpuDebugViewerDemo's WindowAdapter, ChrViewerPanel's canvas JPanel)
     excludedClasses.set(listOf(
+        //Manual entry points for human validation.
             "com.rox.AudioSmokeDemo", "com.rox.RomAudioSmokeDemo", "com.rox.PpuDebugViewerDemo*",
             "com.rox.RomVideoSmokeDemo",
+        //Swing panels that are unproductive for automated testing
             "com.rox.ppu.debug.PpuDebugFrame", "com.rox.ppu.debug.ChrViewerPanel*",
             "com.rox.ppu.debug.NametableViewerPanel", "com.rox.ppu.debug.OamViewerPanel",
             "com.rox.ppu.debug.ScreenViewerPanel", "com.rox.ppu.debug.RegisterHudPanel",
@@ -62,8 +55,7 @@ pitest {
 }
 
 dependencies {
-    //first main-scope (non-test) dependency in this project - confirmed OK with the user during
-    //Phase 3 planning. MIT, built on Java's FFM API so no native .so/.dll bundling, requires JDK 22+
+    //MIT, built on Java's FFM API so no native .so/.dll bundling, requires JDK 22+
     implementation("de.gurkenlabs:input4j:1.3.1")
 
     testImplementation(platform("org.junit:junit-bom:6.0.0"))
