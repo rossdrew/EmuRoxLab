@@ -91,4 +91,12 @@ public class CpuStateTextTest {
     public void panelShowsWhenPaused(){
         assertTrue(CpuStateText.panel(source(true), 1).startsWith("PAUSED  Clock:"));
     }
+
+    @Test
+    public void panelCanUseAStateTheCallerAlreadyRead(){
+        final String text = CpuStateText.panel(OTHERS_SET, source(false), 1);
+
+        assertTrue(text.contains("PC: $0005  A: $FF  X: $00  Y: $7F  SP: $00\n"), text);
+        assertTrue(text.contains("Flags: nV-bDiZc"), text);
+    }
 }

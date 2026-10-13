@@ -60,7 +60,11 @@ public final class CpuStateText {
      * {@code upcomingCount - 1} above that, furthest ahead at the top.
      */
     public static String panel(final CpuDebugSource source, final int upcomingCount){
-        final MOS6502Snapshot cpu = source.state();
+        return panel(source.state(), source, upcomingCount);
+    }
+
+    /** As {@link #panel(CpuDebugSource, int)}, for a CPU state already read - so a caller can use the same read elsewhere. */
+    public static String panel(final MOS6502Snapshot cpu, final CpuDebugSource source, final int upcomingCount){
         final StringBuilder out = new StringBuilder();
         out.append(source.isPaused() ? "PAUSED" : "Running").append("  ")
                 .append(clockRate(source.measuredHz(), source.intendedHz())).append('\n');
