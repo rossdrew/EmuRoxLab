@@ -1,5 +1,7 @@
 package com.rox.cartridge;
 
+import com.rox.mem.RAM;
+
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -57,7 +59,7 @@ public final class Mmc1Mapper implements Mapper {
     private static final int PRG_BANK_NUMBER_MASK = 0x0F;
 
     private final byte[] prgRom;
-    private final int[] prgRam = new int[PRG_RAM_SIZE];
+    private final RAM prgRam = new RAM(PRG_RAM_SIZE, "PRG-RAM");
     private final ChrMemory chr;
 
     private int shiftRegister;
@@ -82,14 +84,14 @@ public final class Mmc1Mapper implements Mapper {
         if (address >= PRG_ROM_START_ADDRESS){
             return prgRom[prgRomOffset(address)] & BYTE_MASK;
         }
-        return prgRam[address & (PRG_RAM_SIZE - 1)];
+        return prgRam.read(address);
     }
 
     /** Contract: only ever called with {@code address} in {@code $6000-$FFFF} (see class Javadoc). */
     @Override
     public void write(final int address, final int value){
         if (address < PRG_ROM_START_ADDRESS){
-            prgRam[address & (PRG_RAM_SIZE - 1)] = value & BYTE_MASK;
+            prgRam.write(address, value);
             return;
         }
         if ((value & RESET_BIT) != 0){
@@ -229,27 +231,24 @@ public final class Mmc1Mapper implements Mapper {
 
     @Override
     public int[] prgRam(){
-        return prgRam.clone();
+        return prgRam.snapshot();
     }
 
     @Override
     public void restorePrgRam(final int[] prgRam){
-        if (prgRam.length != this.prgRam.length){
-            throw new IllegalArgumentException("Expected " + this.prgRam.length + " bytes of PRG-RAM, got " + prgRam.length);
-        }
-        System.arraycopy(prgRam, 0, this.prgRam, 0, prgRam.length);
+        this.prgRam.restore(prgRam);
     }
 
     @Override
     public MapperSnapshot snapshot(){
-        return new Mmc1MapperSnapshot(prgRam.clone(), chr.snapshot(), shiftRegister, shiftCount,
+        return new Mmc1MapperSnapshot(prgRam.snapshot(), chr.snapshot(), shiftRegister, shiftCount,
                 controlRegister, chrBank0Register, chrBank1Register, prgBankRegister);
     }
 
     @Override
     public void checkRestorable(final MapperSnapshot snapshot){
         final Mmc1MapperSnapshot mmc1 = SnapshotArrays.expect(snapshot, Mmc1MapperSnapshot.class);
-        SnapshotArrays.requireSameSize(mmc1.prgRam(), prgRam, "PRG-RAM");
+        prgRam.checkRestorable(mmc1.prgRam());
         chr.checkRestorable(mmc1.chrRam());
     }
 
@@ -257,7 +256,7 @@ public final class Mmc1Mapper implements Mapper {
     public void restore(final MapperSnapshot snapshot){
         checkRestorable(snapshot);
         final Mmc1MapperSnapshot mmc1 = (Mmc1MapperSnapshot) snapshot;
-        SnapshotArrays.copy(mmc1.prgRam(), prgRam);
+        prgRam.restore(mmc1.prgRam());
         chr.restore(mmc1.chrRam());
         shiftRegister = mmc1.shiftRegister();
         shiftCount = mmc1.shiftCount();

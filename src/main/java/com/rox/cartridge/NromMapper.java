@@ -1,5 +1,7 @@
 package com.rox.cartridge;
 
+import com.rox.mem.RAM;
+
 import static com.rox.ByteUtil.BYTE_MASK;
 
 /**
@@ -22,7 +24,7 @@ public final class NromMapper implements Mapper {
     private static final int CHR_SIZE = 0x2000;
 
     private final byte[] prgRom;
-    private final int[] prgRam = new int[PRG_RAM_SIZE];
+    private final RAM prgRam = new RAM(PRG_RAM_SIZE, "PRG-RAM");
     private final ChrMemory chr;
     private final Mirroring mirroring;
 
@@ -47,14 +49,14 @@ public final class NromMapper implements Mapper {
         if (address >= PRG_ROM_START_ADDRESS){
             return prgRom[address & (prgRom.length - 1)] & BYTE_MASK;
         }
-        return prgRam[address & (PRG_RAM_SIZE - 1)];
+        return prgRam.read(address);
     }
 
     /** Contract: only ever called with {@code address} in {@code $6000-$FFFF} (see class Javadoc). */
     @Override
     public void write(final int address, final int value){
         if (address < PRG_ROM_START_ADDRESS){
-            prgRam[address & (PRG_RAM_SIZE - 1)] = value & BYTE_MASK;
+            prgRam.write(address, value);
         }
     }
 
@@ -76,26 +78,23 @@ public final class NromMapper implements Mapper {
 
     @Override
     public int[] prgRam(){
-        return prgRam.clone();
+        return prgRam.snapshot();
     }
 
     @Override
     public void restorePrgRam(final int[] prgRam){
-        if (prgRam.length != this.prgRam.length){
-            throw new IllegalArgumentException("Expected " + this.prgRam.length + " bytes of PRG-RAM, got " + prgRam.length);
-        }
-        System.arraycopy(prgRam, 0, this.prgRam, 0, prgRam.length);
+        this.prgRam.restore(prgRam);
     }
 
     @Override
     public MapperSnapshot snapshot(){
-        return new NromMapperSnapshot(prgRam.clone(), chr.snapshot());
+        return new NromMapperSnapshot(prgRam.snapshot(), chr.snapshot());
     }
 
     @Override
     public void checkRestorable(final MapperSnapshot snapshot){
         final NromMapperSnapshot nrom = SnapshotArrays.expect(snapshot, NromMapperSnapshot.class);
-        SnapshotArrays.requireSameSize(nrom.prgRam(), prgRam, "PRG-RAM");
+        prgRam.checkRestorable(nrom.prgRam());
         chr.checkRestorable(nrom.chrRam());
     }
 
@@ -103,7 +102,7 @@ public final class NromMapper implements Mapper {
     public void restore(final MapperSnapshot snapshot){
         checkRestorable(snapshot);
         final NromMapperSnapshot nrom = (NromMapperSnapshot) snapshot;
-        SnapshotArrays.copy(nrom.prgRam(), prgRam);
+        prgRam.restore(nrom.prgRam());
         chr.restore(nrom.chrRam());
     }
 }
