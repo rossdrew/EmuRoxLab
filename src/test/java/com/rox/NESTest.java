@@ -282,14 +282,8 @@ public class NESTest {
     }
 
     /**
-     * The test above relies on real thread scheduling to land the interrupt in the tiny real-world gap
-     * between clockThread starting and FPSClock.run()'s own running=true - narrow enough that it only
-     * ever failed on CI, never locally, so a regression here wouldn't reliably be caught on a dev
-     * machine. {@link RaceReproducingClock} widens that same gap to something deterministic: without
-     * powerOn()'s spin-wait for clock.isRunning() before it may call clock.stop(), this reliably hangs
-     * (clockThread's run() stomps running back to true after the stop() already landed, so nothing ever
-     * stops it again) and this test would time out on thread.join(). See NES.powerOn()'s own comment
-     * on the spin-wait for the full mechanism.
+     * An interrupt that lands before the clock's {@code run()} has got going: the resulting {@code stop()} must still
+     * end that run rather than be undone by it starting late (which would leave powerOn() joining forever).
      */
     @Test
     public void powerOnClosesTheRaceBetweenClockThreadStartingAndClockRunFlippingRunning() throws InterruptedException {
@@ -306,6 +300,29 @@ public class NESTest {
         assertFalse(clock.isRunning(),
                 "a stop() that raced ahead of run()'s startup must still end up stopped, not silently undone");
         verify(audioOutput, never()).start();
+    }
+
+    /** CodeRabbit's PR #48 finding: powerOff() while the clock is still starting mustn't return with frames still to come. */
+    @Test
+    public void powerOffWhileTheClockIsStillStartingLeavesNothingTickingAfterwards() throws InterruptedException {
+        final AudioOutput audioOutput = mock(AudioOutput.class);
+        final RaceReproducingClock clock = new RaceReproducingClock(200);
+        final NES nes = new NES(audioOutput, blankCartridge(), clock);
+        final AtomicLong ticks = new AtomicLong();
+        clock.addListener(ticks::incrementAndGet);
+        final Thread thread = new Thread(nes::powerOn);
+        thread.start();
+        clock.awaitRunCalled();
+
+        nes.powerOff();
+        final long ticksAtPowerOff = ticks.get();
+
+        thread.join(5000);
+        assertFalse(thread.isAlive(), "powerOn() should return once powered off");
+        assertEquals(ticksAtPowerOff, ticks.get(), "nothing ticks after powerOff() returns");
+        assertEquals(0, ticks.get(), "the run was cancelled before it started");
+        verify(audioOutput, never()).start();
+        verify(audioOutput).stop();
     }
 
     /**
@@ -380,17 +397,9 @@ public class NESTest {
     }
 
     /**
-     * The real bug this guards against: calling powerOff() as soon as powerOn() has demonstrably
-     * begun executing (but before its internal clockThread has necessarily started) gives it a real
-     * chance of racing ahead of that thread - so its clock.stop() call lands before clock.run() ever
-     * sets its own running flag true, making that particular stop() call a no-op. Without
-     * stopRequested catching this, clockThread runs forever unstopped, and powerOn() blocks forever
-     * joining it - leaking both threads permanently (confirmed via a standalone reproduction that
-     * hung the JVM indefinitely before this fix). The busy-poll below (mirroring
-     * powerOnResetsTheCpuToTheCartridgesResetVector) only proves powerOn() has started, not that
-     * this specific race is hit - the gap before powerOn() has executed anything at all (between
-     * thread.start() returning and its first instruction running) isn't something any internal
-     * design can close, so racing that undefined gap wouldn't be a meaningful test.
+     * powerOff() as soon as powerOn() has begun (cpu.reset() has run) must still stop the clock, however
+     * far the clock thread has got - this used to leak both threads. A powerOff() before powerOn() has
+     * run at all is out of scope: powerOn() starts afresh after it.
      */
     @Test
     public void powerOffCalledImmediatelyAfterPowerOnStillStopsTheClockRatherThanLeakingBothThreads() throws InterruptedException {
