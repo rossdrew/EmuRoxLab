@@ -23,6 +23,11 @@ public interface Clock {
     default void prepareToRun(){
     }
 
+    /** {@link #stop()}, then wait until {@link #run()} has returned, so nothing ticks after. */
+    default void stopAndWait(){
+        stop();
+    }
+
     boolean isRunning();
 
     /**

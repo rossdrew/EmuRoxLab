@@ -343,6 +343,115 @@ public class FPSClockTest {
     }
 
     @Test
+    void stopAndWaitReturnsOnlyOnceTheFrameInProgressHasFinishedAndRunHasReturned() throws InterruptedException {
+        final FPSClock clock = unthrottledClock();
+        final CountDownLatch inFrame = new CountDownLatch(1);
+        final CountDownLatch finishFrame = new CountDownLatch(1);
+        final AtomicLong ticks = new AtomicLong();
+        clock.addListener(() -> {
+            ticks.incrementAndGet();
+            inFrame.countDown();
+            try {
+                finishFrame.await();
+            } catch (InterruptedException e){
+                Thread.currentThread().interrupt();
+            }
+        });
+        final Thread runThread = new Thread(clock::run, "clock-run");
+        runThread.start();
+        inFrame.await();
+        final Thread stopper = new Thread(clock::stopAndWait, "stopper");
+        stopper.start();
+        awaitBlocked(stopper);
+
+        finishFrame.countDown();
+        joinOrFail(stopper);
+        final long ticksWhenStopped = ticks.get();
+
+        joinOrFail(runThread);
+        assertEquals(ticksWhenStopped, ticks.get(), "nothing ticks after stopAndWait() returns");
+        assertFalse(clock.isRunning());
+    }
+
+    @Test
+    void stopAndWaitReleasesAParkedRunLoop() throws InterruptedException {
+        final FPSClock clock = unthrottledClock();
+        final Thread runThread = new Thread(clock::run, "clock-run");
+        runThread.start();
+        awaitTrue(clock::isRunning, "the clock to start");
+        assertTrue(clock.pause());
+
+        clock.stopAndWait();
+
+        joinOrFail(runThread);
+        assertFalse(clock.isRunning());
+    }
+
+    @Test
+    void stopAndWaitWithNothingRunningReturnsStraightAway(){
+        assertDoesNotThrow(unthrottledClock()::stopAndWait);
+    }
+
+    @Test
+    void stopAndWaitAfterPrepareToRunCancelsTheRunWithoutWaitingForIt(){
+        final FPSClock clock = unthrottledClock();
+        final AtomicLong ticks = new AtomicLong();
+        clock.addListener(ticks::incrementAndGet);
+        clock.prepareToRun();
+
+        clock.stopAndWait();
+        clock.run();
+
+        assertEquals(0, ticks.get());
+    }
+
+    @Test
+    void stopAndWaitWaitsOutAnInterrupt() throws InterruptedException {
+        final FPSClock clock = unthrottledClock();
+        final CountDownLatch inFrame = new CountDownLatch(1);
+        final CountDownLatch finishFrame = new CountDownLatch(1);
+        clock.addListener(() -> {
+            inFrame.countDown();
+            try {
+                finishFrame.await();
+            } catch (InterruptedException e){
+                Thread.currentThread().interrupt();
+            }
+        });
+        final Thread runThread = new Thread(clock::run, "clock-run");
+        runThread.start();
+        inFrame.await();
+        final AtomicBoolean interruptFlagRestored = new AtomicBoolean();
+        final Thread stopper = new Thread(() -> {
+            clock.stopAndWait();
+            interruptFlagRestored.set(Thread.currentThread().isInterrupted());
+        }, "stopper");
+        stopper.start();
+        awaitBlocked(stopper);
+
+        stopper.interrupt();
+        awaitTrue(() -> stopper.getState() == Thread.State.WAITING && !stopper.isInterrupted(), "stopper to resume waiting");
+        finishFrame.countDown();
+
+        joinOrFail(stopper);
+        joinOrFail(runThread);
+        assertTrue(interruptFlagRestored.get(), "the swallowed interrupt must be re-asserted for the caller");
+    }
+
+    @Test
+    void aListenerThrowingStillEndsTheRunCleanly(){
+        final FPSClock clock = unthrottledClock();
+        clock.addListener(() -> {
+            throw new IllegalStateException("listener failed");
+        });
+
+        assertThrows(IllegalStateException.class, clock::run);
+
+        assertFalse(clock.isRunning());
+        assertDoesNotThrow(clock::stopAndWait); //and doesn't wait for a run() that's already gone
+    }
+
+    @Test
     void pauseReturnsFalseWhenTheClockIsNotRunning(){
         assertFalse(clock.pause());
     }
@@ -554,18 +663,21 @@ public class FPSClockTest {
     /** {@link Clock}'s defaults, for clocks with no run loop to pause (e.g. test doubles). */
     @Test
     void clockDefaultsHaveNothingToPause(){
+        final AtomicBoolean stopped = new AtomicBoolean();
         final Clock bareClock = new Clock(){
             @Override public void addListener(final ClockWatcher listener){ }
             @Override public void removeListener(final ClockWatcher listener){ }
             @Override public void tick(){ }
             @Override public int listeners(){ return 0; }
             @Override public void run(){ }
-            @Override public void stop(){ }
+            @Override public void stop(){ stopped.set(true); }
             @Override public boolean isRunning(){ return false; }
         };
 
         assertFalse(bareClock.pause());
         assertDoesNotThrow(bareClock::resume);
         assertDoesNotThrow(bareClock::prepareToRun);
+        bareClock.stopAndWait();
+        assertTrue(stopped.get(), "stopAndWait() at least stops");
     }
 }

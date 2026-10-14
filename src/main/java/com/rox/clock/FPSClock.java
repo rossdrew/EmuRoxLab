@@ -41,6 +41,8 @@ public class FPSClock implements Clock, AutoCloseable {
     private boolean runPrepared = false;
     /** A {@link #stop()} arrived while {@link #runPrepared} - guarded by pauseLock. */
     private boolean runCancelled = false;
+    /** {@link #run()} is executing - guarded by pauseLock. */
+    private boolean inRun = false;
 
     /** Current total of remainder ticks after rounding */
     private long tickRemainderBuffer = 0;
@@ -91,8 +93,21 @@ public class FPSClock implements Clock, AutoCloseable {
                 return;
             }
             running = true;
+            inRun = true;
         }
+        try {
+            runLoop();
+        } finally {
+            //however the loop ended (stop(), an interrupt, a listener throwing), release a pause() or
+            //stopAndWait() still waiting on it
+            synchronized (pauseLock){
+                inRun = false;
+                stop();
+            }
+        }
+    }
 
+    private void runLoop(){
         //anchored to a single fixed reference point (runStartTime), not re-measured fresh each
         //frame - Thread.sleep() (via Sleeper) routinely oversleeps its requested duration by tens to
         //hundreds of microseconds (OS scheduler granularity), and a fresh-each-frame measurement
@@ -122,9 +137,6 @@ public class FPSClock implements Clock, AutoCloseable {
             }
             frameIndex++;
         }
-        //however the loop ended (stop(), or an interrupt above), never leave a pause() waiting forever
-        //for a park that can no longer happen
-        stop();
     }
 
     /**
@@ -186,6 +198,28 @@ public class FPSClock implements Clock, AutoCloseable {
             //a stale request would otherwise park a later run() straight away with nobody to resume it
             pauseRequested = false;
             pauseLock.notifyAll(); //release a parked run() loop, and a pause() still waiting on one
+        }
+    }
+
+    /**
+     * {@link #stop()}, then blocks until {@link #run()} has returned, so nothing ticks after - waiting out
+     * interrupts, like {@link #pause()}. Never call it from a {@link ClockWatcher}: that's {@code run()}'s own thread.
+     */
+    @Override
+    public void stopAndWait(){
+        boolean interrupted = false;
+        synchronized (pauseLock){
+            stop();
+            while (inRun){
+                try {
+                    pauseLock.wait();
+                } catch (InterruptedException e){
+                    interrupted = true;
+                }
+            }
+        }
+        if (interrupted){
+            Thread.currentThread().interrupt();
         }
     }
 
