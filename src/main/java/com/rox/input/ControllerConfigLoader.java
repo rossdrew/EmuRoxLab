@@ -17,8 +17,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.function.Supplier;
+import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 /**
  * Loads a {@link ControllerConfiguration} from a {@code .properties} file - see
@@ -30,6 +33,7 @@ public final class ControllerConfigLoader {
     private static final String FOUR_SCORE_ENABLED_KEY = "fourscore.enabled";
     private static final int PLAYER_COUNT = 4;
     private static final float DEFAULT_AXIS_THRESHOLD = 0.5f;
+    private static final Logger log = Logger.getLogger(ControllerConfigLoader.class.getName());
 
     //input4j's own InputComponent.ID.get(String) only finds IDs whose owning component class has
     //already been loaded by the JVM (each class registers its constants as a static-initializer side
@@ -155,7 +159,11 @@ public final class ControllerConfigLoader {
             return new KeyboardController(parseKeyBindings(properties, prefix));
         }
         if ("gamepad".equalsIgnoreCase(source)){
-            return new GamepadController(resolveDevice(properties, prefix, devices.get()), parseGamepadBindings(properties, prefix));
+            //parsed even when the gamepad isn't connected, so a typo isn't hidden until it's plugged in
+            final Map<Button, GamepadBinding> bindings = parseGamepadBindings(properties, prefix);
+            return findDevice(properties, prefix, devices.get())
+                    .<Controller>map(device -> new GamepadController(device, bindings))
+                    .orElse(Controller.NONE);
         }
         if ("none".equalsIgnoreCase(source)){
             return Controller.NONE;
@@ -163,26 +171,44 @@ public final class ControllerConfigLoader {
         throw new IllegalArgumentException("Unknown controller source '" + source + "' for " + prefix);
     }
 
-    private static InputDevice resolveDevice(final Properties properties, final String prefix, final Collection<InputDevice> devices){
+    /**
+     * The configured gamepad, or empty (with a warning) if it isn't connected - that player then starts
+     * with no controller rather than the emulator failing to start.
+     *
+     * @throws IllegalArgumentException for a negative {@code deviceIndex} - a config mistake, not a missing pad
+     */
+    private static Optional<InputDevice> findDevice(final Properties properties, final String prefix, final Collection<InputDevice> devices){
         final List<InputDevice> deviceList = List.copyOf(devices);
         final String nameSubstring = properties.getProperty(prefix + ".gamepad.device");
         if (nameSubstring != null){
             final String needle = nameSubstring.toLowerCase(Locale.ROOT);
-            return deviceList.stream()
+            final Optional<InputDevice> match = deviceList.stream()
                     .filter(d -> d.getDisplayName().toLowerCase(Locale.ROOT).contains(needle))
-                    .findFirst()
-                    .orElseThrow(() -> new IllegalArgumentException(
-                            "No connected gamepad matches '" + nameSubstring + "' for " + prefix));
+                    .findFirst();
+            if (match.isEmpty()){
+                warnMissing("No connected gamepad matches '" + nameSubstring + "'", prefix, deviceList);
+            }
+            return match;
         }
 
         //no name given - fall back to enumeration order, which is stabler within a single run than
         //across runs/OS-reboots, hence name-substring being the recommended, primary option above
         final int index = Integer.parseInt(properties.getProperty(prefix + ".gamepad.deviceIndex", "0"));
-        if (index < 0 || index >= deviceList.size()){
-            throw new IllegalArgumentException(
-                    "No connected gamepad at index " + index + " for " + prefix + " (" + deviceList.size() + " available)");
+        if (index < 0){
+            throw new IllegalArgumentException("Gamepad deviceIndex " + index + " for " + prefix + " can't be negative");
         }
-        return deviceList.get(index);
+        if (index >= deviceList.size()){
+            warnMissing("No connected gamepad at index " + index, prefix, deviceList);
+            return Optional.empty();
+        }
+        return Optional.of(deviceList.get(index));
+    }
+
+    private static void warnMissing(final String problem, final String prefix, final List<InputDevice> connected){
+        final String found = connected.isEmpty()
+                ? "none"
+                : connected.stream().map(d -> "'" + d.getDisplayName() + "'").collect(Collectors.joining(", "));
+        log.warning(problem + " for " + prefix + " (connected: " + found + ") - starting " + prefix + " with no controller");
     }
 
     private static Map<Button, GamepadBinding> parseGamepadBindings(final Properties properties, final String prefix){
