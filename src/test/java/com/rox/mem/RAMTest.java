@@ -125,6 +125,18 @@ public class RAMTest extends Arbitraries {
     }
 
     @Test
+    public void errorsNameTheRam(){
+        final IllegalArgumentException unnamed = assertThrows(IllegalArgumentException.class, () -> new RAM(4).checkRestorable(new int[8]));
+        assertEquals("Expected 4 bytes of RAM, got 8", unnamed.getMessage());
+
+        final IllegalArgumentException named = assertThrows(IllegalArgumentException.class, () -> new RAM(4, "PRG-RAM").checkRestorable(new int[8]));
+        assertEquals("Expected 4 bytes of PRG-RAM, got 8", named.getMessage());
+
+        final IllegalArgumentException badSize = assertThrows(IllegalArgumentException.class, () -> new RAM(3, "PRG-RAM"));
+        assertEquals("PRG-RAM size must be power of two", badSize.getMessage());
+    }
+
+    @Test
     public void checkRestorableRejectsTheWrongSizeWithoutChangingAnything(){
         final RAM ram = new RAM(4);
         ram.write(0, 0x12);

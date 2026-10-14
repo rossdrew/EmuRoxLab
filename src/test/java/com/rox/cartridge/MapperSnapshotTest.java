@@ -272,6 +272,19 @@ public class MapperSnapshotTest {
         assertRecordsEqual(before, mapper.snapshot());
     }
 
+    /** checkRestorable() alone must catch it too - it's called before anything else in the system is restored. */
+    @ParameterizedTest
+    @CsvSource({"nrom,prgRam", "nrom,chrRam", "mmc1,prgRam", "mmc1,chrRam", "mmc3,prgRam", "mmc3,chrRam", "mmc3,bankRegisters"})
+    public void checkRestorableRejectsWhicheverArrayIsWrong(final String board, final String which){
+        final Mapper mapper = switch (board){
+            case "nrom" -> new NromMapper(rom(0, 1, 0));
+            case "mmc1" -> new Mmc1Mapper(rom(1, 2, 0));
+            default -> new Mmc3Mapper(rom(4, 2, 0));
+        };
+
+        assertThrows(IllegalArgumentException.class, () -> mapper.checkRestorable(withOneArrayTooShort(mapper.snapshot(), which)));
+    }
+
     @Test
     public void checkRestorableAcceptsAMatchingSnapshotAndRejectsAMismatchedOneWithoutChangingAnything(){
         for (final Mapper mapper : new Mapper[]{new NromMapper(rom(0, 1, 0)), new Mmc1Mapper(rom(1, 2, 0)), new Mmc3Mapper(rom(4, 2, 0))}){
