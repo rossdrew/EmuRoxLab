@@ -59,8 +59,10 @@ public class NES {
     private volatile boolean paused;
     /** every frame handed to videoOutput - what stepFrame() watches for */
     private volatile long framesPresented;
-    /** set by {@link powerOff}, read by {@link powerOn} to catch a {@link powerOff} that races ahead of clockThread even starting, see {@link #powerOn()} for more*/
+    /** set by {@link #powerOff()}, so {@link #powerOn()} skips warm-up and audio once a shutdown is asked for */
     private volatile boolean stopRequested;
+    /** guards {@link #powerOn()}'s setup and audio start against {@link #powerOff()} */
+    private final Object lifecycleLock = new Object();
 
     public NES(final Cartridge cartridge) throws LineUnavailableException {
         this(new SpeakerAudioOutput(), VideoOutput.NO_OP, ControllerConfiguration.NONE, cartridge);
@@ -160,65 +162,36 @@ public class NES {
     }
 
     public void powerOn(){
-        cpu.reset();
-        stopRequested = false;
-        //signalled once the clock thread is genuinely executing clock.run(), not just scheduled to -
-        //without this, the warm-up sleep below could overlap with OS scheduling delay on a loaded
-        //system and elapse before the clock has actually started producing samples
+        //signalled once the clock thread is executing, so a slow thread start can't eat into the warm-up
         final CountDownLatch clockStarted = new CountDownLatch(1);
         final Thread clockThread = new Thread(() -> {
             clockStarted.countDown();
             clock.run();
         });
-        clockThread.start();
+        synchronized (lifecycleLock){
+            cpu.reset();
+            stopRequested = false;
+            clock.prepareToRun(); //a stop() from here on ends the run, even one landing before run() starts
+            clockThread.start();
+        }
 
         boolean interrupted = false;
-        //always wait for the clock to genuinely start (a near-instant wait in practice - counting
-        //down the latch is the very first thing clockThread does) before anything below that might
-        //call clock.stop(): stopping before clock.run() has actually begun has no effect, since
-        //run() unconditionally sets its own running flag back to true the moment it starts, silently
-        //undoing an earlier stop() - so this wait must not be abandoned early on interrupt. This also
-        //means a powerOff() that races ahead of clockThread even starting can't be caught by
-        //clock.stop() alone (its call lands before clock.run() does, so it's a no-op too) - that's
-        //what stopRequested is for below, checked only once we're sure the clock is genuinely running.
-        while (true){
-            try {
-                clockStarted.await();
-                break;
-            } catch (InterruptedException e){
-                interrupted = true;
-            }
-        }
-        //clockStarted firing only guarantees clockThread has begun executing, not that clock.run() has
-        //reached its own "running = true" assignment yet - a real, observed race (not just a timing
-        //bound) if this method proceeds to clock.stop() below in that tiny gap: run() unconditionally
-        //sets running back to true the moment it starts (see FPSClock's own comment), silently undoing
-        //a stop() that raced ahead of it, and clockThread then loops forever since nothing else will
-        //ever call stop() again. Closing this gap is a handful of nanoseconds in practice, so a spin is
-        //appropriate rather than a second latch/callback plumbed through the general Clock interface.
-        while (!clock.isRunning()){
-            Thread.onSpinWait();
-        }
-
-        if (!interrupted && !stopRequested){
-            try {
+        try {
+            clockStarted.await();
+            if (!stopRequested){
                 Thread.sleep(AUDIO_WARM_UP_MILLIS);
-            } catch (InterruptedException e){
-                interrupted = true;
+            }
+        } catch (InterruptedException e){
+            interrupted = true;
+        }
+        synchronized (lifecycleLock){
+            //under the lock, so a powerOff() can't land between this check and start() and leave audio on
+            if (!interrupted && !stopRequested){
+                audioOutput.start();
             }
         }
 
-        //clock.isRunning() is false if powerOff() ran concurrently during warm-up - audio must not
-        //start after a shutdown was already requested, interrupted or not
-        if (!interrupted && !stopRequested && clock.isRunning()){
-            audioOutput.start();
-        }
-
-        if (interrupted || stopRequested){
-            //an interrupted warm-up, or a powerOff() that arrived at any point up to here (even
-            //before the clock genuinely started, when its own clock.stop() call would have been a
-            //no-op), must not silently leave the clock thread running in the background - by this
-            //point clockStarted has definitely fired, so this call is guaranteed effective
+        if (interrupted){
             clock.stop();
         }
         //retry join() until the thread has genuinely terminated - a single interrupted join() would
@@ -227,9 +200,7 @@ public class NES {
             try {
                 clockThread.join();
             } catch (InterruptedException e){
-                //an interrupt caught only here (audio already legitimately started, so the earlier
-                //stop() above never ran) must still stop the clock - otherwise powerOn() would wait
-                //forever for a thread nobody ever told to stop, since nothing else will
+                //an interrupt caught only here (audio already started) must still stop the clock - nothing else will
                 interrupted = true;
                 clock.stop();
             }
@@ -447,16 +418,16 @@ public class NES {
     }
 
     /**
-     * Stops the emulation for good. Returns only once the clock thread has genuinely stopped ticking.
-     * {@code stop()} alone just flags the clock to stop after its current frame, which would leave a window
-     * where {@link #pokeMemory}, {@link #captureSnapshot} or a step saw "not running" and acted from this
-     * thread while the clock thread was still mid-frame.
+     * Stops the emulation for good. Returns only once nothing can tick any more - even when called while
+     * {@link #powerOn()} is still starting the clock - so {@link #pokeMemory}, {@link #captureSnapshot} or a
+     * step can then act from this thread safely.
      */
     public void powerOff(){
-        stopRequested = true;
-        clock.pause(); //waits for the in-flight frame to finish and the loop to park (a no-op if not running)
-        clock.stop();
-        audioOutput.stop();
+        synchronized (lifecycleLock){
+            stopRequested = true;
+            clock.stopAndWait();
+            audioOutput.stop();
+        }
     }
 
     MOS6502 cpu(){
