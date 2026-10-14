@@ -30,8 +30,7 @@ public final class SaveFileFormat {
         return readFile(path)
                 .flatMap(SaveCodec::decode)
                 .filter(decoded -> decoded.type() == SaveType.BATTERY_PRG_RAM)
-                //a CRC-valid file of the wrong length (corruption, or a future format change) must be
-                //rejected here, not left to crash deep inside Mapper.restorePrgRam()'s own length check
+                //reject here or leave to crash deep inside Mapper.restorePrgRam()'s own length check
                 .filter(decoded -> decoded.payload().length == PRG_RAM_SIZE)
                 .map(decoded -> new BatterySaveFile(decoded.metadata(), ByteUtil.toUnsigned(decoded.payload())));
     }
@@ -56,8 +55,7 @@ public final class SaveFileFormat {
         try {
             return Optional.of(Files.readAllBytes(path));
         } catch (IOException e){
-            //a narrow TOCTOU race (the file existed a moment ago, per isRegularFile above, but no
-            //longer does) or a permissions error - either way, treated the same as "no usable save"
+            //Something changed between isRegularFile and here (TOCTOU) or permissions check fail -> No usable save
             return Optional.empty();
         }
     }
