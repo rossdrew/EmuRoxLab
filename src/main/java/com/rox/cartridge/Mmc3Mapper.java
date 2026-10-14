@@ -1,5 +1,7 @@
 package com.rox.cartridge;
 
+import com.rox.ByteUtil;
+
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -111,7 +113,7 @@ public final class Mmc3Mapper implements Mapper {
 
         final byte[] romChr = rom.chrRom();
         this.isChrWritable = romChr.length == 0;
-        this.chr = isChrWritable ? new int[CHR_WINDOW_SIZE] : toUnsigned(romChr);
+        this.chr = isChrWritable ? new int[CHR_WINDOW_SIZE] : ByteUtil.toUnsigned(romChr);
 
         //a reasonable initial hint, immediately overridden by the game's own $A000 write - real MMC3
         //hardware has no defined power-on mirroring state of its own (see class doc's "$8000... is
@@ -206,14 +208,6 @@ public final class Mmc3Mapper implements Mapper {
     /** For snapshots: the CHR-RAM, or null on a CHR-ROM board (nothing to save - it comes from the ROM file). */
     private int[] chrRamOrNull(){
         return isChrWritable ? chr : null;
-    }
-
-    private static int[] toUnsigned(final byte[] bytes){
-        final int[] values = new int[bytes.length];
-        for (int i = 0; i < bytes.length; i++){
-            values[i] = bytes[i] & BYTE_MASK;
-        }
-        return values;
     }
 
     private void clockScanlineCounterOnA12RisingEdge(final int address){

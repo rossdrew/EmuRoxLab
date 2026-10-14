@@ -1,5 +1,7 @@
 package com.rox.cartridge;
 
+import com.rox.ByteUtil;
+
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -76,7 +78,7 @@ public final class Mmc1Mapper implements Mapper {
         }
         final byte[] romChr = rom.chrRom();
         this.isChrWritable = romChr.length == 0;
-        this.chr = isChrWritable ? new int[CHR_WINDOW_SIZE] : toUnsigned(romChr);
+        this.chr = isChrWritable ? new int[CHR_WINDOW_SIZE] : ByteUtil.toUnsigned(romChr);
     }
 
     /** Contract: only ever called with {@code address} in {@code $6000-$FFFF} (see class Javadoc). */
@@ -176,14 +178,6 @@ public final class Mmc1Mapper implements Mapper {
     /** For snapshots: the CHR-RAM, or null on a CHR-ROM board (nothing to save - it comes from the ROM file). */
     private int[] chrRam(){
         return isChrWritable ? chr : null;
-    }
-
-    private static int[] toUnsigned(final byte[] bytes){
-        final int[] values = new int[bytes.length];
-        for (int i = 0; i < bytes.length; i++){
-            values[i] = bytes[i] & BYTE_MASK;
-        }
-        return values;
     }
 
     /**
