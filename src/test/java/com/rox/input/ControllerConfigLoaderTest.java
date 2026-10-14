@@ -10,10 +10,15 @@ import java.awt.event.KeyEvent;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
 import java.util.function.Function;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -196,16 +201,78 @@ public class ControllerConfigLoaderTest {
         assertFalse(controller.isPressed(Button.A));
     }
 
+    /** Every warning {@link ControllerConfigLoader} logs while {@code parsing} runs. */
+    private static List<String> warningsWhile(final Runnable parsing){
+        final Logger logger = Logger.getLogger(ControllerConfigLoader.class.getName());
+        final List<String> warnings = new ArrayList<>();
+        final Handler capture = new Handler(){
+            @Override public void publish(final LogRecord record){
+                if (record.getLevel() == Level.WARNING){
+                    warnings.add(record.getMessage());
+                }
+            }
+            @Override public void flush(){ }
+            @Override public void close(){ }
+        };
+        logger.addHandler(capture);
+        try {
+            parsing.run();
+        } finally {
+            logger.removeHandler(capture);
+        }
+        return warnings;
+    }
+
     @Test
-    public void gamepadSourceWithDeviceIndexExactlyAtTheListSizeThrows(){
+    public void gamepadSourceWithDeviceIndexExactlyAtTheListSizeWarnsAndStartsThatPlayerWithNoController(){
         final Properties properties = new Properties();
         properties.setProperty("player1.source", "gamepad");
         //exactly deviceList.size() (not merely "too big") - the precise off-by-one boundary a
         //`>=` vs `>` mutant in the range check would otherwise miss
         properties.setProperty("player1.gamepad.deviceIndex", "1");
-        final List<InputDevice> devices = List.of(fakeDevice("Xbox Wireless Controller"));
+        final InputDevice connected = fakeDevice("Xbox Wireless Controller");
+        final ControllerConfiguration[] config = new ControllerConfiguration[1];
 
-        assertThrows(IllegalArgumentException.class, () -> ControllerConfigLoader.parse(properties, () -> devices));
+        final List<String> warnings = warningsWhile(() -> config[0] = ControllerConfigLoader.parse(properties, () -> List.of(connected)));
+
+        assertSame(Controller.NONE, config[0].player1());
+        assertEquals(List.of("No connected gamepad at index 1 for player1 (connected: '" + connected.getDisplayName()
+                + "') - starting player1 with no controller"), warnings);
+    }
+
+    @Test
+    public void noGamepadsConnectedAtAllSaysSo(){
+        final Properties properties = new Properties();
+        properties.setProperty("player1.source", "gamepad");
+        final ControllerConfiguration[] config = new ControllerConfiguration[1];
+
+        final List<String> warnings = warningsWhile(() -> config[0] = ControllerConfigLoader.parse(properties, List::of));
+
+        assertSame(Controller.NONE, config[0].player1());
+        assertEquals(List.of("No connected gamepad at index 0 for player1 (connected: none) - starting player1 with no controller"), warnings);
+    }
+
+    @Test
+    public void aMissingGamepadLeavesTheOtherPlayersAsConfigured(){
+        final Properties properties = new Properties();
+        properties.setProperty("player1.source", "gamepad");
+        properties.setProperty("player2.source", "keyboard");
+        properties.setProperty("player2.keyboard.a", "Z");
+        final ControllerConfiguration[] config = new ControllerConfiguration[1];
+
+        warningsWhile(() -> config[0] = ControllerConfigLoader.parse(properties, List::of));
+
+        assertSame(Controller.NONE, config[0].player1());
+        assertTrue(config[0].player2() instanceof KeyboardController);
+    }
+
+    @Test
+    public void aGamepadBindingTypoIsStillAnErrorWhenTheGamepadIsMissing(){
+        final Properties properties = new Properties();
+        properties.setProperty("player1.source", "gamepad");
+        properties.setProperty("player1.gamepad.a", "NOT_A_COMPONENT");
+
+        assertThrows(IllegalArgumentException.class, () -> ControllerConfigLoader.parse(properties, List::of));
     }
 
     @Test
@@ -219,13 +286,19 @@ public class ControllerConfigLoaderTest {
     }
 
     @Test
-    public void gamepadSourceWithNoMatchingDeviceNameThrows(){
+    public void gamepadSourceWithNoMatchingDeviceNameWarnsAndStartsThatPlayerWithNoController(){
         final Properties properties = new Properties();
         properties.setProperty("player1.source", "gamepad");
         properties.setProperty("player1.gamepad.device", "nonexistent brand");
-        final List<InputDevice> devices = List.of(fakeDevice("Xbox Wireless Controller"));
+        final InputDevice first = fakeDevice("Xbox Wireless Controller");
+        final InputDevice second = fakeDevice("DualShock 4");
+        final ControllerConfiguration[] config = new ControllerConfiguration[1];
 
-        assertThrows(IllegalArgumentException.class, () -> ControllerConfigLoader.parse(properties, () -> devices));
+        final List<String> warnings = warningsWhile(() -> config[0] = ControllerConfigLoader.parse(properties, () -> List.of(first, second)));
+
+        assertSame(Controller.NONE, config[0].player1());
+        assertEquals(List.of("No connected gamepad matches 'nonexistent brand' for player1 (connected: '" + first.getDisplayName()
+                + "', '" + second.getDisplayName() + "') - starting player1 with no controller"), warnings);
     }
 
     @Test
