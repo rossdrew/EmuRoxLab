@@ -1,6 +1,6 @@
 # Testing in Java
 
-Coverage isn't the most important metric but it is a guide
+[![Code Coverage](https://codecov.io/github/rossdrew/EmuRoxLab/graph/badge.svg)](https://codecov.io/github/rossdrew/EmuRoxLab) isn't the most important metric but it is a guide
 
 ![The current codecov.io coverage chart](https://codecov.io/gh/rossdrew/emuRoxLab/graphs/icicle.svg)
 
@@ -85,7 +85,7 @@ Unit testing where the same test is done on a given set of data points. Useful f
     }
 ```
 
-### Mutation Testing
+### Mutation Testing [![Mutation Coverage](https://img.shields.io/endpoint?url=https://rossdrew.github.io/EmuRoxLab/pitest.json)](https://rossdrew.github.io/EmuRoxLab/pitest/)
 
 Evaluate the effectiveness of tests by introducing changes (mutations) to the code and checking if tests fail as expected.
 
