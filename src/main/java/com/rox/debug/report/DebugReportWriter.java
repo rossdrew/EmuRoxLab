@@ -1,5 +1,6 @@
 package com.rox.debug.report;
 
+import com.rox.ByteUtil;
 import com.rox.cpu.mos6502.MOS6502Snapshot;
 import com.rox.cpu.mos6502.assembler.DisassembledInstruction;
 import com.rox.debug.cpu.CpuStateText;
@@ -55,14 +56,14 @@ public final class DebugReportWriter {
         Files.writeString(directory.resolve("state.txt"), formatState(report), StandardCharsets.UTF_8);
 
         final int[] ram = snapshot.ram();
-        Files.write(directory.resolve("ram.bin"), toBytes(ram));
+        Files.write(directory.resolve("ram.bin"), ByteUtil.toBytes(ram));
         Files.writeString(directory.resolve("ram.hex.txt"), hexDump(ram), StandardCharsets.UTF_8);
-        Files.write(directory.resolve("oam.bin"), toBytes(ppu.oam()));
-        Files.write(directory.resolve("nametables.bin"), toBytes(ppu.nametableRam()));
-        Files.write(directory.resolve("palette.bin"), toBytes(ppu.paletteRam()));
-        Files.write(directory.resolve("prg-ram.bin"), toBytes(snapshot.mapper().prgRam()));
+        Files.write(directory.resolve("oam.bin"), ByteUtil.toBytes(ppu.oam()));
+        Files.write(directory.resolve("nametables.bin"), ByteUtil.toBytes(ppu.nametableRam()));
+        Files.write(directory.resolve("palette.bin"), ByteUtil.toBytes(ppu.paletteRam()));
+        Files.write(directory.resolve("prg-ram.bin"), ByteUtil.toBytes(snapshot.mapper().prgRam()));
         if (snapshot.mapper().chrRam().length > 0){
-            Files.write(directory.resolve("chr-ram.bin"), toBytes(snapshot.mapper().chrRam()));
+            Files.write(directory.resolve("chr-ram.bin"), ByteUtil.toBytes(snapshot.mapper().chrRam()));
         }
 
         final SaveMetadata metadata = new SaveMetadata(SaveType.LIVE_SNAPSHOT,
@@ -125,13 +126,5 @@ public final class DebugReportWriter {
         final BufferedImage image = new BufferedImage(SCREEN_WIDTH, SCREEN_HEIGHT, BufferedImage.TYPE_INT_RGB);
         image.setRGB(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, rgb, 0, SCREEN_WIDTH);
         ImageIO.write(image, "png", path.toFile());
-    }
-
-    private static byte[] toBytes(final int[] values){
-        final byte[] bytes = new byte[values.length];
-        for (int i = 0; i < values.length; i++){
-            bytes[i] = (byte) values[i];
-        }
-        return bytes;
     }
 }

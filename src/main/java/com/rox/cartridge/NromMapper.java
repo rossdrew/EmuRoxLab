@@ -23,8 +23,7 @@ public final class NromMapper implements Mapper {
 
     private final byte[] prgRom;
     private final int[] prgRam = new int[PRG_RAM_SIZE];
-    private final byte[] chrRom;
-    private final int[] chrRam;
+    private final ChrMemory chr;
     private final Mirroring mirroring;
 
     public NromMapper(final INesRom rom){
@@ -33,9 +32,7 @@ public final class NromMapper implements Mapper {
             throw new IllegalArgumentException(
                     "NROM expects 16KB or 32KB PRG-ROM, got " + prgRom.length + " bytes");
         }
-        final byte[] romChr = rom.chrRom();
-        this.chrRom = romChr.length > 0 ? romChr : null;
-        this.chrRam = romChr.length > 0 ? null : new int[CHR_SIZE];
+        this.chr = ChrMemory.of(rom, CHR_SIZE);
         this.mirroring = rom.isVerticalMirroring() ? Mirroring.VERTICAL : Mirroring.HORIZONTAL;
     }
 
@@ -63,16 +60,13 @@ public final class NromMapper implements Mapper {
 
     @Override
     public int readChr(final int address){
-        final int offset = address & (CHR_SIZE - 1);
-        return chrRom != null ? chrRom[offset] & BYTE_MASK : chrRam[offset];
+        return chr.read(address & (CHR_SIZE - 1));
     }
 
     /** No-op on CHR-ROM boards - real hardware has nowhere to write CHR-ROM writes to. */
     @Override
     public void writeChr(final int address, final int value){
-        if (chrRam != null){
-            chrRam[address & (CHR_SIZE - 1)] = value & BYTE_MASK;
-        }
+        chr.write(address & (CHR_SIZE - 1), value);
     }
 
     @Override
@@ -95,14 +89,14 @@ public final class NromMapper implements Mapper {
 
     @Override
     public MapperSnapshot snapshot(){
-        return new NromMapperSnapshot(prgRam.clone(), SnapshotArrays.copyOf(chrRam));
+        return new NromMapperSnapshot(prgRam.clone(), chr.snapshot());
     }
 
     @Override
     public void checkRestorable(final MapperSnapshot snapshot){
         final NromMapperSnapshot nrom = SnapshotArrays.expect(snapshot, NromMapperSnapshot.class);
         SnapshotArrays.requireSameSize(nrom.prgRam(), prgRam, "PRG-RAM");
-        SnapshotArrays.requireSameSize(nrom.chrRam(), chrRam, "CHR-RAM");
+        chr.checkRestorable(nrom.chrRam());
     }
 
     @Override
@@ -110,6 +104,6 @@ public final class NromMapper implements Mapper {
         checkRestorable(snapshot);
         final NromMapperSnapshot nrom = (NromMapperSnapshot) snapshot;
         SnapshotArrays.copy(nrom.prgRam(), prgRam);
-        SnapshotArrays.copy(nrom.chrRam(), chrRam);
+        chr.restore(nrom.chrRam());
     }
 }

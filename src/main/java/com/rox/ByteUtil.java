@@ -35,4 +35,22 @@ public final class ByteUtil {
     public static int withBitSet(final int value, final int bitIndex) {
         return value | bitMap[bitIndex];
     }
+
+    /** Each byte as {@code 0-255}, e.g. {@code (byte) 0xFF} becomes {@code 255}, not {@code -1}. */
+    public static int[] toUnsigned(final byte[] bytes){
+        final int[] values = new int[bytes.length];
+        for (int i = 0; i < bytes.length; i++){
+            values[i] = bytes[i] & BYTE_MASK;
+        }
+        return values;
+    }
+
+    /** The low 8 bits of each value. */
+    public static byte[] toBytes(final int[] values){
+        final byte[] bytes = new byte[values.length];
+        for (int i = 0; i < values.length; i++){
+            bytes[i] = (byte) values[i];
+        }
+        return bytes;
+    }
 }
