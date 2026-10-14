@@ -35,6 +35,8 @@ I'm doing less and less manual work and more periodic review.  Developing skills
 
 We have a fully functioning emulator for certain mappers and lots of bugs. I'm pausing for now on development of features to build a good debugging story before continuing.
 
+![Current State](resource/current_state_20261014.png)
+
 ## Next up
 1. More advanced debugging screens
 2. More mapper support (UxROM, CNROM, ...)
