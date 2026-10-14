@@ -63,6 +63,18 @@ public class InstructionTraceTest {
     }
 
     @Test
+    public void recordedCountsEveryEntryEvenOnceFull(){
+        final InstructionTrace trace = new InstructionTrace(atBoundary::get, pc::get, address -> 0, 3);
+        tickAt(trace, 1, 2);
+        atBoundary.set(false);
+        tickAt(trace, 3); //mid-instruction - not recorded
+        atBoundary.set(true);
+        tickAt(trace, 4, 5, 6);
+
+        assertEquals(5, trace.recorded());
+    }
+
+    @Test
     public void defaultCapacityIs32(){
         final InstructionTrace trace = new InstructionTrace(atBoundary::get, pc::get, address -> 0);
         for (int i = 0; i < 40; i++){

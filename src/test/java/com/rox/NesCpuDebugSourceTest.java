@@ -197,6 +197,18 @@ public class NesCpuDebugSourceTest {
     }
 
     @Test
+    public void instructionCountGoesUpByOnePerInstructionStep(){
+        final NES nes = nes();
+        tickToStxOnTheThirdLoop(nes);
+        final NesCpuDebugSource source = new NesCpuDebugSource(nes);
+        final long before = source.instructionCount();
+
+        source.stepInstruction();
+
+        assertEquals(before + 1, source.instructionCount());
+    }
+
+    @Test
     public void beforeAnythingRunsThereIsNoCurrentInstructionState(){
         assertTrue(new NesCpuDebugSource(nes()).currentInstructionState().isEmpty());
     }

@@ -46,6 +46,8 @@ public final class InstructionTrace implements ClockWatcher {
     private final int[] flags; //per MOS6502Snapshot.packFlags
     private int nextSlot;
     private int filled;
+    /** Every entry ever recorded, so it keeps counting once the buffer is full. */
+    private volatile long recorded;
 
     /**
      * @param atInstructionBoundary e.g. {@code cpu::isAtInstructionBoundary}
@@ -98,7 +100,13 @@ public final class InstructionTrace implements ClockWatcher {
             if (filled < addresses.length){
                 filled++;
             }
+            recorded++;
         }
+    }
+
+    /** How many instructions have been recorded in total - more than {@link #recent()} holds once it's full. */
+    public long recorded(){
+        return recorded;
     }
 
     /** The recorded instruction addresses, oldest first - at most the buffer's capacity. */

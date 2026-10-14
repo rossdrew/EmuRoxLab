@@ -1,6 +1,5 @@
 package com.rox.debug.cpu;
 
-import com.rox.cpu.mos6502.MOS6502Snapshot;
 import com.rox.cpu.mos6502.assembler.DisassembledInstruction;
 import org.junit.jupiter.api.Test;
 
@@ -14,51 +13,57 @@ public class JumpFlashTest {
     private final AtomicLong now = new AtomicLong(1_000);
     private final JumpFlash flash = new JumpFlash(now::get);
 
-    private static MOS6502Snapshot at(final int pc){
-        return new MOS6502Snapshot(pc, 0, 0, 0, 0xFD, 0, 0, 0, false, false, false, false, false, false, false, false, false);
-    }
-
     private static List<DisassembledInstruction> lastRan(final int address, final int length){
         return List.of(new DisassembledInstruction(address, length, "X", new int[0], "X"));
     }
 
     @Test
     public void aStepThatJumpedFlashesForAWhileThenStops(){
-        flash.update(at(0x9000), true, List.of(), 0x9000);
+        flash.update(0, true, List.of(), 0x9000);
 
-        assertTrue(flash.update(at(0x8000), true, lastRan(0x9000, 3), 0x8000), "JMP $8000 from $9000");
+        assertTrue(flash.update(1, true, lastRan(0x9000, 3), 0x8000), "JMP $8000 from $9000");
         now.addAndGet(JumpFlash.FLASH_MILLIS - 1);
-        assertTrue(flash.update(at(0x8000), true, lastRan(0x9000, 3), 0x8000), "still flashing");
+        assertTrue(flash.update(1, true, lastRan(0x9000, 3), 0x8000), "still flashing");
         now.addAndGet(1);
-        assertFalse(flash.update(at(0x8000), true, lastRan(0x9000, 3), 0x8000), "flash over, and no new step since");
+        assertFalse(flash.update(1, true, lastRan(0x9000, 3), 0x8000), "flash over, and no new step since");
     }
 
     @Test
     public void aStepToTheNextInstructionDoesNotFlash(){
-        flash.update(at(0x9000), true, List.of(), 0x9000);
+        flash.update(0, true, List.of(), 0x9000);
 
-        assertFalse(flash.update(at(0x9002), true, lastRan(0x9000, 2), 0x9002));
+        assertFalse(flash.update(1, true, lastRan(0x9000, 2), 0x9002));
     }
 
     @Test
     public void runningNeverFlashes(){
-        flash.update(at(0x9000), false, List.of(), 0x9000);
+        flash.update(0, false, List.of(), 0x9000);
 
-        assertFalse(flash.update(at(0x8000), false, lastRan(0x9000, 3), 0x8000));
+        assertFalse(flash.update(1, false, lastRan(0x9000, 3), 0x8000));
     }
 
     @Test
     public void theFirstLookNeverFlashes(){
-        assertFalse(flash.update(at(0x8000), true, lastRan(0x9000, 3), 0x8000));
+        assertFalse(flash.update(5, true, lastRan(0x9000, 3), 0x8000));
     }
 
     @Test
-    public void aJumpBackToTheSameStateDoesNotRetriggerWithoutAStep(){
-        flash.update(at(0x9000), true, List.of(), 0x9000);
-        flash.update(at(0x8000), true, lastRan(0x9000, 3), 0x8000);
+    public void anUnchangedRefreshDoesNotRetriggerTheFlash(){
+        flash.update(0, true, List.of(), 0x9000);
+        flash.update(1, true, lastRan(0x9000, 3), 0x8000);
         now.addAndGet(JumpFlash.FLASH_MILLIS);
 
-        assertFalse(flash.update(at(0x8000), true, lastRan(0x9000, 3), 0x8000), "same state re-read - not a new step");
+        assertFalse(flash.update(1, true, lastRan(0x9000, 3), 0x8000), "re-read with no instruction run - not a new step");
+    }
+
+    /** CodeRabbit's PR #52 finding: {@code JMP *} leaves the CPU state identical, but each step is still a jump. */
+    @Test
+    public void everyStepOfAJumpToItselfFlashes(){
+        flash.update(0, true, List.of(), 0x8000);
+        assertTrue(flash.update(1, true, lastRan(0x8000, 3), 0x8000), "first JMP $8000");
+        now.addAndGet(JumpFlash.FLASH_MILLIS);
+
+        assertTrue(flash.update(2, true, lastRan(0x8000, 3), 0x8000), "the same JMP again");
     }
 
     @Test
@@ -73,27 +78,27 @@ public class JumpFlashTest {
     /** CodeRabbit's PR #52 finding: a quick sequential step mustn't inherit the previous jump's flash. */
     @Test
     public void aSequentialStepEndsAFlashStillShowingForTheInstructionBefore(){
-        flash.update(at(0x9000), true, List.of(), 0x9000);
-        flash.update(at(0x8000), true, lastRan(0x9000, 3), 0x8000); //jumped
+        flash.update(0, true, List.of(), 0x9000);
+        flash.update(1, true, lastRan(0x9000, 3), 0x8000); //jumped
         now.addAndGet(100);
 
-        assertFalse(flash.update(at(0x8001), true, lastRan(0x8000, 1), 0x8001), "stepped straight on to $8001");
+        assertFalse(flash.update(2, true, lastRan(0x8000, 1), 0x8001), "stepped straight on to $8001");
     }
 
     @Test
     public void resumingEndsTheFlash(){
-        flash.update(at(0x9000), true, List.of(), 0x9000);
-        flash.update(at(0x8000), true, lastRan(0x9000, 3), 0x8000);
+        flash.update(0, true, List.of(), 0x9000);
+        flash.update(1, true, lastRan(0x9000, 3), 0x8000);
         now.addAndGet(100);
 
-        assertFalse(flash.update(at(0x8000), false, List.of(), 0x8000));
+        assertFalse(flash.update(1, false, List.of(), 0x8000));
     }
 
     @Test
     public void pausingIsNotAStep(){
-        flash.update(at(0x9000), false, List.of(), 0x9000); //running
+        flash.update(0, false, List.of(), 0x9000); //running
 
-        assertFalse(flash.update(at(0x8000), true, lastRan(0x9000, 3), 0x8000), "paused where a jump had just landed");
-        assertTrue(flash.update(at(0x8003), true, lastRan(0x7000, 3), 0x8003), "but the next step that jumps does flash");
+        assertFalse(flash.update(1000, true, lastRan(0x9000, 3), 0x8000), "paused where a jump had just landed");
+        assertTrue(flash.update(1001, true, lastRan(0x7000, 3), 0x8003), "but the next step that jumps does flash");
     }
 }

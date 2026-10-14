@@ -53,6 +53,11 @@ final class NesCpuDebugSource implements CpuDebugSource {
     }
 
     @Override
+    public long instructionCount(){
+        return nes.instructionTrace().recorded();
+    }
+
+    @Override
     public double measuredHz(){
         return nes.tickRateMonitor().measuredHz();
     }

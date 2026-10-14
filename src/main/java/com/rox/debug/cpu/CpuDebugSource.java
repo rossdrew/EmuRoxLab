@@ -24,6 +24,9 @@ public interface CpuDebugSource {
     /** The state the current instruction started with, if it's been recorded yet. */
     Optional<MOS6502Snapshot> currentInstructionState();
 
+    /** How many instructions have started so far - goes up by one per instruction step. */
+    long instructionCount();
+
     /** The clock rate actually being achieved - see {@code TickRateMonitor}. */
     double measuredHz();
 

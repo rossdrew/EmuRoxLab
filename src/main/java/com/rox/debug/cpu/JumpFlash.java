@@ -1,6 +1,5 @@
 package com.rox.debug.cpu;
 
-import com.rox.cpu.mos6502.MOS6502Snapshot;
 import com.rox.cpu.mos6502.assembler.DisassembledInstruction;
 
 import java.util.List;
@@ -17,7 +16,7 @@ public final class JumpFlash {
     private static final int ADDRESS_MASK = 0xFFFF;
 
     private final LongSupplier clockMillis;
-    private MOS6502Snapshot last;
+    private long lastInstructionCount;
     private boolean pausedLastTime;
     private long flashUntil = Long.MIN_VALUE;
 
@@ -27,26 +26,27 @@ public final class JumpFlash {
     }
 
     /**
+     * @param instructionCount see {@link CpuDebugSource#instructionCount()} - a rise while paused is a step
      * @param recent recently executed instructions, oldest first - see {@link CpuDebugSource#recentInstructions()}
      * @param currentAddress where the current instruction starts
      * @return whether the address should be flashing now
      */
-    public boolean update(final MOS6502Snapshot cpu, final boolean paused, final List<DisassembledInstruction> recent,
+    public boolean update(final long instructionCount, final boolean paused, final List<DisassembledInstruction> recent,
                           final int currentAddress){
         final long now = clockMillis.getAsLong();
         if (!paused){
             flashUntil = Long.MIN_VALUE;
             pausedLastTime = false;
-            last = cpu;
+            lastInstructionCount = instructionCount;
             return false;
         }
-        //a state change while already paused is a step; the first look after pausing is not
-        if (pausedLastTime && !cpu.equals(last)){
+        //an instruction run while already paused is a step; the first look after pausing is not
+        if (pausedLastTime && instructionCount != lastInstructionCount){
             //a step that didn't jump ends any flash still showing for the instruction before it
             flashUntil = landedByJump(recent, currentAddress) ? now + FLASH_MILLIS : Long.MIN_VALUE;
         }
         pausedLastTime = true;
-        last = cpu;
+        lastInstructionCount = instructionCount;
         return now < flashUntil;
     }
 
