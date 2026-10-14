@@ -63,6 +63,18 @@ public class InstructionTraceTest {
     }
 
     @Test
+    public void recordedCountsEveryEntryEvenOnceFull(){
+        final InstructionTrace trace = new InstructionTrace(atBoundary::get, pc::get, address -> 0, 3);
+        tickAt(trace, 1, 2);
+        atBoundary.set(false);
+        tickAt(trace, 3); //mid-instruction - not recorded
+        atBoundary.set(true);
+        tickAt(trace, 4, 5, 6);
+
+        assertEquals(5, trace.recorded());
+    }
+
+    @Test
     public void defaultCapacityIs32(){
         final InstructionTrace trace = new InstructionTrace(atBoundary::get, pc::get, address -> 0);
         for (int i = 0; i < 40; i++){
@@ -155,5 +167,56 @@ public class InstructionTraceTest {
         tickAt(trace, 0x8000, 0x8003);
 
         assertEquals(6, reads.get());
+    }
+
+    /** Each entry carries the registers its instruction started with - the state just before it ran. */
+    @Test
+    public void historyRecordsTheStateEachInstructionStartedWith(){
+        //$0000: LDX #$03; $0002: DEX; $0003: BNE $0002
+        final RAM ram = new RAM(0x10000);
+        final int[] program = {0xA2, 0x03, 0xCA, 0xD0, 0xFD};
+        for (int i = 0; i < program.length; i++){
+            ram.write(i, program[i]);
+        }
+        final MOS6502 cpu = new MOS6502(new Latched8BitMemoryBus(new MemoryBus8Bit(ram)));
+        final InstructionTrace trace = new InstructionTrace(cpu::isAtInstructionBoundary, cpu::programCounter, ram::read,
+                cpu::packedRegisters, cpu::packedFlags, InstructionTrace.DEFAULT_CAPACITY);
+
+        for (int i = 0; i < 2 + 2 + 3 + 2; i++){ //LDX, DEX, BNE (taken), DEX
+            cpu.tick();
+            trace.tick();
+        }
+
+        final List<TracedInstruction> history = trace.history();
+        assertEquals(List.of("DEX", "BNE $0002", "DEX", "BNE $0002"),
+                history.stream().map(t -> t.instruction().formatted()).toList());
+        assertEquals(List.of(3, 2, 2, 1), history.stream().map(t -> t.before().x()).toList(), "X as each instruction started");
+        assertEquals(List.of(0x0002, 0x0003, 0x0002, 0x0003), history.stream().map(t -> t.before().pc()).toList());
+        assertEquals(cpu.liveState().x(), history.get(history.size() - 1).before().x(), "the newest entry is the current state");
+    }
+
+    @Test
+    public void withoutStateSuppliersHistoryHasZeroedState(){
+        final InstructionTrace trace = new InstructionTrace(atBoundary::get, pc::get, address -> 0xEA);
+        tickAt(trace, 0x8000);
+
+        final TracedInstruction only = trace.history().get(0);
+        assertEquals("NOP", only.instruction().formatted());
+        assertEquals(com.rox.cpu.mos6502.MOS6502Snapshot.unpack(0x8000, 0, 0), only.before());
+    }
+
+    @Test
+    public void historyMatchesRecentInstructionsWhenTheBufferHasWrapped(){
+        final AtomicInteger registers = new AtomicInteger();
+        final InstructionTrace trace = new InstructionTrace(atBoundary::get, pc::get, address -> 0xEA,
+                registers::get, () -> 0, 2);
+        for (int i = 1; i <= 3; i++){
+            registers.set(i); //A = i
+            tickAt(trace, 0x8000 + i);
+        }
+
+        final List<TracedInstruction> history = trace.history();
+        assertEquals(List.of(0x8002, 0x8003), history.stream().map(t -> t.instruction().address()).toList());
+        assertEquals(List.of(2, 3), history.stream().map(t -> t.before().a()).toList(), "oldest dropped, state kept aligned");
     }
 }

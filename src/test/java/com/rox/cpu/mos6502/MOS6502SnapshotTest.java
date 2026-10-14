@@ -127,4 +127,23 @@ public class MOS6502SnapshotTest {
 
         assertEquals(cpu.snapshot(), cpu.liveState());
     }
+
+    @Property
+    public void packedRegistersAndFlagsUnpackToTheSameState(@ForAll @IntRange(max = 0xFFFF) int pc,
+                                                            @ForAll @IntRange(max = 0xFF) int a,
+                                                            @ForAll @IntRange(max = 0xFF) int x,
+                                                            @ForAll @IntRange(max = 0xFF) int y,
+                                                            @ForAll @IntRange(max = 0xFF) int stackPointer,
+                                                            @ForAll boolean negative, @ForAll boolean signedOverflow,
+                                                            @ForAll boolean breakFlag, @ForAll boolean decimal,
+                                                            @ForAll boolean interruptDisable, @ForAll boolean zero,
+                                                            @ForAll boolean carry, @ForAll boolean irqLineAsserted,
+                                                            @ForAll boolean nmiPending){
+        final MOS6502Snapshot snapshot = new MOS6502Snapshot(pc, a, x, y, stackPointer, 0, 0, 0, negative,
+                signedOverflow, breakFlag, decimal, interruptDisable, zero, carry, irqLineAsserted, nmiPending);
+        final MOS6502 cpu = new MOS6502(mock(LatchedMemoryBus.class));
+        cpu.restore(snapshot);
+
+        assertEquals(snapshot, MOS6502Snapshot.unpack(pc, cpu.packedRegisters(), cpu.packedFlags()));
+    }
 }

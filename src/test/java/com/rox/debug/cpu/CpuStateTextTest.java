@@ -54,10 +54,18 @@ public class CpuStateTextTest {
                 return java.util.stream.IntStream.range(0, count)
                         .mapToObj(i -> new DisassembledInstruction(0x8123 + i, 1, "NOP", new int[0], "NOP")).toList();
             }
-            @Override public java.util.List<DisassembledInstruction> recentInstructions(){
-                return java.util.List.of(new DisassembledInstruction(0x8120, 1, "INX", new int[0], "INX"),
-                        new DisassembledInstruction(0x8121, 2, "LDA", new int[]{5}, "LDA #$05"));
+            @Override public java.util.List<TracedInstruction> recentInstructions(){
+                return java.util.List.of(
+                        new TracedInstruction(new DisassembledInstruction(0x8120, 1, "INX", new int[0], "INX"),
+                                MOS6502Snapshot.unpack(0x8120, MOS6502Snapshot.packRegisters(0x10, 0x01, 0x00, 0xFF), 0)),
+                        new TracedInstruction(new DisassembledInstruction(0x8121, 2, "LDA", new int[]{5}, "LDA #$05"),
+                                MOS6502Snapshot.unpack(0x8121, MOS6502Snapshot.packRegisters(0x10, 0x02, 0x00, 0xFF),
+                                        MOS6502Snapshot.packFlags(false, false, false, false, true, false, true, true, false))));
             }
+            @Override public java.util.Optional<MOS6502Snapshot> currentInstructionState(){
+                return java.util.Optional.of(SOME_SET);
+            }
+            @Override public long instructionCount(){ return 0; }
             @Override public double measuredHz(){ return 1_789_773; }
             @Override public long intendedHz(){ return 1_789_773; }
             @Override public boolean pause(){ return true; }
@@ -80,15 +88,60 @@ public class CpuStateTextTest {
                 --- Next (furthest ahead at top) ---
                   $8125  NOP
                   $8124  NOP
-                > $8123  NOP
+                > $8123  NOP            A:01 X:02 Y:03 SP:FD  Nv-BdIzC  nmi
                 --- Recent (latest at top) ---
-                  $8121  LDA #$05
-                  $8120  INX
+                  $8121  LDA #$05       A:10 X:02 Y:00 SP:FF  nv-bdIzC  irq
+                  $8120  INX            A:10 X:01 Y:00 SP:FF  nv-bdizc
                 """, CpuStateText.panel(source(false), 3));
     }
 
     @Test
     public void panelShowsWhenPaused(){
         assertTrue(CpuStateText.panel(source(true), 1).startsWith("PAUSED  Clock:"));
+    }
+
+    @Test
+    public void panelCanUseAStateTheCallerAlreadyRead(){
+        final String text = CpuStateText.panel(OTHERS_SET, source(false), 1);
+
+        assertTrue(text.contains("PC: $0005  A: $FF  X: $00  Y: $7F  SP: $00\n"), text);
+        assertTrue(text.contains("Flags: nV-bDiZc"), text);
+    }
+
+    @Test
+    public void instructionWithStateAlignsTheStateColumnEvenForTheLongestInstruction(){
+        final DisassembledInstruction longest = new DisassembledInstruction(0xFFFF, 2, "ORA", new int[]{0x40}, "ORA ($40),Y");
+
+        assertEquals("  $FFFF  ORA ($40),Y    A:FF X:00 Y:7F SP:00  nV-bDiZc  irq",
+                CpuStateText.instruction(longest, false, OTHERS_SET));
+    }
+
+    @Test
+    public void stateShowsIrqAndNmiOnlyWhenActive(){
+        assertEquals("A:01 X:02 Y:03 SP:FD  Nv-BdIzC  nmi", CpuStateText.state(SOME_SET));
+        assertEquals("A:FF X:00 Y:7F SP:00  nV-bDiZc  irq", CpuStateText.state(OTHERS_SET));
+    }
+
+    @Test
+    public void theCurrentInstructionHasNoStateBeforeAnythingHasBeenRecorded(){
+        final CpuDebugSource fresh = new CpuDebugSource(){
+            @Override public MOS6502Snapshot state(){ return SOME_SET; }
+            @Override public java.util.List<DisassembledInstruction> upcomingInstructions(final int count){
+                return java.util.List.of(new DisassembledInstruction(0x8000, 1, "NOP", new int[0], "NOP"));
+            }
+            @Override public java.util.List<TracedInstruction> recentInstructions(){ return java.util.List.of(); }
+            @Override public java.util.Optional<MOS6502Snapshot> currentInstructionState(){ return java.util.Optional.empty(); }
+            @Override public long instructionCount(){ return 0; }
+            @Override public double measuredHz(){ return 0; }
+            @Override public long intendedHz(){ return 1; }
+            @Override public boolean pause(){ return true; }
+            @Override public void resume(){ }
+            @Override public boolean isPaused(){ return true; }
+            @Override public void stepInstruction(){ }
+            @Override public void stepCycles(final int cycles){ }
+            @Override public void stepFrame(){ }
+        };
+
+        assertTrue(CpuStateText.panel(fresh, 1).contains("\n> $8000  NOP\n"));
     }
 }
