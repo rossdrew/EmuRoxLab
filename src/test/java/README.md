@@ -1,10 +1,8 @@
 # Testing in Java
 
-Coverage isn't the most imporant metric but it is a guide
+Coverage isn't the most important metric but it is a guide
 
-<a href="https://codecov.io/gh/rossdrew/emuRoxLab">
- <img align="right" src="https://codecov.io/gh/rossdrew/emuRoxLab/graphs/sunburst.svg" data-canonical-src="https://codecov.io/gh/rossdrew/emuRoxLab/graphs/sunburst.svg" alt="The current codecov.io coverage chart" width="150" />
-</a>
+![The current codecov.io coverage chart](https://codecov.io/gh/rossdrew/emuRoxLab/graphs/icicle.svg)
 
 ## Tools
 - JUnit: A unit testing framework for Java, widely used for writing and running tests.
@@ -91,4 +89,4 @@ Unit testing where the same test is done on a given set of data points. Useful f
 
 Evaluate the effectiveness of tests by introducing changes (mutations) to the code and checking if tests fail as expected.
 
-This is done at the build level.  Running unit tests under th mutation testing framework while the framework mutates the code to find holes in test logic.
+This is done at the build level.  Running unit tests under the mutation testing framework while the framework mutates the code to find holes in test logic.
