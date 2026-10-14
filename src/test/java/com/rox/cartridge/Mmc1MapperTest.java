@@ -368,6 +368,19 @@ public class Mmc1MapperTest {
     }
 
     @Test
+    public void eachChrRamAddressHoldsItsOwnByteWhateverTheBankRegistersSay(){
+        final Mmc1Mapper mapper = new Mmc1Mapper(romWithBanks(2));
+        mapper.writeChr(0x0100, 0x42);
+        mapper.writeChr(0x1F00, 0x24);
+
+        writeFiveBits(mapper, 0x8000, 0x10); //4KB mode
+        writeFiveBits(mapper, 0xA000, 0x01); //CHR bank 0 -> 1, which would move $0100 if CHR-RAM were banked
+
+        assertEquals(0x42, mapper.readChr(0x0100));
+        assertEquals(0x24, mapper.readChr(0x1F00));
+    }
+
+    @Test
     public void writesToChrRomAreNoOps(){
         final Mmc1Mapper mapper = new Mmc1Mapper(romWithPositionEncodedChrBanks(2));
 

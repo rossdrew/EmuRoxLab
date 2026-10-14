@@ -86,11 +86,14 @@ public final class Mmc3Mapper implements Mapper {
 
     private final byte[] prgRom;
     private final int[] prgRam = new int[PRG_RAM_SIZE];
-    private final byte[] chrRom;
-    private final int[] chrRam;
 
-    private final int[] bankRegister = new int[8]; //R0-R7 - unspecified at power-on, same as real hardware
-    private int bankSelect; //last value written to $8000: register-select bits, PRG mode bit, CHR inversion bit
+    private final int[] chr;
+    private final boolean isChrWritable;
+
+    /** R0-R7 - unspecified at power-on, same as real hardware */
+    private final int[] bankRegister = new int[8];
+    /** last value written to $8000: register-select bits, PRG mode bit, CHR inversion bit */
+    private int bankSelect;
     private boolean horizontalMirroring;
 
     private int irqLatch;
@@ -105,9 +108,11 @@ public final class Mmc3Mapper implements Mapper {
         if (prgRom.length < PRG_BANK_SIZE * 2){
             throw new IllegalArgumentException("MMC3 requires at least 16KB of PRG-ROM, got " + prgRom.length + " bytes");
         }
+
         final byte[] romChr = rom.chrRom();
-        this.chrRom = romChr.length > 0 ? romChr : null;
-        this.chrRam = romChr.length > 0 ? null : new int[CHR_WINDOW_SIZE];
+        this.isChrWritable = romChr.length == 0;
+        this.chr = isChrWritable ? new int[CHR_WINDOW_SIZE] : toUnsigned(romChr);
+
         //a reasonable initial hint, immediately overridden by the game's own $A000 write - real MMC3
         //hardware has no defined power-on mirroring state of its own (see class doc's "$8000... is
         //unspecified at power on" quote, equally true here)
@@ -187,16 +192,28 @@ public final class Mmc3Mapper implements Mapper {
     @Override
     public int readChr(final int address){
         clockScanlineCounterOnA12RisingEdge(address);
-        final int offset = chrOffset(address);
-        return chrRom != null ? chrRom[offset] & BYTE_MASK : chrRam[offset];
+        return chr[chrOffset(address)];
     }
 
+    /** No-op if Chr is ROM/Read-Only */
     @Override
     public void writeChr(final int address, final int value){
-        if (chrRam != null){
-            chrRam[chrOffset(address)] = value & BYTE_MASK;
+        if (isChrWritable){
+            chr[chrOffset(address)] = value & BYTE_MASK;
         }
-        //writes to CHR-ROM are no-ops, same as PRG-ROM
+    }
+
+    /** For snapshots: the CHR-RAM, or null on a CHR-ROM board (nothing to save - it comes from the ROM file). */
+    private int[] chrRamOrNull(){
+        return isChrWritable ? chr : null;
+    }
+
+    private static int[] toUnsigned(final byte[] bytes){
+        final int[] values = new int[bytes.length];
+        for (int i = 0; i < bytes.length; i++){
+            values[i] = bytes[i] & BYTE_MASK;
+        }
+        return values;
     }
 
     private void clockScanlineCounterOnA12RisingEdge(final int address){
@@ -233,9 +250,8 @@ public final class Mmc3Mapper implements Mapper {
         //no separate "bank1k % totalKbBanks" wraparound step needed here: chrSize is always an exact
         //multiple of CHR_BANK_1KB, so the trailing "% chrSize" below already produces the identical
         //result on its own - (bank1k % n)*k % (n*k) == bank1k*k % (n*k) for any non-negative bank1k
-        final int chrSize = chrRom != null ? chrRom.length : chrRam.length;
         final int offsetWithinBank = effective & (CHR_BANK_1KB - 1);
-        return (bank1k * CHR_BANK_1KB + offsetWithinBank) % chrSize;
+        return (bank1k * CHR_BANK_1KB + offsetWithinBank) % chr.length;
     }
 
     @Override
@@ -296,7 +312,7 @@ public final class Mmc3Mapper implements Mapper {
 
     @Override
     public MapperSnapshot snapshot(){
-        return new Mmc3MapperSnapshot(prgRam.clone(), SnapshotArrays.copyOf(chrRam), bankRegister.clone(), bankSelect,
+        return new Mmc3MapperSnapshot(prgRam.clone(), SnapshotArrays.copyOf(chrRamOrNull()), bankRegister.clone(), bankSelect,
                 horizontalMirroring, irqLatch, irqCounter, irqReloadRequested, irqEnabled, irqPending,
                 lastChrAddressA12High);
     }
@@ -305,7 +321,7 @@ public final class Mmc3Mapper implements Mapper {
     public void checkRestorable(final MapperSnapshot snapshot){
         final Mmc3MapperSnapshot mmc3 = SnapshotArrays.expect(snapshot, Mmc3MapperSnapshot.class);
         SnapshotArrays.requireSameSize(mmc3.prgRam(), prgRam, "PRG-RAM");
-        SnapshotArrays.requireSameSize(mmc3.chrRam(), chrRam, "CHR-RAM");
+        SnapshotArrays.requireSameSize(mmc3.chrRam(), chrRamOrNull(), "CHR-RAM");
         SnapshotArrays.requireSameSize(mmc3.bankRegisters(), bankRegister, "bank registers");
     }
 
@@ -314,7 +330,7 @@ public final class Mmc3Mapper implements Mapper {
         checkRestorable(snapshot);
         final Mmc3MapperSnapshot mmc3 = (Mmc3MapperSnapshot) snapshot;
         SnapshotArrays.copy(mmc3.prgRam(), prgRam);
-        SnapshotArrays.copy(mmc3.chrRam(), chrRam);
+        SnapshotArrays.copy(mmc3.chrRam(), chrRamOrNull());
         SnapshotArrays.copy(mmc3.bankRegisters(), bankRegister);
         bankSelect = mmc3.bankSelect();
         horizontalMirroring = mmc3.horizontalMirroring();

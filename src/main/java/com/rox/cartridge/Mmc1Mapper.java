@@ -58,8 +58,8 @@ public final class Mmc1Mapper implements Mapper {
 
     private final byte[] prgRom;
     private final int[] prgRam = new int[PRG_RAM_SIZE];
-    private final byte[] chrRom;
-    private final int[] chrRam;
+    private final int[] chr;
+    private final boolean isChrWritable;
 
     private int shiftRegister;
     private int shiftCount;
@@ -75,8 +75,8 @@ public final class Mmc1Mapper implements Mapper {
             throw new IllegalArgumentException("MMC1 requires at least one 16KB PRG-ROM bank");
         }
         final byte[] romChr = rom.chrRom();
-        this.chrRom = romChr.length > 0 ? romChr : null;
-        this.chrRam = romChr.length > 0 ? null : new int[CHR_WINDOW_SIZE];
+        this.isChrWritable = romChr.length == 0;
+        this.chr = isChrWritable ? new int[CHR_WINDOW_SIZE] : toUnsigned(romChr);
     }
 
     /** Contract: only ever called with {@code address} in {@code $6000-$FFFF} (see class Javadoc). */
@@ -155,18 +155,35 @@ public final class Mmc1Mapper implements Mapper {
 
     @Override
     public int readChr(final int address){
-        if (chrRam != null){
-            return chrRam[address & (CHR_WINDOW_SIZE - 1)];
-        }
-        return chrRom[chrRomOffset(address)] & BYTE_MASK;
+        return chr[chrOffset(address)];
     }
 
+    /**
+     * This is a no-op if Chr is ROM/Read-Only
+     */
     @Override
     public void writeChr(final int address, final int value){
-        if (chrRam != null){
-            chrRam[address & (CHR_WINDOW_SIZE - 1)] = value & BYTE_MASK;
+        if (isChrWritable){
+            chr[chrOffset(address)] = value & BYTE_MASK;
         }
-        //writes to CHR-ROM are no-ops, same as PRG-ROM
+    }
+
+    /** CHR-RAM is one fixed 8KB bank (see class doc); only CHR-ROM is banked. */
+    private int chrOffset(final int address){
+        return isChrWritable ? address & (CHR_WINDOW_SIZE - 1) : chrRomOffset(address);
+    }
+
+    /** For snapshots: the CHR-RAM, or null on a CHR-ROM board (nothing to save - it comes from the ROM file). */
+    private int[] chrRam(){
+        return isChrWritable ? chr : null;
+    }
+
+    private static int[] toUnsigned(final byte[] bytes){
+        final int[] values = new int[bytes.length];
+        for (int i = 0; i < bytes.length; i++){
+            values[i] = bytes[i] & BYTE_MASK;
+        }
+        return values;
     }
 
     /**
@@ -182,14 +199,14 @@ public final class Mmc1Mapper implements Mapper {
      */
     private int chrRomOffset(final int address){
         final boolean fourKbMode = (controlRegister & CHR_MODE_BIT) != 0;
-        final int totalFourKbBanks = chrRom.length / CHR_BANK_4KB_SIZE;
+        final int totalFourKbBanks = chr.length / CHR_BANK_4KB_SIZE;
         if (!fourKbMode){
             final int bank8kb = (chrBank0Register >> 1) % Math.max(1, totalFourKbBanks / 2);
-            return (bank8kb * CHR_WINDOW_SIZE + address) % chrRom.length;
+            return (bank8kb * CHR_WINDOW_SIZE + address) % chr.length;
         }
         final int bankRegister = address < CHR_BANK_4KB_SIZE ? chrBank0Register : chrBank1Register;
         final int bank = (bankRegister & CHR_BANK_NUMBER_MASK) % totalFourKbBanks;
-        return (bank * CHR_BANK_4KB_SIZE + (address & (CHR_BANK_4KB_SIZE - 1))) % chrRom.length;
+        return (bank * CHR_BANK_4KB_SIZE + (address & (CHR_BANK_4KB_SIZE - 1))) % chr.length;
     }
 
     @Override
@@ -243,7 +260,7 @@ public final class Mmc1Mapper implements Mapper {
 
     @Override
     public MapperSnapshot snapshot(){
-        return new Mmc1MapperSnapshot(prgRam.clone(), SnapshotArrays.copyOf(chrRam), shiftRegister, shiftCount,
+        return new Mmc1MapperSnapshot(prgRam.clone(), SnapshotArrays.copyOf(chrRam()), shiftRegister, shiftCount,
                 controlRegister, chrBank0Register, chrBank1Register, prgBankRegister);
     }
 
@@ -251,7 +268,7 @@ public final class Mmc1Mapper implements Mapper {
     public void checkRestorable(final MapperSnapshot snapshot){
         final Mmc1MapperSnapshot mmc1 = SnapshotArrays.expect(snapshot, Mmc1MapperSnapshot.class);
         SnapshotArrays.requireSameSize(mmc1.prgRam(), prgRam, "PRG-RAM");
-        SnapshotArrays.requireSameSize(mmc1.chrRam(), chrRam, "CHR-RAM");
+        SnapshotArrays.requireSameSize(mmc1.chrRam(), chrRam(), "CHR-RAM");
     }
 
     @Override
@@ -259,7 +276,7 @@ public final class Mmc1Mapper implements Mapper {
         checkRestorable(snapshot);
         final Mmc1MapperSnapshot mmc1 = (Mmc1MapperSnapshot) snapshot;
         SnapshotArrays.copy(mmc1.prgRam(), prgRam);
-        SnapshotArrays.copy(mmc1.chrRam(), chrRam);
+        SnapshotArrays.copy(mmc1.chrRam(), chrRam());
         shiftRegister = mmc1.shiftRegister();
         shiftCount = mmc1.shiftCount();
         controlRegister = mmc1.controlRegister();
