@@ -68,6 +68,19 @@ public class MOS6502 implements ClockWatcher {
         return environment.getPC();
     }
 
+    /** A, X, Y and SP packed per {@link MOS6502Snapshot#packRegisters} - cheap enough to read every instruction. */
+    public int packedRegisters(){
+        return MOS6502Snapshot.packRegisters(environment.getA(), environment.getX(), environment.getY(),
+                environment.getStackPointer());
+    }
+
+    /** Flags, IRQ line and NMI latch packed per {@link MOS6502Snapshot#packFlags} - cheap enough to read every instruction. */
+    public int packedFlags(){
+        return MOS6502Snapshot.packFlags(environment.negative, environment.signedOverflow, environment.breakFlag,
+                environment.d, environment.i, environment.zero, environment.carry,
+                environment.isIRQLineAsserted(), environment.isNMIPending());
+    }
+
     /** Set the program counter, e.g. to point at the start of an assembled program */
     public void setPC(final int newPC){
         environment.setPC(newPC);

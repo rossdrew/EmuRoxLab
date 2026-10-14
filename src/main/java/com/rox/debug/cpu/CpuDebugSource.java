@@ -4,6 +4,7 @@ import com.rox.cpu.mos6502.MOS6502Snapshot;
 import com.rox.cpu.mos6502.assembler.DisassembledInstruction;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * What a CPU debug view reads and controls - implemented next to {@code NES} (which keeps its
@@ -17,8 +18,14 @@ public interface CpuDebugSource {
     /** {@code count} instructions disassembled forward from the current one (about to start, or part-way through). */
     List<DisassembledInstruction> upcomingInstructions(int count);
 
-    /** Recently executed instructions, oldest first - not including the current one. */
-    List<DisassembledInstruction> recentInstructions();
+    /** Recently executed instructions with the state each started with, oldest first - not including the current one. */
+    List<TracedInstruction> recentInstructions();
+
+    /** The state the current instruction started with, if it's been recorded yet. */
+    Optional<MOS6502Snapshot> currentInstructionState();
+
+    /** How many instructions have started so far - goes up by one per instruction step. */
+    long instructionCount();
 
     /** The clock rate actually being achieved - see {@code TickRateMonitor}. */
     double measuredHz();

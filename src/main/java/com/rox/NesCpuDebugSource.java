@@ -4,8 +4,11 @@ import com.rox.cpu.mos6502.MOS6502Snapshot;
 import com.rox.cpu.mos6502.assembler.DisassembledInstruction;
 import com.rox.cpu.mos6502.assembler.Disassembler;
 import com.rox.debug.cpu.CpuDebugSource;
+import com.rox.debug.cpu.InstructionTrace;
+import com.rox.debug.cpu.TracedInstruction;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.function.IntUnaryOperator;
 
 /** {@link CpuDebugSource} over a live {@link NES}, reading memory through {@link DebugCapture}'s side-effect-free peek. */
@@ -35,12 +38,23 @@ final class NesCpuDebugSource implements CpuDebugSource {
         return Disassembler.disassembleForward(peek(), current, count);
     }
 
+    /** Decoded from the bytes recorded as each instruction ran, not today's memory - see {@link InstructionTrace}. */
     @Override
-    public List<DisassembledInstruction> recentInstructions(){
-        //decoded from the bytes recorded as each instruction ran, not today's memory - see InstructionTrace
-        final List<DisassembledInstruction> trace = nes.instructionTrace().recentInstructions();
+    public List<TracedInstruction> recentInstructions(){
+        final List<TracedInstruction> history = nes.instructionTrace().history();
         //the newest entry is the current instruction (about to start, or part-way through) - not history yet
-        return trace.isEmpty() ? trace : trace.subList(0, trace.size() - 1);
+        return history.isEmpty() ? history : history.subList(0, history.size() - 1);
+    }
+
+    @Override
+    public Optional<MOS6502Snapshot> currentInstructionState(){
+        final List<TracedInstruction> history = nes.instructionTrace().history();
+        return history.isEmpty() ? Optional.empty() : Optional.of(history.get(history.size() - 1).before());
+    }
+
+    @Override
+    public long instructionCount(){
+        return nes.instructionTrace().recorded();
     }
 
     @Override

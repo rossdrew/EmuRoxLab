@@ -115,7 +115,8 @@ public class NES {
         this.tickRateMonitor = new TickRateMonitor(new SystemTimeSource());
         this.memoryEditor = new MemoryEditor(ram::write, cartridge::writePrgRamWithoutSaving);
         this.instructionTrace = new InstructionTrace(cpu::isAtInstructionBoundary, cpu::programCounter,
-                DebugCapture.sideEffectFreePeek(ram::read, cartridge));
+                DebugCapture.sideEffectFreePeek(ram::read, cartridge), cpu::packedRegisters, cpu::packedFlags,
+                InstructionTrace.DEFAULT_CAPACITY);
         this.clock = clock;
         this.audioOutput = audioOutput;
 
