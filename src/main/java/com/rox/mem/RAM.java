@@ -4,13 +4,20 @@ import static com.rox.ByteUtil.BYTE_MASK;
 
 public class RAM implements Memory {
     private final int[] memory;
+    /** What this RAM is called in error messages, e.g. {@code PRG-RAM}. */
+    private final String name;
 
     public RAM(final int size) {
+        this(size, "RAM");
+    }
+
+    public RAM(final int size, final String name) {
         if (Integer.bitCount(size) != 1) {
             throw new IllegalArgumentException(
-                    "RAM size must be power of two");
+                    name + " size must be power of two");
         }
         this.memory = new int[size];
+        this.name = name;
     }
 
     @Override
@@ -36,7 +43,7 @@ public class RAM implements Memory {
     public void checkRestorable(final int[] contents) {
         if (contents.length != memory.length) {
             throw new IllegalArgumentException(
-                    "Expected " + memory.length + " bytes of RAM, got " + contents.length);
+                    "Expected " + memory.length + " bytes of " + name + ", got " + contents.length);
         }
     }
 
