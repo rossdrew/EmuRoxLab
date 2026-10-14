@@ -21,14 +21,12 @@ I began this journey by
 
 after a little over half the opcodes were manually implemented. I believe setting a good standard, I expanded my AI use:
 
- 1. Claude CLI using the /plan skill and developing a 5 part plan, grouping similar opcodes together
+ 1. Claude CLI using the `/plan` skill and developing a 5 part plan, grouping similar opcodes together
  2. Manually stepping through the subtasks in the plan, approving as it went
  3. Approving the whole piece of work before committing to a branch
  4. Using PR (tagged as AI work), link in AI code reviews with CodeRabbit and doing one more manual review
 
-I'm doing less and less manual ork is developed and more periodic review.  Developing skills and tools that help me create a good product and good code without detailed manual review.
-
-I've given this EmuRox repo over to AI experimentation, looking at if I can:
+I'm doing less and less manual work and more periodic review.  Developing skills and tools that help me create a good product and good code without detailed manual review. Effectively, I've given this EmuRox repo over to AI experimentation, looking at if I can:
  1. Make this multi-agent. Developer, pair-programmer, reviewer & QA.
  2. Turn this into a semi-autonomous workflow based on a task list provided by myself. Work with orchestration tools to analyze and refine outputs and token usage
  3. Develop a multi-agent autonomous team where the task list is also built and my role is refinement 
@@ -51,13 +49,11 @@ We have a fully functioning emulator for certain mappers and lots of bugs. I'm p
 - Testing actual hardware calls is difficult so we take a small hit on mutation coverage there
 - DMC sample fetches don't stall the CPU for 1-4 cycles as real hardware does, which may affect games that depend on exact DMC DMA timing
 #### Cartridges / Mappers
-- Only NROM (mapper 0) and MMC1 (mapper 1) are implemented; other common mappers (UxROM, CNROM, MMC3, ...) aren't yet - loading one fails with a clear "unsupported mapper" error rather than silently misbehaving
+- Only some [mappers](src/main/java/com/rox/cartridge/README.md) are implemented; other common mappers aren't yet.  Loading one fails with a clear "unsupported mapper" error rather than silently misbehaving
 #### PPU
 - Headless only: no pixel rendering or framebuffer yet, though the full CHR/nametable/palette memory space and OAM DMA are wired up
 - OAM DMA always stalls the CPU for a fixed 514 cycles rather than the real hardware's cycle-accurate 513/514 (odd/even alignment isn't tracked), which may affect cycle-sensitive software
 - Four-screen nametable mirroring isn't modeled (only horizontal/vertical/single-screen)
-#### Controller
-- No real input: $4016/$4017 always report "no buttons pressed", so games' input-polling loops behave sanely but nothing is ever actually pressed
 
 # The Build System
 1. Builds the code using Gradle and Kotlin
