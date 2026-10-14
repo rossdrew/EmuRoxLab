@@ -15,6 +15,14 @@ public interface Clock {
 
     void run();
     void stop();
+
+    /**
+     * Call before starting {@link #run()} on another thread: until {@code run()} begins, a {@link #stop()} then
+     * cancels that run rather than being undone by it.
+     */
+    default void prepareToRun(){
+    }
+
     boolean isRunning();
 
     /**

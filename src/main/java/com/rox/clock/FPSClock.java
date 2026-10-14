@@ -37,6 +37,10 @@ public class FPSClock implements Clock, AutoCloseable {
     private final Object pauseLock = new Object();
     private volatile boolean pauseRequested = false;
     private boolean parked = false;
+    /** {@link #prepareToRun()} called and {@link #run()} not yet begun - guarded by pauseLock. */
+    private boolean runPrepared = false;
+    /** A {@link #stop()} arrived while {@link #runPrepared} - guarded by pauseLock. */
+    private boolean runCancelled = false;
 
     /** Current total of remainder ticks after rounding */
     private long tickRemainderBuffer = 0;
@@ -76,11 +80,18 @@ public class FPSClock implements Clock, AutoCloseable {
      * Start the execution of this {@link Clock}
      */
     public void run(){
-        if (running){
-            throw new IllegalStateException("Clock already running");
+        synchronized (pauseLock){
+            if (running){
+                throw new IllegalStateException("Clock already running");
+            }
+            final boolean cancelled = runCancelled;
+            runPrepared = false;
+            runCancelled = false;
+            if (cancelled){
+                return;
+            }
+            running = true;
         }
-
-        running = true;
 
         //anchored to a single fixed reference point (runStartTime), not re-measured fresh each
         //frame - Thread.sleep() (via Sleeper) routinely oversleeps its requested duration by tens to
@@ -168,11 +179,21 @@ public class FPSClock implements Clock, AutoCloseable {
      * Stop the execution of this {@link Clock}
      */
     public void stop(){
-        running = false;
         synchronized (pauseLock){
+            //inside the lock: run() checks for a cancel and sets running under it too
+            running = false;
+            runCancelled = runPrepared;
             //a stale request would otherwise park a later run() straight away with nobody to resume it
             pauseRequested = false;
             pauseLock.notifyAll(); //release a parked run() loop, and a pause() still waiting on one
+        }
+    }
+
+    @Override
+    public void prepareToRun(){
+        synchronized (pauseLock){
+            runPrepared = true;
+            runCancelled = false;
         }
     }
 

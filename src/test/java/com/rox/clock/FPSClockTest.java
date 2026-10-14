@@ -280,6 +280,69 @@ public class FPSClockTest {
     }
 
     @Test
+    void aStopAfterPrepareToRunCancelsTheRunWithoutATick(){
+        final FPSClock clock = unthrottledClock();
+        final AtomicLong ticks = new AtomicLong();
+        clock.addListener(ticks::incrementAndGet);
+        clock.prepareToRun();
+        clock.stop();
+
+        clock.run(); //returns rather than looping forever
+
+        assertEquals(0, ticks.get());
+        assertFalse(clock.isRunning());
+    }
+
+    @Test
+    void aCancelOnlyCancelsOneRun() throws InterruptedException {
+        final FPSClock clock = unthrottledClock();
+        final AtomicLong ticks = new AtomicLong();
+        clock.addListener(ticks::incrementAndGet);
+        clock.prepareToRun();
+        clock.stop();
+        clock.run();
+
+        final Thread runThread = new Thread(clock::run, "clock-run");
+        runThread.start();
+        awaitTrue(() -> ticks.get() > 0, "the next run() to tick");
+
+        clock.stop();
+        joinOrFail(runThread);
+    }
+
+    @Test
+    void prepareToRunForgetsAnEarlierStop() throws InterruptedException {
+        final FPSClock clock = unthrottledClock();
+        final AtomicLong ticks = new AtomicLong();
+        clock.addListener(ticks::incrementAndGet);
+        clock.prepareToRun();
+        clock.stop();
+        clock.prepareToRun();
+
+        final Thread runThread = new Thread(clock::run, "clock-run");
+        runThread.start();
+        awaitTrue(() -> ticks.get() > 0, "a stop() from before prepareToRun() not to cancel this run");
+
+        clock.stop();
+        joinOrFail(runThread);
+    }
+
+    @Test
+    void withoutPrepareToRunAnEarlierStopDoesNotCancel() throws InterruptedException {
+        final FPSClock clock = unthrottledClock();
+        final AtomicLong ticks = new AtomicLong();
+        clock.addListener(ticks::incrementAndGet);
+        clock.stop();
+
+        final Thread runThread = new Thread(clock::run, "clock-run");
+        runThread.start();
+        awaitTrue(() -> ticks.get() > 0, "the clock to tick");
+
+        clock.stop();
+        joinOrFail(runThread);
+    }
+
+    @Test
     void pauseReturnsFalseWhenTheClockIsNotRunning(){
         assertFalse(clock.pause());
     }
@@ -503,5 +566,6 @@ public class FPSClockTest {
 
         assertFalse(bareClock.pause());
         assertDoesNotThrow(bareClock::resume);
+        assertDoesNotThrow(bareClock::prepareToRun);
     }
 }
