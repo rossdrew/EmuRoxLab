@@ -89,77 +89,17 @@ enum MOS6502MicroOp implements MOS6502Operation {
         mem.fetch();
     }),
 
-    /**
-     * Load address bus with AD + X: <code>address_bus := AD := AD + X</code> <br/><br/>
-     * XXX: Needs a better approach 1/2.<br/>
-     * LDA_ABS_X is a read instruction, so the 6502 can optimistically try to read from the partially indexed address first; if adding X does not cross a page, that read is valid and the instruction finishes in 4 cycles, but if the low byte overflows, the CPU needs one extra cycle to fix the high byte and reread from the correct address. STA_ABS_X is a write instruction, so the CPU cannot safely do that optimistic access because an early write to the wrong address would corrupt memory; it must always spend the indexing/dummy-read cycle before performing the real write, making it 5 cycles whether or not a page is crossed.
-     */
-    ADDRESS_AD_PLUS_X((env, mem, alu)->{
-        int originalHigh = env.getADH();
+    /** Load address bus with AD + X: <code>address_bus := AD := AD + X</code> - see {@link #addressAdPlus} */
+    ADDRESS_AD_PLUS_X((env, mem, alu)-> addressAdPlus(env, mem, env.getX(), false)),
 
-        int low = env.getADL() + env.getX();
-        env.setADL(low & 0xFF);
+    /** Load address bus with AD + X, plus an extra cycle on a page cross - see {@link #addressAdPlus} */
+    ADDRESS_AD_PLUS_X_AND_PAGE_CROSS((env, mem, alu)-> addressAdPlus(env, mem, env.getX(), true)),
 
-        if (low > 0xFF) {
-            env.setADH((originalHigh + 1) & 0xFF);
-        }
+    /** Load address bus with AD + Y: <code>address_bus := AD := AD + Y</code> - see {@link #addressAdPlus} */
+    ADDRESS_AD_PLUS_Y((env, mem, alu)-> addressAdPlus(env, mem, env.getY(), false)),
 
-        mem.loadMemoryAddress(env.getAD());
-    }),
-
-    /**
-     * Load address bus with AD + X, adding an extra tick instruction if there's a page cross: <code>address_bus := AD := AD + X</code> <br/><br/>
-     * XXX: Needs a better approach 1/2.<br/>
-     * LDA_ABS_X is a read instruction, so the 6502 can optimistically try to read from the partially indexed address first; if adding X does not cross a page, that read is valid and the instruction finishes in 4 cycles, but if the low byte overflows, the CPU needs one extra cycle to fix the high byte and reread from the correct address. STA_ABS_X is a write instruction, so the CPU cannot safely do that optimistic access because an early write to the wrong address would corrupt memory; it must always spend the indexing/dummy-read cycle before performing the real write, making it 5 cycles whether or not a page is crossed.
-     */
-    ADDRESS_AD_PLUS_X_AND_PAGE_CROSS((env, mem, alu)->{
-        int originalHigh = env.getADH();
-
-        int low = env.getADL() + env.getX();
-        env.setADL(low & 0xFF);
-
-        if (low > 0xFF) {
-            env.requestAdditionalOp((environment, m, a) -> {
-                m.fetch(); //dummy read
-                env.additionalTickCompleted();
-            });
-            env.setADH((originalHigh + 1) & 0xFF);
-        }
-
-        mem.loadMemoryAddress(env.getAD());
-    }),
-
-    /** Load address bus with AD + Y: <code>address_bus := AD := AD + Y</code> */
-    ADDRESS_AD_PLUS_Y((env, mem, alu)->{
-        int originalHigh = env.getADH();
-
-        int low = env.getADL() + env.getY();
-        env.setADL(low & 0xFF);
-
-        if (low > 0xFF) {
-            env.setADH((originalHigh + 1) & 0xFF);
-        }
-
-        mem.loadMemoryAddress(env.getAD());
-    }),
-
-    /** Load address bus with AD + Y: <code>address_bus := AD := AD + Y</code> */
-    ADDRESS_AD_PLUS_Y_AND_PAGE_CROSS((env, mem, alu)->{
-        int originalHigh = env.getADH();
-
-        int low = env.getADL() + env.getY();
-        env.setADL(low & 0xFF);
-
-        if (low > 0xFF) {
-            env.requestAdditionalOp((environment, m, a) -> {
-                m.fetch(); //Dummy read
-                env.additionalTickCompleted();
-            });
-            env.setADH((originalHigh + 1) & 0xFF);
-        }
-
-        mem.loadMemoryAddress(env.getAD());
-    }),
+    /** Load address bus with AD + Y, plus an extra cycle on a page cross - see {@link #addressAdPlus} */
+    ADDRESS_AD_PLUS_Y_AND_PAGE_CROSS((env, mem, alu)-> addressAdPlus(env, mem, env.getY(), true)),
 
     /** Set static flags (N and Z) based on the value of the accumulator */
     SET_FLAGS_ON_A((env, mem, alu)->{
@@ -555,6 +495,27 @@ enum MOS6502MicroOp implements MOS6502Operation {
     BRANCH_IF_EQUAL((env, mem, alu) -> {
         branch(env, mem, env.getZ());
     });
+
+    /**
+     * <code>address_bus := AD := AD + index</code>, carrying into ADH on a page cross.
+     * <p>
+     * {@code extraCycleOnPageCross}: LDA_ABS_X is a read instruction, so the 6502 can optimistically try to read from the partially indexed address first; if adding X does not cross a page, that read is valid and the instruction finishes in 4 cycles, but if the low byte overflows, the CPU needs one extra cycle to fix the high byte and reread from the correct address. STA_ABS_X is a write instruction, so the CPU cannot safely do that optimistic access because an early write to the wrong address would corrupt memory; it must always spend the indexing/dummy-read cycle before performing the real write, making it 5 cycles whether or not a page is crossed.
+     */
+    private static void addressAdPlus(final MOS6502Environment env, final LatchedMemoryBus mem, final int index,
+                                      final boolean extraCycleOnPageCross) {
+        final int low = env.getADL() + index;
+        env.setADL(low & 0xFF);
+        if (low > 0xFF) {
+            if (extraCycleOnPageCross) {
+                env.requestAdditionalOp((environment, m, a) -> {
+                    m.fetch(); //dummy read
+                    env.additionalTickCompleted();
+                });
+            }
+            env.setADH((env.getADH() + 1) & 0xFF);
+        }
+        mem.loadMemoryAddress(env.getAD());
+    }
 
     /**
      * Shared PC-relative branch logic. The offset operand is fetched from the already-addressed
