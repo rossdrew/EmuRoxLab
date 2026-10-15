@@ -34,11 +34,12 @@ enum MOS6502MicroOp implements MOS6502Operation {
     }),
 
     /**
-     * Load the next addressed value into ADH : <code>adl := mem[address_bus + 1]</code>
-     * Due to a (mimicked) hardware bug in the 6502, this wraps $00FF to $0000 rather than $01000
-     *
-     * XXX This probably needs to go in favor of [ADDRESS_PC, MEM_TO_ADH]
-     * */
+     * Load the next addressed value into ADH : <code>adh := mem[(address_bus + 1) &amp; 0xFF]</code>
+     * <p>
+     * The second byte of a zero-page pointer for {@code (zp,X)} / {@code (zp),Y}. Wraps within zero page, as on
+     * the 6502: a pointer at $00FF takes its high byte from $0000, not $0100. Not {@code ADDRESS_PC, ADH_FROM_MEM}:
+     * that reads the instruction stream, not the pointer.
+     */
     NEXT_MEM_TO_ADH((env, mem, _)->{
         int incrementedMemoryLocation = (mem.getAddressedMemory() + 1) & 0xFF;
         mem.loadMemoryAddress(incrementedMemoryLocation);
