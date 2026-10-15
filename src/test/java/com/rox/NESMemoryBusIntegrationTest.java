@@ -1,7 +1,6 @@
 package com.rox;
 
 import com.rox.cartridge.Cartridge;
-import com.rox.cartridge.RomLoader;
 import com.rox.cpu.mos6502.MOS6502;
 import com.rox.cpu.mos6502.MOS6502Environment;
 import com.rox.cpu.mos6502.MOS6502OpCode;
@@ -27,18 +26,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class NESMemoryBusIntegrationTest {
 
     private static final int MAX_TICKS = 50_000;
-    private static final int PRG_ROM_SIZE = 0x4000;
 
     /** Wraps an assembled program (loaded at $8000) as a minimal single-bank NROM (mapper 0) cartridge. */
     private Cartridge asNromCartridge(final AssembledProgram program){
-        final byte[] header = {'N', 'E', 'S', 0x1A, 0x01, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0};
-        final byte[] fileBytes = new byte[header.length + PRG_ROM_SIZE];
-        System.arraycopy(header, 0, fileBytes, 0, header.length);
-        final int[] programBytes = program.bytes();
-        for (int i = 0; i < programBytes.length; i++){
-            fileBytes[header.length + i] = (byte) programBytes[i];
-        }
-        return RomLoader.fromBytes(fileBytes);
+        return TestRoms.nrom().prg(0, program.bytes()).cartridge();
     }
 
     @Test

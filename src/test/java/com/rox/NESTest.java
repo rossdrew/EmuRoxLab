@@ -4,7 +4,6 @@ import com.rox.apu.APU;
 import com.rox.audio.AudioOutput;
 import com.rox.cartridge.Cartridge;
 import com.rox.cartridge.NromMapperSnapshot;
-import com.rox.cartridge.RomLoader;
 import com.rox.clock.Clock;
 import com.rox.input.Controller;
 import com.rox.input.ControllerConfiguration;
@@ -40,46 +39,27 @@ import static org.mockito.Mockito.verify;
  * ssert.
  */
 public class NESTest {
-    private static final int PRG_ROM_SIZE = 0x4000;
-
     /** A minimal single-bank NROM (mapper 0) cartridge, PRG-ROM all zero - enough to plug into an NES. */
     private static Cartridge blankCartridge(){
-        final byte[] header = {'N', 'E', 'S', 0x1A, 0x01, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0};
-        final byte[] fileBytes = new byte[header.length + PRG_ROM_SIZE];
-        System.arraycopy(header, 0, fileBytes, 0, header.length);
-        return RomLoader.fromBytes(fileBytes);
+        return TestRoms.nrom().cartridge();
     }
 
     /** A cartridge whose PRG-ROM (and so $C000, the default DMC sample address) reads back {@code $FF}. */
     private static Cartridge cartridgeWithNonZeroByteAtDmcSampleAddress(){
-        final byte[] header = {'N', 'E', 'S', 0x1A, 0x01, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0};
-        final byte[] fileBytes = new byte[header.length + PRG_ROM_SIZE];
-        System.arraycopy(header, 0, fileBytes, 0, header.length);
-        fileBytes[header.length + ((0xC000 - 0x8000) % PRG_ROM_SIZE)] = (byte) 0xFF;
-        return RomLoader.fromBytes(fileBytes);
+        return TestRoms.nrom().at(0xC000, 0xFF).cartridge();
     }
 
     /** A minimal MMC3-mapped (mapper 4) cartridge, for {@link #mapperIrqReachesTheCpusRealIrqLine()}. */
     private static Cartridge mmc3Cartridge(){
-        final byte[] header = {'N', 'E', 'S', 0x1A, 0x02, 0x00, 0x40, 0x00, 0, 0, 0, 0, 0, 0, 0, 0};
-        final byte[] fileBytes = new byte[header.length + 4 * 0x2000]; //4 PRG banks (32KB)
-        System.arraycopy(header, 0, fileBytes, 0, header.length);
-        return RomLoader.fromBytes(fileBytes);
+        return TestRoms.mapper(4).prgSize(4 * 0x2000).cartridge(); //4 PRG banks (32KB)
     }
 
     /** A cartridge whose reset vector points at a single "JMP $9000" instruction, looping on itself. */
     private static Cartridge selfLoopingCartridge(){
-        final byte[] header = {'N', 'E', 'S', 0x1A, 0x01, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0};
-        final byte[] fileBytes = new byte[header.length + PRG_ROM_SIZE];
-        System.arraycopy(header, 0, fileBytes, 0, header.length);
-        final int jmpOffset = header.length + ((0x9000 - 0x8000) % PRG_ROM_SIZE);
-        fileBytes[jmpOffset] = 0x4C; //JMP absolute
-        fileBytes[jmpOffset + 1] = 0x00; //target low byte
-        fileBytes[jmpOffset + 2] = (byte) 0x90; //target high byte -> $9000 (itself)
-        final int resetVectorOffset = header.length + ((0xFFFC - 0x8000) % PRG_ROM_SIZE); //mirrors into the 16KB bank
-        fileBytes[resetVectorOffset] = 0x00; //reset vector low byte
-        fileBytes[resetVectorOffset + 1] = (byte) 0x90; //reset vector high byte -> $9000
-        return RomLoader.fromBytes(fileBytes);
+        return TestRoms.nrom()
+                .at(0x9000, 0x4C, 0x00, 0x90) //JMP $9000 (itself)
+                .resetVector(0x9000)
+                .cartridge();
     }
 
     /**
@@ -88,29 +68,12 @@ public class NESTest {
      * serviced" apart just by watching where the CPU's PC settles.
      */
     private static Cartridge nmiSelfLoopingCartridge(){
-        final byte[] header = {'N', 'E', 'S', 0x1A, 0x01, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0};
-        final byte[] fileBytes = new byte[header.length + PRG_ROM_SIZE];
-        System.arraycopy(header, 0, fileBytes, 0, header.length);
-
-        final int resetLoopOffset = header.length + ((0x9000 - 0x8000) % PRG_ROM_SIZE);
-        fileBytes[resetLoopOffset] = 0x4C; //JMP absolute
-        fileBytes[resetLoopOffset + 1] = 0x00;
-        fileBytes[resetLoopOffset + 2] = (byte) 0x90; //-> $9000 (itself)
-
-        final int nmiLoopOffset = header.length + ((0x9100 - 0x8000) % PRG_ROM_SIZE);
-        fileBytes[nmiLoopOffset] = 0x4C; //JMP absolute
-        fileBytes[nmiLoopOffset + 1] = 0x00;
-        fileBytes[nmiLoopOffset + 2] = (byte) 0x91; //-> $9100 (itself)
-
-        final int resetVectorOffset = header.length + ((0xFFFC - 0x8000) % PRG_ROM_SIZE);
-        fileBytes[resetVectorOffset] = 0x00;
-        fileBytes[resetVectorOffset + 1] = (byte) 0x90; //reset vector -> $9000
-
-        final int nmiVectorOffset = header.length + ((0xFFFA - 0x8000) % PRG_ROM_SIZE);
-        fileBytes[nmiVectorOffset] = 0x00;
-        fileBytes[nmiVectorOffset + 1] = (byte) 0x91; //NMI vector -> $9100
-
-        return RomLoader.fromBytes(fileBytes);
+        return TestRoms.nrom()
+                .at(0x9000, 0x4C, 0x00, 0x90) //JMP $9000 (itself)
+                .at(0x9100, 0x4C, 0x00, 0x91) //JMP $9100 (itself)
+                .resetVector(0x9000)
+                .nmiVector(0x9100)
+                .cartridge();
     }
 
     /**
@@ -119,18 +82,16 @@ public class NESTest {
      * {@code variant} only changes an unused PRG byte, giving a different ROM with identical behaviour.
      */
     private static Cartridge busyLoopCartridge(final int variant){
-        final byte[] header = {'N', 'E', 'S', 0x1A, 0x01, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0};
-        final byte[] fileBytes = new byte[header.length + PRG_ROM_SIZE];
-        System.arraycopy(header, 0, fileBytes, 0, header.length);
-        final int programOffset = header.length + ((0x9000 - 0x8000) % PRG_ROM_SIZE);
-        final byte[] program = {(byte) 0xE8, (byte) 0x86, 0x10, (byte) 0x8E, 0x01, 0x20, (byte) 0x8E, 0x00, 0x60,
-                0x4C, 0x00, (byte) 0x90};
-        System.arraycopy(program, 0, fileBytes, programOffset, program.length);
-        final int resetVectorOffset = header.length + ((0xFFFC - 0x8000) % PRG_ROM_SIZE);
-        fileBytes[resetVectorOffset] = 0x00;
-        fileBytes[resetVectorOffset + 1] = (byte) 0x90;
-        fileBytes[header.length + 0x100] = (byte) variant;
-        return RomLoader.fromBytes(fileBytes);
+        return TestRoms.nrom()
+                .at(0x9000, 0xE8, 0x86, 0x10, 0x8E, 0x01, 0x20, 0x8E, 0x00, 0x60, 0x4C, 0x00, 0x90)
+                .resetVector(0x9000)
+                .prg(0x100, variant)
+                .cartridge();
+    }
+
+    /** $9000: LDA #$02; STA $4014 (OAM DMA - stalls the CPU ~514 cycles); NOP; JMP $9000. */
+    private static Cartridge oamDmaLoopCartridge(){
+        return TestRoms.nrom().at(0x9000, 0xA9, 0x02, 0x8D, 0x14, 0x40, 0xEA, 0x4C, 0x00, 0x90).resetVector(0x9000).cartridge();
     }
 
     /** An NES on a manually-ticked clock, reset to its cartridge's reset vector as powerOn() would. */
@@ -734,11 +695,7 @@ public class NESTest {
 
     /** Same PRG-ROM, one CHR-ROM bank whose first byte is {@code chrByte}. */
     private static Cartridge cartridgeWithChrRom(final int chrByte){
-        final byte[] header = {'N', 'E', 'S', 0x1A, 0x01, 0x01, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0};
-        final byte[] fileBytes = new byte[header.length + PRG_ROM_SIZE + 0x2000];
-        System.arraycopy(header, 0, fileBytes, 0, header.length);
-        fileBytes[header.length + PRG_ROM_SIZE] = (byte) chrByte;
-        return RomLoader.fromBytes(fileBytes);
+        return TestRoms.nrom().chrSize(0x2000).chr(0, chrByte).cartridge();
     }
 
     @Test
@@ -829,14 +786,7 @@ public class NESTest {
      */
     @Test
     public void instructionTraceRecordsEachInstructionOnceEvenAcrossAnOamDmaStall(){
-        final byte[] header = {'N', 'E', 'S', 0x1A, 0x01, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0};
-        final byte[] fileBytes = new byte[header.length + PRG_ROM_SIZE];
-        System.arraycopy(header, 0, fileBytes, 0, header.length);
-        final byte[] program = {(byte) 0xA9, 0x02, (byte) 0x8D, 0x14, 0x40, (byte) 0xEA, 0x4C, 0x00, (byte) 0x90};
-        System.arraycopy(program, 0, fileBytes, header.length + 0x1000, program.length);
-        fileBytes[header.length + 0x3FFC] = 0x00;
-        fileBytes[header.length + 0x3FFD] = (byte) 0x90;
-        final NES nes = manuallyTickedNes(RomLoader.fromBytes(fileBytes));
+        final NES nes = manuallyTickedNes(oamDmaLoopCartridge());
 
         for (int i = 0; i < 3 * 600; i++){ //a few loops, each ~525 cycles
             nes.clock().tick();
@@ -881,14 +831,7 @@ public class NESTest {
     /** $9000: LDA #$02; STA $4014 (OAM DMA); NOP; JMP $9000 - stepping over the STA includes its whole stall. */
     @Test
     public void stepInstructionIncludesAnOamDmaStallThatFollows(){
-        final byte[] header = {'N', 'E', 'S', 0x1A, 0x01, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0};
-        final byte[] fileBytes = new byte[header.length + PRG_ROM_SIZE];
-        System.arraycopy(header, 0, fileBytes, 0, header.length);
-        final byte[] program = {(byte) 0xA9, 0x02, (byte) 0x8D, 0x14, 0x40, (byte) 0xEA, 0x4C, 0x00, (byte) 0x90};
-        System.arraycopy(program, 0, fileBytes, header.length + 0x1000, program.length);
-        fileBytes[header.length + 0x3FFC] = 0x00;
-        fileBytes[header.length + 0x3FFD] = (byte) 0x90;
-        final NES nes = manuallyTickedNes(RomLoader.fromBytes(fileBytes));
+        final NES nes = manuallyTickedNes(oamDmaLoopCartridge());
         nes.stepInstruction(); //LDA #$02
         final long before = nes.tickRateMonitor().ticks();
 

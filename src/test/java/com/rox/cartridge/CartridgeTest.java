@@ -1,5 +1,6 @@
 package com.rox.cartridge;
 
+import com.rox.TestRoms;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -22,13 +23,7 @@ public class CartridgeTest {
 
     @BeforeEach
     public void setup(){
-        final byte[] fileBytes = new byte[16 + 16384];
-        fileBytes[0] = 'N';
-        fileBytes[1] = 'E';
-        fileBytes[2] = 'S';
-        fileBytes[3] = 0x1A;
-        fileBytes[4] = 0x01;
-        rom = INesRom.parse(fileBytes);
+        rom = TestRoms.nrom().rom();
         mapper = mock(Mapper.class);
         cartridge = new Cartridge(rom, mapper);
     }

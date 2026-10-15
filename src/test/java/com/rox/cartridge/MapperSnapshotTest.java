@@ -1,5 +1,6 @@
 package com.rox.cartridge;
 
+import com.rox.TestRoms;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -20,18 +21,8 @@ public class MapperSnapshotTest {
 
     /** iNES file with {@code mapperNumber}, PRG-ROM bytes position-encoded (byte = offset / 256) so bank switches are visible. */
     private static INesRom rom(final int mapperNumber, final int prgBanks16kb, final int chrBanks8kb){
-        final byte[] fileBytes = new byte[16 + prgBanks16kb * PRG_BANK_16KB + chrBanks8kb * CHR_BANK_8KB];
-        fileBytes[0] = 'N';
-        fileBytes[1] = 'E';
-        fileBytes[2] = 'S';
-        fileBytes[3] = 0x1A;
-        fileBytes[4] = (byte) prgBanks16kb;
-        fileBytes[5] = (byte) chrBanks8kb;
-        fileBytes[6] = (byte) ((mapperNumber & 0x0F) << 4);
-        for (int i = 0; i < prgBanks16kb * PRG_BANK_16KB; i++){
-            fileBytes[16 + i] = (byte) (i / 0x100);
-        }
-        return INesRom.parse(fileBytes);
+        return TestRoms.mapper(mapperNumber).prgSize(prgBanks16kb * PRG_BANK_16KB).chrSize(chrBanks8kb * CHR_BANK_8KB)
+                .fillPrg(offset -> offset / 0x100).rom();
     }
 
     private static void writeFiveBits(final Mmc1Mapper mapper, final int address, final int fiveBitValue){

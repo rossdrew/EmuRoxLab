@@ -1,5 +1,6 @@
 package com.rox.save;
 
+import com.rox.TestRoms;
 import com.rox.cartridge.Cartridge;
 import com.rox.cartridge.INesRom;
 import com.rox.cartridge.NromMapper;
@@ -22,13 +23,7 @@ public class BatterySaveManagerTest {
     private static final int PRG_RAM_SIZE = 0x2000;
 
     private static Cartridge blankCartridge(){
-        final byte[] fileBytes = new byte[16 + 16384];
-        fileBytes[0] = 'N';
-        fileBytes[1] = 'E';
-        fileBytes[2] = 'S';
-        fileBytes[3] = 0x1A;
-        fileBytes[4] = 0x01;
-        final INesRom rom = INesRom.parse(fileBytes);
+        final INesRom rom = TestRoms.nrom().rom();
         return new Cartridge(rom, new NromMapper(rom));
     }
 

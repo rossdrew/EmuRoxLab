@@ -1,5 +1,6 @@
 package com.rox.cartridge;
 
+import com.rox.TestRoms;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -14,52 +15,17 @@ public class Mmc3MapperTest {
 
     /** Builds an MMC3 ROM whose first byte of each 8KB PRG bank equals that bank's index (0, 1, 2, ...). */
     private static INesRom romWithBanks(final int prgBankCount8kb){
-        final int prgSize = prgBankCount8kb * 0x2000;
-        final byte[] fileBytes = new byte[16 + prgSize];
-        fileBytes[0] = 'N';
-        fileBytes[1] = 'E';
-        fileBytes[2] = 'S';
-        fileBytes[3] = 0x1A;
-        fileBytes[4] = (byte) (prgSize / 16384); //iNES counts PRG-ROM in 16KB units
-        fileBytes[6] = 0x40; //mapper 4 low nibble
-        for (int bank = 0; bank < prgBankCount8kb; bank++){
-            fileBytes[16 + bank * 0x2000] = (byte) bank;
-        }
-        return INesRom.parse(fileBytes);
+        return TestRoms.mapper(4).prgSize(prgBankCount8kb * 0x2000).markPrgBanks(0x2000).rom();
     }
 
     /** Every PRG-ROM byte set to its own low-order position within its 8KB bank - distinguishes a within-bank offset bug from a bank-selection bug, unlike {@link #romWithBanks}'s own always-read-offset-0 tests. */
     private static INesRom romWithPositionEncodedBanks(final int prgBankCount8kb){
-        final int prgSize = prgBankCount8kb * 0x2000;
-        final byte[] fileBytes = new byte[16 + prgSize];
-        fileBytes[0] = 'N';
-        fileBytes[1] = 'E';
-        fileBytes[2] = 'S';
-        fileBytes[3] = 0x1A;
-        fileBytes[4] = (byte) (prgSize / 16384);
-        fileBytes[6] = 0x40;
-        for (int i = 0; i < prgSize; i++){
-            fileBytes[16 + i] = (byte) (i & 0xFF);
-        }
-        return INesRom.parse(fileBytes);
+        return TestRoms.mapper(4).prgSize(prgBankCount8kb * 0x2000).fillPrg(offset -> offset).rom();
     }
 
     /** 4 PRG banks (32KB - the minimum realistic MMC3 size) plus the given number of 1KB CHR-ROM banks, each CHR bank's first byte equal to its own index. */
     private static INesRom romWithChrBanks(final int chr1kBankCount){
-        final int prgSize = 4 * 0x2000;
-        final int chrSize = chr1kBankCount * 0x400;
-        final byte[] fileBytes = new byte[16 + prgSize + chrSize];
-        fileBytes[0] = 'N';
-        fileBytes[1] = 'E';
-        fileBytes[2] = 'S';
-        fileBytes[3] = 0x1A;
-        fileBytes[4] = (byte) (prgSize / 16384);
-        fileBytes[5] = (byte) (chrSize / 8192);
-        fileBytes[6] = 0x40;
-        for (int bank = 0; bank < chr1kBankCount; bank++){
-            fileBytes[16 + prgSize + bank * 0x400] = (byte) bank;
-        }
-        return INesRom.parse(fileBytes);
+        return TestRoms.mapper(4).prgSize(4 * 0x2000).chrSize(chr1kBankCount * 0x400).markChrBanks(0x400).rom();
     }
 
     /** $8000 (select register + mode/inversion bits) followed by $8001 (data). */
@@ -280,14 +246,7 @@ public class Mmc3MapperTest {
 
     @Test
     public void mirroringDefaultsFromTheHeaderBitBeforeAnyA000Write(){
-        final byte[] fileBytes = new byte[16 + 4 * 0x2000];
-        fileBytes[0] = 'N';
-        fileBytes[1] = 'E';
-        fileBytes[2] = 'S';
-        fileBytes[3] = 0x1A;
-        fileBytes[4] = (byte) ((4 * 0x2000) / 16384);
-        fileBytes[6] = (byte) (0x40 | 0x01); //mapper 4 low nibble, header vertical-mirroring bit set
-        final Mmc3Mapper mapper = new Mmc3Mapper(INesRom.parse(fileBytes));
+        final Mmc3Mapper mapper = new Mmc3Mapper(TestRoms.mapper(4).prgSize(4 * 0x2000).verticalMirroring(true).rom());
 
         assertEquals(Mirroring.VERTICAL, mapper.nametableMirroring(), "before any $A000 write, the header bit is a reasonable initial hint");
     }

@@ -1,5 +1,6 @@
 package com.rox.cartridge;
 
+import com.rox.TestRoms;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -14,16 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class RomLoaderTest {
 
     private static byte[] mapperRom(final int mapperNumber){
-        final byte[] fileBytes = new byte[16 + 16384];
-        fileBytes[0] = 'N';
-        fileBytes[1] = 'E';
-        fileBytes[2] = 'S';
-        fileBytes[3] = 0x1A;
-        fileBytes[4] = 0x01;
-        fileBytes[6] = (byte) ((mapperNumber & 0x0F) << 4);
-        fileBytes[7] = (byte) (mapperNumber & 0xF0);
-        fileBytes[16] = 0x77; //first PRG-ROM byte, distinctive enough to prove real NROM mapping ran
-        return fileBytes;
+        return TestRoms.mapper(mapperNumber).prg(0, 0x77).bytes(); //first PRG-ROM byte, distinctive enough to prove real NROM mapping ran
     }
 
     @Test
@@ -38,16 +30,10 @@ public class RomLoaderTest {
     @Test
     public void mapperOneDispatchesToAWorkingMmc1Mapper(){
         //2 PRG banks so a real MMC1 bank switch (vs. NROM-style ignored write) is observable
-        final byte[] fileBytes = new byte[16 + 2 * 16384];
-        fileBytes[0] = 'N';
-        fileBytes[1] = 'E';
-        fileBytes[2] = 'S';
-        fileBytes[3] = 0x1A;
-        fileBytes[4] = 0x02;
-        fileBytes[6] = 0x10; //mapper 1 low nibble
-        fileBytes[16] = 0x11; //first byte of bank 0
-        fileBytes[16 + 16384] = 0x22; //first byte of bank 1
-        final Cartridge cartridge = RomLoader.fromBytes(fileBytes);
+        final Cartridge cartridge = TestRoms.mapper(1).prgSize(2 * 0x4000)
+                .prg(0, 0x11) //first byte of bank 0
+                .prg(0x4000, 0x22) //first byte of bank 1
+                .cartridge();
 
         assertEquals(0x11, cartridge.read(0x8000), "reset state (PRG mode 3): $8000 starts on bank 0");
         cartridge.write(0xE000, 1); //5-write shift sequence, LSB first: 1,0,0,0,0 -> latches 00001 = bank 1
@@ -61,15 +47,9 @@ public class RomLoaderTest {
     @Test
     public void mapperFourDispatchesToAWorkingMmc3Mapper(){
         //4 PRG banks so R6/fixed-second-last-bank banking is observable
-        final byte[] fileBytes = new byte[16 + 4 * 0x2000];
-        fileBytes[0] = 'N';
-        fileBytes[1] = 'E';
-        fileBytes[2] = 'S';
-        fileBytes[3] = 0x1A;
-        fileBytes[4] = (byte) ((fileBytes.length - 16) / 16384); //4*8KB = 32KB = 2 (16KB) banks
-        fileBytes[6] = 0x40; //mapper 4 low nibble
-        fileBytes[16 + 3 * 0x2000] = 0x33; //first byte of PRG bank 3 (the last bank)
-        final Cartridge cartridge = RomLoader.fromBytes(fileBytes);
+        final Cartridge cartridge = TestRoms.mapper(4).prgSize(4 * 0x2000)
+                .prg(3 * 0x2000, 0x33) //first byte of PRG bank 3 (the last bank)
+                .cartridge();
 
         assertEquals(0x33, cartridge.read(0xE000), "$E000-$FFFF should be fixed to the last PRG bank");
     }

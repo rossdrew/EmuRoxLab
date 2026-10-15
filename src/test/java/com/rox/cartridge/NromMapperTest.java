@@ -1,5 +1,6 @@
 package com.rox.cartridge;
 
+import com.rox.TestRoms;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -10,49 +11,17 @@ public class NromMapperTest {
 
     /** Builds a ROM with each PRG-ROM byte set to its own low-order position, so offset bugs show up. */
     private static INesRom romWithPositionEncodedPrg(final int prgBanks){
-        final byte[] fileBytes = new byte[16 + prgBanks * 16384];
-        fileBytes[0] = 'N';
-        fileBytes[1] = 'E';
-        fileBytes[2] = 'S';
-        fileBytes[3] = 0x1A;
-        fileBytes[4] = (byte) prgBanks;
-        for (int i = 16; i < fileBytes.length; i++){
-            fileBytes[i] = (byte) ((i - 16) & 0xFF);
-        }
-        return INesRom.parse(fileBytes);
+        return TestRoms.nrom().prgSize(prgBanks * 0x4000).fillPrg(offset -> offset).rom();
     }
 
     /** Builds a ROM with 1 PRG bank and the given number of 8KB CHR-ROM banks (0 = CHR-RAM), mirroring bit as given. */
     private static INesRom romWithChr(final int chrBanks, final boolean verticalMirroring){
-        final byte[] fileBytes = new byte[16 + 16384 + chrBanks * 8192];
-        fileBytes[0] = 'N';
-        fileBytes[1] = 'E';
-        fileBytes[2] = 'S';
-        fileBytes[3] = 0x1A;
-        fileBytes[4] = 1;
-        fileBytes[5] = (byte) chrBanks;
-        fileBytes[6] = (byte) (verticalMirroring ? 0x01 : 0x00);
-        for (int i = 0; i < chrBanks * 8192; i++){
-            fileBytes[16 + 16384 + i] = (byte) (i & 0xFF);
-        }
-        return INesRom.parse(fileBytes);
+        return TestRoms.nrom().chrSize(chrBanks * 0x2000).fillChr(offset -> offset).verticalMirroring(verticalMirroring).rom();
     }
 
     /** Builds a 32KB ROM whose two 16KB halves are filled with distinct, uniform marker bytes. */
     private static INesRom romWithDistinctHalves(final int firstHalfByte, final int secondHalfByte){
-        final byte[] fileBytes = new byte[16 + 2 * 16384];
-        fileBytes[0] = 'N';
-        fileBytes[1] = 'E';
-        fileBytes[2] = 'S';
-        fileBytes[3] = 0x1A;
-        fileBytes[4] = 2;
-        for (int i = 16; i < 16 + 16384; i++){
-            fileBytes[i] = (byte) firstHalfByte;
-        }
-        for (int i = 16 + 16384; i < fileBytes.length; i++){
-            fileBytes[i] = (byte) secondHalfByte;
-        }
-        return INesRom.parse(fileBytes);
+        return TestRoms.nrom().prgSize(2 * 0x4000).fillPrg(offset -> offset < 0x4000 ? firstHalfByte : secondHalfByte).rom();
     }
 
     @Test

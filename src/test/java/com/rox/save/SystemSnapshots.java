@@ -1,8 +1,8 @@
 package com.rox.save;
 
+import com.rox.TestRoms;
 import com.rox.apu.APU;
 import com.rox.cartridge.Cartridge;
-import com.rox.cartridge.RomLoader;
 import com.rox.cpu.mos6502.MOS6502Snapshot;
 import com.rox.mem.MemoryBus8Bit;
 import com.rox.mem.RAM;
@@ -15,9 +15,7 @@ public final class SystemSnapshots {
 
     /** A real (if mostly power-on) snapshot of every component, with some non-default values throughout. */
     public static SystemSnapshot sample(){
-        final byte[] fileBytes = new byte[16 + 2 * 0x4000];
-        System.arraycopy(new byte[]{'N', 'E', 'S', 0x1A, 2, 0, 0x40, 0}, 0, fileBytes, 0, 8); //MMC3, CHR-RAM
-        final Cartridge cartridge = RomLoader.fromBytes(fileBytes);
+        final Cartridge cartridge = TestRoms.mapper(4).prgSize(2 * 0x4000).cartridge(); //MMC3, CHR-RAM
         cartridge.write(0x6000, 0x12);
         cartridge.write(0x8000, 0xC6);
         cartridge.write(0x8001, 0x05);

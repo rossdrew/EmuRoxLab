@@ -1,5 +1,6 @@
 package com.rox.cartridge;
 
+import com.rox.TestRoms;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -13,18 +14,7 @@ public class ChrMemoryTest {
 
     /** One 16KB PRG bank, plus 8KB of CHR-ROM (first byte $FF) if {@code withChrRom}. */
     private static INesRom rom(final boolean withChrRom){
-        final int chrSize = withChrRom ? 0x2000 : 0;
-        final byte[] fileBytes = new byte[16 + 0x4000 + chrSize];
-        fileBytes[0] = 'N';
-        fileBytes[1] = 'E';
-        fileBytes[2] = 'S';
-        fileBytes[3] = 0x1A;
-        fileBytes[4] = 1;
-        fileBytes[5] = (byte) (withChrRom ? 1 : 0);
-        if (withChrRom){
-            fileBytes[16 + 0x4000] = (byte) 0xFF;
-        }
-        return INesRom.parse(fileBytes);
+        return withChrRom ? TestRoms.nrom().chrSize(0x2000).chr(0, 0xFF).rom() : TestRoms.nrom().rom();
     }
 
     @Test
