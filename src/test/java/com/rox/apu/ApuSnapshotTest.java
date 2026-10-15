@@ -32,8 +32,8 @@ public class ApuSnapshotTest {
     }
 
     @Property
-    public void lengthCounterRoundTrips(@ForAll @IntRange(max = 254) int counter, @ForAll boolean haltEnabled){
-        final LengthCounter.Snapshot snapshot = new LengthCounter.Snapshot(counter, haltEnabled);
+    public void lengthCounterRoundTrips(@ForAll @IntRange(max = 254) int counter, @ForAll boolean haltEnabled, @ForAll boolean enabled){
+        final LengthCounter.Snapshot snapshot = new LengthCounter.Snapshot(counter, haltEnabled, enabled);
         final LengthCounter lengthCounter = new LengthCounter();
 
         lengthCounter.restore(snapshot);

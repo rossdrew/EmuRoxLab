@@ -15,6 +15,7 @@ public class LengthCounterTest {
     @BeforeEach
     public void setup(){
         lengthCounter = new LengthCounter();
+        lengthCounter.setEnabled(true);
     }
 
     @ParameterizedTest
@@ -98,22 +99,52 @@ public class LengthCounterTest {
     }
 
     @Test
-    public void forceZeroImmediatelyZeroesALoadedCounter(){
+    public void disablingImmediatelyZeroesALoadedCounter(){
         lengthCounter.load(0); //value 10
 
-        lengthCounter.forceZero();
+        lengthCounter.setEnabled(false);
 
         assertEquals(0, lengthCounter.value());
+        assertTrue(lengthCounter.isZero());
+        assertFalse(lengthCounter.isEnabled());
+    }
+
+    @Test
+    public void disablingOverridesHalt(){
+        lengthCounter.load(0); //value 10
+        lengthCounter.setHalt(true);
+
+        lengthCounter.setEnabled(false);
+
         assertTrue(lengthCounter.isZero());
     }
 
     @Test
-    public void forceZeroOverridesHalt(){
-        lengthCounter.load(0); //value 10
-        lengthCounter.setHalt(true);
+    public void aLoadWhileDisabledIsIgnored(){
+        lengthCounter.setEnabled(false);
 
-        lengthCounter.forceZero();
+        lengthCounter.load(0); //value 10, if it weren't ignored
 
         assertTrue(lengthCounter.isZero());
+    }
+
+    @Test
+    public void enablingDoesNotChangeTheCounter(){
+        lengthCounter.load(0); //value 10
+
+        lengthCounter.setEnabled(true);
+
+        assertEquals(10, lengthCounter.value());
+        assertTrue(lengthCounter.isEnabled());
+    }
+
+    @Test
+    public void startsDisabled(){
+        final LengthCounter fresh = new LengthCounter();
+
+        fresh.load(0);
+
+        assertFalse(fresh.isEnabled());
+        assertTrue(fresh.isZero(), "a channel is off at power-on until $4015 enables it");
     }
 }

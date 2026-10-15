@@ -37,7 +37,6 @@ public class TriangleChannel implements ClockWatcher {
     private int timerPeriod;
     private int timerCounter;
     private int sequencePosition;
-    private boolean enabled;
 
     public TriangleChannel(){
         this(new LinearCounter(), new LengthCounter());
@@ -74,18 +73,13 @@ public class TriangleChannel implements ClockWatcher {
      */
     public void writeTimerHighAndLengthLoad(final int value){
         timerPeriod = (timerPeriod & TIMER_LOW_MASK) | ((value & TIMER_HIGH_MASK) << TIMER_HIGH_SHIFT);
-        if (enabled){
-            lengthCounter.load((value >> LENGTH_LOAD_SHIFT) & LENGTH_LOAD_MASK);
-        }
+        lengthCounter.load((value >> LENGTH_LOAD_SHIFT) & LENGTH_LOAD_MASK);
         linearCounter.requestReload();
     }
 
-    /** Handle a $4015 enable-bit change: disabling immediately forces the length counter to 0. */
+    /** Handle a $4015 enable-bit change - see {@link LengthCounter#setEnabled}. */
     public void setEnabled(final boolean enabled){
-        this.enabled = enabled;
-        if (!enabled){
-            lengthCounter.forceZero();
-        }
+        lengthCounter.setEnabled(enabled);
     }
 
     /** Whether the length counter is currently nonzero - for the $4015 status read. */
@@ -129,17 +123,13 @@ public class TriangleChannel implements ClockWatcher {
         return timerPeriod;
     }
 
-    boolean isEnabled(){
-        return enabled;
-    }
-
     /** Everything a {@link TriangleChannel} needs to carry on exactly where it was, sub-units included. */
-    public record Snapshot(int timerPeriod, int timerCounter, int sequencePosition, boolean enabled,
+    public record Snapshot(int timerPeriod, int timerCounter, int sequencePosition,
                            LinearCounter.Snapshot linearCounter, LengthCounter.Snapshot lengthCounter) {
     }
 
     public Snapshot snapshot(){
-        return new Snapshot(timerPeriod, timerCounter, sequencePosition, enabled, linearCounter.snapshot(),
+        return new Snapshot(timerPeriod, timerCounter, sequencePosition, linearCounter.snapshot(),
                 lengthCounter.snapshot());
     }
 
@@ -147,7 +137,6 @@ public class TriangleChannel implements ClockWatcher {
         timerPeriod = snapshot.timerPeriod();
         timerCounter = snapshot.timerCounter();
         sequencePosition = snapshot.sequencePosition();
-        enabled = snapshot.enabled();
         linearCounter.restore(snapshot.linearCounter());
         lengthCounter.restore(snapshot.lengthCounter());
     }

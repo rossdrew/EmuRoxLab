@@ -41,7 +41,6 @@ public class NoiseChannel implements ClockWatcher {
     private final LengthCounter lengthCounter;
 
     private boolean mode;
-    private boolean enabled;
     private int shiftRegister = SHIFT_REGISTER_RESET;
 
     private final ParityCountdownFrequencyDivider frequencyDivider;
@@ -89,18 +88,13 @@ public class NoiseChannel implements ClockWatcher {
      * L (bits 3-7): length-counter table index
      */
     public void writeLengthLoad(final int value){
-        if (enabled){
-            lengthCounter.load((value >> LENGTH_LOAD_SHIFT) & LENGTH_LOAD_MASK);
-        }
+        lengthCounter.load((value >> LENGTH_LOAD_SHIFT) & LENGTH_LOAD_MASK);
         envelope.restart();
     }
 
-    /** Handle a $4015 enable-bit change: disabling immediately forces the length counter to 0. */
+    /** Handle a $4015 enable-bit change - see {@link LengthCounter#setEnabled}. */
     public void setEnabled(final boolean enabled){
-        this.enabled = enabled;
-        if (!enabled){
-            lengthCounter.forceZero();
-        }
+        lengthCounter.setEnabled(enabled);
     }
 
     /** Whether the length counter is currently nonzero - for the $4015 status read. */
@@ -151,23 +145,18 @@ public class NoiseChannel implements ClockWatcher {
         return mode;
     }
 
-    boolean isEnabled(){
-        return enabled;
-    }
-
     /** Everything a {@link NoiseChannel} needs to carry on exactly where it was, sub-units included. */
-    public record Snapshot(boolean mode, boolean enabled, int shiftRegister, Envelope.Snapshot envelope,
+    public record Snapshot(boolean mode, int shiftRegister, Envelope.Snapshot envelope,
                            LengthCounter.Snapshot lengthCounter, ParityCountdownFrequencyDivider.Snapshot frequencyDivider) {
     }
 
     public Snapshot snapshot(){
-        return new Snapshot(mode, enabled, shiftRegister, envelope.snapshot(), lengthCounter.snapshot(),
+        return new Snapshot(mode, shiftRegister, envelope.snapshot(), lengthCounter.snapshot(),
                 frequencyDivider.snapshot());
     }
 
     public void restore(final Snapshot snapshot){
         mode = snapshot.mode();
-        enabled = snapshot.enabled();
         shiftRegister = snapshot.shiftRegister();
         envelope.restore(snapshot.envelope());
         lengthCounter.restore(snapshot.lengthCounter());

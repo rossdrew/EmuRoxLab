@@ -62,8 +62,6 @@ public class NoiseChannelTest {
 
     @Test
     public void writingLengthLoadLoadsLengthCounterAndRestartsEnvelope(){
-        channel.setEnabled(true);
-
         channel.writeLengthLoad(5 << 3); //length index 5
 
         verify(mockLengthCounter).load(5);
@@ -71,29 +69,12 @@ public class NoiseChannelTest {
     }
 
     @Test
-    public void writingLengthLoadWhileDisabledDoesNotLoadTheLengthCounter(){
-        channel.writeLengthLoad(5 << 3); //channel never enabled
-
-        verify(mockLengthCounter, never()).load(anyInt());
-        verify(mockEnvelope).restart(); //everything else still happens unconditionally
-    }
-
-    @Test
-    public void disablingForcesTheLengthCounterToZero(){
+    public void setEnabledPassesThroughToTheLengthCounter(){
         channel.setEnabled(true);
+        verify(mockLengthCounter).setEnabled(true);
 
         channel.setEnabled(false);
-
-        verify(mockLengthCounter).forceZero();
-        assertFalse(channel.isEnabled());
-    }
-
-    @Test
-    public void enablingDoesNotTouchTheLengthCounter(){
-        channel.setEnabled(true);
-
-        verify(mockLengthCounter, never()).forceZero();
-        assertTrue(channel.isEnabled());
+        verify(mockLengthCounter).setEnabled(false);
     }
 
     @Test

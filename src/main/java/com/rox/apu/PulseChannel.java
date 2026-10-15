@@ -40,7 +40,6 @@ public class PulseChannel implements ClockWatcher {
 
     private int dutyCycle;
     private int sequencePosition;
-    private boolean enabled;
 
     private final ParityCountdownFrequencyDivider frequencyDivider;
 
@@ -90,19 +89,14 @@ public class PulseChannel implements ClockWatcher {
      */
     public void writeTimerHighAndLengthLoad(final int value){
         frequencyDivider.setCounterPeriod((frequencyDivider.getCounterPeriod() & TIMER_LOW_MASK) | ((value & TIMER_HIGH_MASK) << TIMER_HIGH_SHIFT));
-        if (enabled){
-            lengthCounter.load((value >> LENGTH_LOAD_SHIFT) & LENGTH_LOAD_MASK);
-        }
+        lengthCounter.load((value >> LENGTH_LOAD_SHIFT) & LENGTH_LOAD_MASK);
         sequencePosition = 0;
         envelope.restart();
     }
 
-    /** Handle a $4015 enable-bit change: disabling immediately forces the length counter to 0. */
+    /** Handle a $4015 enable-bit change - see {@link LengthCounter#setEnabled}. */
     public void setEnabled(final boolean enabled){
-        this.enabled = enabled;
-        if (!enabled){
-            lengthCounter.forceZero();
-        }
+        lengthCounter.setEnabled(enabled);
     }
 
     /** Whether the length counter is currently nonzero - for the $4015 status read. */
@@ -143,25 +137,20 @@ public class PulseChannel implements ClockWatcher {
         return sequencePosition;
     }
 
-    boolean isEnabled(){
-        return enabled;
-    }
-
     /** Everything a {@link PulseChannel} needs to carry on exactly where it was, sub-units included. */
-    public record Snapshot(int dutyCycle, int sequencePosition, boolean enabled, Envelope.Snapshot envelope,
+    public record Snapshot(int dutyCycle, int sequencePosition, Envelope.Snapshot envelope,
                            LengthCounter.Snapshot lengthCounter, Sweep.Snapshot sweep,
                            ParityCountdownFrequencyDivider.Snapshot frequencyDivider) {
     }
 
     public Snapshot snapshot(){
-        return new Snapshot(dutyCycle, sequencePosition, enabled, envelope.snapshot(), lengthCounter.snapshot(),
+        return new Snapshot(dutyCycle, sequencePosition, envelope.snapshot(), lengthCounter.snapshot(),
                 sweep.snapshot(), frequencyDivider.snapshot());
     }
 
     public void restore(final Snapshot snapshot){
         dutyCycle = snapshot.dutyCycle();
         sequencePosition = snapshot.sequencePosition();
-        enabled = snapshot.enabled();
         envelope.restore(snapshot.envelope());
         lengthCounter.restore(snapshot.lengthCounter());
         sweep.restore(snapshot.sweep());
