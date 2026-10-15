@@ -2,7 +2,6 @@ package com.rox;
 
 import com.rox.audio.AudioOutput;
 import com.rox.cartridge.Cartridge;
-import com.rox.cartridge.RomLoader;
 import com.rox.cpu.mos6502.assembler.DisassembledInstruction;
 import com.rox.debug.cpu.TracedInstruction;
 import org.junit.jupiter.api.Test;
@@ -15,18 +14,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 public class NesCpuDebugSourceTest {
-    private static final int PRG_ROM_SIZE = 0x4000;
-
     /** NROM, reset vector -> $9000: INX; STX $10; JMP $9000 (2 + 3 + 3 cycles per loop). */
     private static NES nes(){
-        final byte[] header = {'N', 'E', 'S', 0x1A, 0x01, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0};
-        final byte[] fileBytes = new byte[header.length + PRG_ROM_SIZE];
-        System.arraycopy(header, 0, fileBytes, 0, header.length);
-        final byte[] program = {(byte) 0xE8, (byte) 0x86, 0x10, 0x4C, 0x00, (byte) 0x90};
-        System.arraycopy(program, 0, fileBytes, header.length + 0x1000, program.length);
-        fileBytes[header.length + 0x3FFC] = 0x00;
-        fileBytes[header.length + 0x3FFD] = (byte) 0x90;
-        final Cartridge cartridge = RomLoader.fromBytes(fileBytes);
+        final Cartridge cartridge = TestRoms.nrom().at(0x9000, 0xE8, 0x86, 0x10, 0x4C, 0x00, 0x90).resetVector(0x9000).cartridge();
         final NES nes = new NES(mock(AudioOutput.class), cartridge, new ManuallyTickedClock());
         nes.cpu().reset();
         return nes;

@@ -1,5 +1,6 @@
 package com.rox.cartridge;
 
+import com.rox.TestRoms;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -11,18 +12,7 @@ public class Mmc1MapperTest {
 
     /** Builds an MMC1 ROM whose first byte of each 16KB bank equals that bank's index (0, 1, 2, ...). */
     private static INesRom romWithBanks(final int bankCount){
-        final int prgSize = bankCount * 0x4000;
-        final byte[] fileBytes = new byte[16 + prgSize];
-        fileBytes[0] = 'N';
-        fileBytes[1] = 'E';
-        fileBytes[2] = 'S';
-        fileBytes[3] = 0x1A;
-        fileBytes[4] = (byte) bankCount;
-        fileBytes[6] = 0x10; //mapper 1 low nibble
-        for (int bank = 0; bank < bankCount; bank++){
-            fileBytes[16 + bank * 0x4000] = (byte) bank;
-        }
-        return INesRom.parse(fileBytes);
+        return TestRoms.mapper(1).prgSize(bankCount * 0x4000).markPrgBanks(0x4000).rom();
     }
 
     /** Performs the 5 shift-register writes (LSB first) that latch {@code fiveBitValue} at {@code address}. */
@@ -34,18 +24,7 @@ public class Mmc1MapperTest {
 
     /** Every PRG-ROM byte set to its own low-order global offset, so off-by-one/off-by-bank bugs show up. */
     private static INesRom romWithPositionEncodedBanks(final int bankCount){
-        final int prgSize = bankCount * 0x4000;
-        final byte[] fileBytes = new byte[16 + prgSize];
-        fileBytes[0] = 'N';
-        fileBytes[1] = 'E';
-        fileBytes[2] = 'S';
-        fileBytes[3] = 0x1A;
-        fileBytes[4] = (byte) bankCount;
-        fileBytes[6] = 0x10;
-        for (int i = 0; i < prgSize; i++){
-            fileBytes[16 + i] = (byte) (i & 0xFF);
-        }
-        return INesRom.parse(fileBytes);
+        return TestRoms.mapper(1).prgSize(bankCount * 0x4000).fillPrg(offset -> offset).rom();
     }
 
     /**
@@ -55,38 +34,13 @@ public class Mmc1MapperTest {
      * bank got selected, not just whether some byte within it round-trips correctly.
      */
     private static INesRom romWithIndexedChrBanks(final int chr4kBankCount){
-        final int chrSize = chr4kBankCount * 0x1000;
-        final byte[] fileBytes = new byte[16 + 0x4000 + chrSize];
-        fileBytes[0] = 'N';
-        fileBytes[1] = 'E';
-        fileBytes[2] = 'S';
-        fileBytes[3] = 0x1A;
-        fileBytes[4] = 1;
-        fileBytes[5] = (byte) (chrSize / 8192);
-        fileBytes[6] = 0x10;
-        for (int bank = 0; bank < chr4kBankCount; bank++){
-            for (int i = 0; i < 0x1000; i++){
-                fileBytes[16 + 0x4000 + bank * 0x1000 + i] = (byte) bank;
-            }
-        }
-        return INesRom.parse(fileBytes);
+        return TestRoms.mapper(1).chrSize(chr4kBankCount * 0x1000).fillChr(offset -> offset / 0x1000).rom();
     }
 
     /** 1 PRG bank plus the given number of 4KB CHR-ROM banks, each byte set to its own low-order global offset. */
     private static INesRom romWithPositionEncodedChrBanks(final int chr4kBankCount){
-        final int chrSize = chr4kBankCount * 0x1000;
-        final byte[] fileBytes = new byte[16 + 0x4000 + chrSize];
-        fileBytes[0] = 'N';
-        fileBytes[1] = 'E';
-        fileBytes[2] = 'S';
-        fileBytes[3] = 0x1A;
-        fileBytes[4] = 1;
-        fileBytes[5] = (byte) (chrSize / 8192); //8KB units - rounds down, tests below use even 4KB-bank counts
-        fileBytes[6] = 0x10;
-        for (int i = 0; i < chrSize; i++){
-            fileBytes[16 + 0x4000 + i] = (byte) (i & 0xFF);
-        }
-        return INesRom.parse(fileBytes);
+        //CHR size in the header rounds down to 8KB units - tests below use even 4KB-bank counts
+        return TestRoms.mapper(1).chrSize(chr4kBankCount * 0x1000).fillChr(offset -> offset).rom();
     }
 
     @Test

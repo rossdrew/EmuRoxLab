@@ -1,5 +1,6 @@
 package com.rox.ppu;
 
+import com.rox.TestRoms;
 import com.rox.cartridge.Cartridge;
 import com.rox.cartridge.INesRom;
 import com.rox.cartridge.Mapper;
@@ -87,28 +88,16 @@ public class PPUTest {
 
     @BeforeEach
     public void setup(){
-        final byte[] fileBytes = new byte[16 + 16384];
-        fileBytes[0] = 'N';
-        fileBytes[1] = 'E';
-        fileBytes[2] = 'S';
-        fileBytes[3] = 0x1A;
-        fileBytes[4] = 1;
-        final INesRom rom = INesRom.parse(fileBytes);
+        final INesRom rom = TestRoms.nrom().rom();
         mapper = new FakeMapper();
         ppu = new PPU(new Cartridge(rom, mapper));
     }
 
     /** A second, independent PPU over a fresh {@link FakeMapper} holding the same CHR data as {@link #mapper}. */
     private PPU freshPpuSharingChr(){
-        final byte[] fileBytes = new byte[16 + 16384];
-        fileBytes[0] = 'N';
-        fileBytes[1] = 'E';
-        fileBytes[2] = 'S';
-        fileBytes[3] = 0x1A;
-        fileBytes[4] = 1;
         final FakeMapper otherMapper = new FakeMapper();
         System.arraycopy(mapper.chr, 0, otherMapper.chr, 0, mapper.chr.length);
-        return new PPU(new Cartridge(INesRom.parse(fileBytes), otherMapper));
+        return new PPU(new Cartridge(TestRoms.nrom().rom(), otherMapper));
     }
 
     private void tick(final int times){
