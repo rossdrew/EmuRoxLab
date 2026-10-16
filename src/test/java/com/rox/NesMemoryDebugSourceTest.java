@@ -7,6 +7,9 @@ import org.junit.jupiter.api.Test;
 import java.util.function.IntUnaryOperator;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 public class NesMemoryDebugSourceTest {
@@ -54,5 +57,35 @@ public class NesMemoryDebugSourceTest {
 
         assertEquals(3, earlier.applyAsInt(0x0010), "an existing peek doesn't change under it");
         assertEquals(5, source.peek().applyAsInt(0x0010), "a new peek sees the new value");
+    }
+
+    @Test
+    public void ramMirrorsAndPrgRamAreEditableButRomAndRegistersAreNot(){
+        final NesMemoryDebugSource source = new NesMemoryDebugSource(nes());
+
+        assertTrue(source.isEditable(0x0010));
+        assertTrue(source.isEditable(0x0810), "RAM mirror");
+        assertTrue(source.isEditable(0x6000), "PRG-RAM");
+        assertFalse(source.isEditable(0x2002), "PPU register");
+        assertFalse(source.isEditable(0x8000), "PRG-ROM");
+    }
+
+    @Test
+    public void pokeChangesWhatPeekSees(){
+        final NesMemoryDebugSource source = new NesMemoryDebugSource(nes());
+
+        source.poke(0x0810, 0x99); //a mirror of $0010
+        source.poke(0x6000, 0x55);
+
+        assertEquals(0x99, source.peek().applyAsInt(0x0010));
+        assertEquals(0x55, source.peek().applyAsInt(0x6000));
+    }
+
+    @Test
+    public void pokeRejectsWhatIsntEditable(){
+        final NesMemoryDebugSource source = new NesMemoryDebugSource(nes());
+
+        assertThrows(IllegalArgumentException.class, () -> source.poke(0x8000, 0x01));
+        assertEquals(0x42, source.peek().applyAsInt(0x8000), "PRG-ROM unchanged");
     }
 }
