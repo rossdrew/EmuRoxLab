@@ -17,7 +17,7 @@ public final class RomAudioSmokeDemo {
     private RomAudioSmokeDemo(){
     }
 
-    public static void main(final String[] args) throws Exception {
+    static void main(final String[] args) throws Exception {
         if (args.length < 1){
             System.err.println("Usage: RomAudioSmokeDemo <path-to-rom.nes> [seconds]");
             System.exit(1);

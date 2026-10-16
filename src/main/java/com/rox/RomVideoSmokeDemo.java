@@ -44,7 +44,7 @@ public final class RomVideoSmokeDemo {
     private RomVideoSmokeDemo(){
     }
 
-    public static void main(final String[] args) throws Exception {
+    static void main(final String[] args) throws Exception {
         if (args.length < 1){
             System.err.println("Usage: RomVideoSmokeDemo <path-to-rom.nes> [path-to-controllers.properties] [seconds, or omit to run until the window is closed]");
             System.exit(1);

@@ -34,7 +34,7 @@ public class MOS6502 implements ClockWatcher {
 
     private final LatchedMemoryBus latchedMemory;
 
-    private Deque<MOS6502Operation[]> opsInTicksStack = new ArrayDeque<>();
+    private final Deque<MOS6502Operation[]> opsInTicksStack = new ArrayDeque<>();
     private MOS6502Environment environment;
     private MOS6502ALU alu;
     private int stallCycles;

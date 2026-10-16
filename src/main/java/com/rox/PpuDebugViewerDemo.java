@@ -26,7 +26,7 @@ public final class PpuDebugViewerDemo {
     private PpuDebugViewerDemo(){
     }
 
-    public static void main(final String[] args) throws Exception {
+    static void main(final String[] args) throws Exception {
         final RunningNes runningNes = new RunningNes();
         final CountDownLatch windowClosed = new CountDownLatch(1);
         //Swing components must only be created/configured/shown from the EDT - constructing (and

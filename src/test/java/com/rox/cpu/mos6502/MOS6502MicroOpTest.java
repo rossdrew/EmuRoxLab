@@ -37,25 +37,6 @@ public class MOS6502MicroOpTest extends Arbitraries {
         alu = mock(MOS6502ALU.class);
     }
 
-//    @Test
-//    public void fetchInteractions(){
-//        final MOS6502Environment env = mock(MOS6502Environment.class);
-//        when(env.pc()).thenReturn(0);
-//
-//        final RAM ram = mock(RAM.class);//new RAM(1024);
-//        when(ram.read(0)).thenReturn(42);
-//
-//        final MemoryBus8Bit memoryBus8Bit = new MemoryBus8Bit(ram);
-//        final LatchedMemoryBus bus = new Latched8BitMemoryBus(memoryBus8Bit);
-//        final MOS6502ALU alu = mock(MOS6502ALU.class);
-//
-//            FETCH.execute(env, bus, alu);
-//
-//        verify(env, times(1)).pc();
-//        verify(ram, times(1)).read(0);
-//        verify(env, times(1)).setIR(42);
-//    }
-
     @Test
     public void fetchEndToEnd(){
         ram.write(0, 42);

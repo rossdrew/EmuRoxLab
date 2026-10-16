@@ -6,7 +6,7 @@ public final class ByteUtil {
     /** Mask to remove any digits that don't represent a word, i.e. the 16 least significant bits */
     public static final int WORD_MASK = 0xFFFF;
 
-    public static int[] bitMap = new int[] {
+    public static final int[] bitMap = new int[] {
             0b0000000000000001, //Byte
             0b0000000000000010,
             0b0000000000000100,

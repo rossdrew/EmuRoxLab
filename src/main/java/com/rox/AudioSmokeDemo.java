@@ -96,7 +96,7 @@ public final class AudioSmokeDemo {
                         JSR DELAY
 
                         ; C5 (~523Hz, t=$D5)
-                        LDA #$D5  
+                        LDA #$D5
                         STA $4002
                         LDA #$00
                         STA $4003
@@ -230,7 +230,7 @@ public final class AudioSmokeDemo {
     }
 
     //XXX Need to tidy all of this up
-    public static void main(final String[] args) throws Exception {
+    static void main(final String[] args) throws Exception {
         for (int i = 0; i < DMC_SAMPLE_LENGTH; i++){
             ram.write(DMC_SAMPLE_ADDRESS + i, (i % 2 == 0) ? 0xFF : 0x00);
         }

@@ -22,7 +22,7 @@ public final class LabelValues {
     public static String hex(final MemoryLabel label, final IntUnaryOperator peek){
         final StringBuilder out = new StringBuilder();
         for (int address = label.start(); address <= label.end(); address++){
-            if (out.length() > 0){
+            if (!out.isEmpty()){
                 out.append(' ');
             }
             out.append(String.format("$%02X", peek.applyAsInt(address)));
@@ -34,7 +34,7 @@ public final class LabelValues {
     public static String decimal(final MemoryLabel label, final IntUnaryOperator peek){
         final StringBuilder out = new StringBuilder();
         for (int address = label.start(); address <= label.end(); address++){
-            if (out.length() > 0){
+            if (!out.isEmpty()){
                 out.append(' ');
             }
             out.append(peek.applyAsInt(address));

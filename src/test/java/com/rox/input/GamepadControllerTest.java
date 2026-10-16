@@ -146,9 +146,8 @@ public class GamepadControllerTest {
 
     @Test
     public void unboundButtonsAreNeverPressed(){
-        final InputComponent.ID buttonId = BUTTON_0;
         final GamepadController controller = new GamepadController(
-                fakeDevice(d -> new float[]{1f}, buttonId),
+                fakeDevice(d -> new float[]{1f}, BUTTON_0),
                 Map.of());
 
         controller.poll();
@@ -160,11 +159,9 @@ public class GamepadControllerTest {
 
     @Test
     public void aBindingForAComponentTheDeviceDoesNotHaveIsNeverPressedRatherThanThrowing(){
-        final InputComponent.ID presentButton = BUTTON_0;
-        final InputComponent.ID missingButton = BUTTON_1;
         final GamepadController controller = new GamepadController(
-                fakeDevice(d -> new float[]{1f}, presentButton),
-                Map.of(Button.A, new GamepadBinding.ButtonBinding(missingButton)));
+                fakeDevice(d -> new float[]{1f}, BUTTON_0),
+                Map.of(Button.A, new GamepadBinding.ButtonBinding(BUTTON_1)));
 
         controller.poll();
 
