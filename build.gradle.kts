@@ -44,7 +44,7 @@ pitest {
             "com.rox.ppu.debug.PaletteViewerPanel", "com.rox.video.SwingVideoOutput*",
             "com.rox.cartridge.debug.RomInfoPanel",
             "com.rox.debug.cpu.CpuStatePanel", "com.rox.debug.RefreshingDebugFrame*",
-            "com.rox.debug.memory.MemoryViewerPanel", "com.rox.debug.labels.LabelWatchPanel*"
+            "com.rox.debug.memory.MemoryViewerPanel*", "com.rox.debug.labels.LabelWatchPanel*"
     ))
     threads.set(Runtime.getRuntime().availableProcessors())
     outputFormats.set(listOf("HTML", "XML"))
@@ -101,7 +101,7 @@ tasks.jacocoTestReport {
                         "com/rox/video/SwingVideoOutput*.class",
                         "com/rox/cartridge/debug/RomInfoPanel.class",
                         "com/rox/debug/cpu/CpuStatePanel.class", "com/rox/debug/RefreshingDebugFrame*.class",
-                        "com/rox/debug/memory/MemoryViewerPanel.class", "com/rox/debug/labels/LabelWatchPanel*.class"
+                        "com/rox/debug/memory/MemoryViewerPanel*.class", "com/rox/debug/labels/LabelWatchPanel*.class"
                 )
             }
         })
