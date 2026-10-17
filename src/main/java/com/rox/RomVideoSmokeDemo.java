@@ -1,8 +1,9 @@
 package com.rox;
 
+import com.formdev.flatlaf.FlatDarkLaf;
 import com.rox.cartridge.Cartridge;
 import com.rox.cartridge.RomLoader;
-import com.rox.debug.RefreshingDebugFrame;
+import com.rox.debug.DockedDebugWindow;
 import com.rox.debug.cpu.CpuStatePanel;
 import com.rox.debug.labels.FileLabelStore;
 import com.rox.debug.labels.LabelWatchModel;
@@ -17,6 +18,7 @@ import com.rox.input.KeyboardController;
 import com.rox.save.BatterySaveManager;
 import com.rox.save.SavePaths;
 import com.rox.video.SwingVideoOutput;
+import io.github.andrewauclair.moderndocking.ext.ui.DockingUI;
 
 import javax.swing.SwingUtilities;
 import java.awt.event.KeyEvent;
@@ -82,6 +84,9 @@ public final class RomVideoSmokeDemo {
         final SwingVideoOutput[] videoOutputHolder = new SwingVideoOutput[1];
         final CountDownLatch videoOutputConstructed = new CountDownLatch(1);
         SwingUtilities.invokeLater(() -> {
+            //modern UI prototype: dark theme for every window, set before any of them exists
+            FlatDarkLaf.setup();
+            DockingUI.initialize();
             videoOutputHolder[0] = new SwingVideoOutput(windowClosed::countDown);
             videoOutputConstructed.countDown();
         });
@@ -101,7 +106,7 @@ public final class RomVideoSmokeDemo {
         attachKeyboardControllers(videoOutput, controllers);
         //added on the EDT once the NES exists, disposed alongside the video window - a visible JFrame keeps
         //a non-daemon EDT alive, so leaving one would hang the JVM on exit
-        final List<RefreshingDebugFrame> debugFrames = new CopyOnWriteArrayList<>();
+        final List<DockedDebugWindow> debugFrames = new CopyOnWriteArrayList<>();
 
         //outer try/finally so the window is always closed, even if NES construction itself throws
         //(e.g. no audio line available) - a visible, undisposed JFrame keeps a non-daemon EDT thread
@@ -110,21 +115,17 @@ public final class RomVideoSmokeDemo {
             final NES nes = new NES(videoOutput, controllers, cartridge);
             SwingUtilities.invokeLater(() -> {
                 final CpuStatePanel cpuStatePanel = new CpuStatePanel(new NesCpuDebugSource(nes));
-                final RefreshingDebugFrame cpuDebugFrame = new RefreshingDebugFrame("EmuRoxLab - CPU state",
-                        cpuStatePanel, cpuStatePanel::refresh, CPU_STATE_REFRESH_MILLIS);
-                debugFrames.add(cpuDebugFrame);
                 final MemoryViewerPanel memoryViewerPanel = new MemoryViewerPanel(new NesMemoryDebugSource(nes));
-                final RefreshingDebugFrame memoryDebugFrame = new RefreshingDebugFrame("EmuRoxLab - Memory",
-                        memoryViewerPanel, memoryViewerPanel::refresh, MEMORY_VIEWER_REFRESH_MILLIS);
-                debugFrames.add(memoryDebugFrame);
                 final LabelWatchPanel labelWatchPanel = new LabelWatchPanel(new LabelWatchModel(
                         new FileLabelStore(SavePaths.labelsFile(romPath)), new NesLabelWatchTarget(nes)));
-                final RefreshingDebugFrame watchDebugFrame = new RefreshingDebugFrame("EmuRoxLab - Watch",
-                        labelWatchPanel, labelWatchPanel::refresh, MEMORY_VIEWER_REFRESH_MILLIS);
-                debugFrames.add(watchDebugFrame);
-                videoOutput.addToolButton("Watch (F9)", KeyEvent.VK_F9, watchDebugFrame::showWindow);
-                videoOutput.addToolButton("Memory (F10)", KeyEvent.VK_F10, memoryDebugFrame::showWindow);
-                videoOutput.addToolButton("CPU state (F11)", KeyEvent.VK_F11, cpuDebugFrame::showWindow);
+                final DockedDebugWindow debugger = new DockedDebugWindow("EmuRoxLab - Debugger", List.of(
+                        new DockedDebugWindow.Panel("cpu", "CPU state", cpuStatePanel, cpuStatePanel::refresh, CPU_STATE_REFRESH_MILLIS),
+                        new DockedDebugWindow.Panel("memory", "Memory", memoryViewerPanel, memoryViewerPanel::refresh, MEMORY_VIEWER_REFRESH_MILLIS),
+                        new DockedDebugWindow.Panel("watch", "Watch", labelWatchPanel, labelWatchPanel::refresh, MEMORY_VIEWER_REFRESH_MILLIS)));
+                debugFrames.add(debugger);
+                videoOutput.addToolButton("Watch (F9)", KeyEvent.VK_F9, () -> debugger.showPanel("watch"));
+                videoOutput.addToolButton("Memory (F10)", KeyEvent.VK_F10, () -> debugger.showPanel("memory"));
+                videoOutput.addToolButton("CPU state (F11)", KeyEvent.VK_F11, () -> debugger.showPanel("cpu"));
                 videoOutput.addToolButton("Flag issue (F12)", KeyEvent.VK_F12, () -> flagIssue(nes, videoOutput, romPath));
             });
 
@@ -158,7 +159,7 @@ public final class RomVideoSmokeDemo {
                 Thread.currentThread().interrupt();
             }
         } finally {
-            SwingUtilities.invokeLater(() -> debugFrames.forEach(RefreshingDebugFrame::dispose));
+            SwingUtilities.invokeLater(() -> debugFrames.forEach(DockedDebugWindow::dispose));
             videoOutput.close();
             //only reached once the emulation thread (and thus all gamepad polling and cartridge
             //writes) has genuinely terminated - see the inner finally's join loop above. Nested in its
