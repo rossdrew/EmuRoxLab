@@ -55,6 +55,9 @@ public class NES {
     private final TickRateMonitor tickRateMonitor;
     private final MemoryEditor memoryEditor;
     private final InstructionTrace instructionTrace;
+    private final Resampler resampler;
+    private final VideoOutput videoOutput;
+    private final ControllerConfiguration controllers;
     /** set only once pause() has genuinely parked the clock - the precondition for capturing/restoring state while powered on (see captureSnapshot()) */
     private volatile boolean paused;
     /** every frame handed to videoOutput - what stepFrame() watches for */
@@ -122,43 +125,48 @@ public class NES {
         this.clock = clock;
         this.audioOutput = audioOutput;
 
-        final Resampler resampler = new Resampler(CPU_HZ, AUDIO_SAMPLE_RATE_HZ);
-        clock.addListener(tickRateMonitor);
-        clock.addListener(cpu);
+        this.resampler = new Resampler(CPU_HZ, AUDIO_SAMPLE_RATE_HZ);
+        this.videoOutput = videoOutput;
+        this.controllers = controllers;
+        //one listener doing every component's work in a fixed order (see tick()), rather than one listener
+        //per component: the clock's dispatch then sees a single type, so the JIT can inline the whole cycle
+        clock.addListener(this::tick);
+    }
+
+    /**
+     * One CPU cycle of the whole machine, in an order that matters - each step sees the ones before it this
+     * cycle.
+     */
+    private void tick(){
+        tickRateMonitor.tick();
+        cpu.tick();
         //right after the CPU, so a locked byte is back at its value before anything else sees the tick's state
-        clock.addListener(memoryEditor);
-        clock.addListener(apu);
-        clock.addListener(ppu);
-        clock.addListener(() -> cpu.setIRQLine(apu.isIrqAsserted() || cartridge.isIrqAsserted()));
-        clock.addListener(() -> {
-            if (ppu.consumeNmiEdge()){
-                cpu.signalNMI();
-            }
-        });
-        clock.addListener(() -> {
-            final int stallCycles = ppu.consumeOamDmaStallCycles();
-            if (stallCycles > 0){
-                cpu.stall(stallCycles);
-            }
-        });
-        //after the OAM DMA stall listener above, so a stall starting this tick holds recording back
-        //rather than the same instruction being recorded twice - see InstructionTrace's class doc
-        clock.addListener(instructionTrace);
-        clock.addListener(() -> resampler.accept(apu.outputSample()).ifPresent(audioOutput::write));
-        clock.addListener(() -> {
-            //polling the (possibly real, physical) gamepads is folded into this same frame-ready gate
-            //rather than a second, separate clock.addListener - PPU.consumeFrameReady() is a one-shot
-            //flag (it resets itself the moment it's read true), so a second listener also calling it
-            //would simply never see true, having already been beaten to it by this one
-            if (ppu.consumeFrameReady()){
-                framesPresented++;
-                videoOutput.present(ppu.rgbFramebuffer());
-                controllers.player1().poll();
-                controllers.player2().poll();
-                controllers.player3().poll();
-                controllers.player4().poll();
-            }
-        });
+        memoryEditor.tick();
+        apu.tick();
+        ppu.tick();
+        cpu.setIRQLine(apu.isIrqAsserted() || cartridge.isIrqAsserted());
+        if (ppu.consumeNmiEdge()){
+            cpu.signalNMI();
+        }
+        final int stallCycles = ppu.consumeOamDmaStallCycles();
+        if (stallCycles > 0){
+            cpu.stall(stallCycles);
+        }
+        //after the OAM DMA stall above, so a stall starting this tick holds recording back rather than the
+        //same instruction being recorded twice - see InstructionTrace's class doc
+        instructionTrace.tick();
+        resampler.accept(apu.outputSample()).ifPresent(audioOutput::write);
+        //polling the (possibly real, physical) gamepads is folded into this same frame-ready gate -
+        //PPU.consumeFrameReady() is a one-shot flag (it resets itself the moment it's read true), so
+        //checking it a second time would simply never see true
+        if (ppu.consumeFrameReady()){
+            framesPresented++;
+            videoOutput.present(ppu.rgbFramebuffer());
+            controllers.player1().poll();
+            controllers.player2().poll();
+            controllers.player3().poll();
+            controllers.player4().poll();
+        }
     }
 
     public void powerOn(){
