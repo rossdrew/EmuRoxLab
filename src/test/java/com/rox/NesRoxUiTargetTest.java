@@ -7,6 +7,7 @@ import com.rox.cpu.mos6502.MOS6502Snapshot;
 import com.rox.debug.cpu.InstructionTrace;
 import com.rox.debug.labels.MemoryLabel;
 import com.rox.ui.debugger.DebugTarget;
+import com.rox.ui.data.FrameTimes;
 import com.rox.ui.debugger.NesMemoryMap;
 import org.junit.jupiter.api.Test;
 
@@ -175,5 +176,14 @@ public class NesRoxUiTargetTest {
         when(nes.instructionTrace()).thenReturn(new InstructionTrace(() -> true, () -> 0, address -> 0));
 
         assertEquals("0 instructions  ·  0.895 MHz (50%)", target(nes).status());
+    }
+
+    @Test
+    public void offersTheFrameTimingStreamsItWasGiven(){
+        final FrameTimes emu = new FrameTimes("emu frames", 10);
+        final FrameTimes shown = new FrameTimes("shown frames", 10);
+
+        assertEquals(List.of(emu, shown), new NesRoxUiTarget(nes(), List.of(), List.of(emu, shown)).frameTimings());
+        assertEquals(List.of(), target(nes()).frameTimings());
     }
 }

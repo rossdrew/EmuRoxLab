@@ -30,6 +30,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.LongConsumer;
 
 /**
  * The actual "screen" a player would watch, as opposed to the {@code com.rox.ppu.debug} package's
@@ -84,6 +85,8 @@ public final class SwingVideoOutput implements VideoOutput {
     private final FrameJitter shown = new FrameJitter();
     private final AtomicInteger skipped = new AtomicInteger();
     private final JLabel jitterLabel = new JLabel(" ");
+    private volatile LongConsumer producedListener = nanos -> { };
+    private volatile LongConsumer shownListener = nanos -> { };
     private final Timer jitterTimer = new Timer(JITTER_REFRESH_MILLIS, e -> refreshJitter());
 
     /** The X button does nothing - see {@link #SwingVideoOutput(Runnable)} to opt into closing meaning something. */
@@ -200,7 +203,9 @@ public final class SwingVideoOutput implements VideoOutput {
 
     @Override
     public void present(final int[] rgbFrame){
-        produced.record(System.nanoTime());
+        final long now = System.nanoTime();
+        produced.record(now);
+        producedListener.accept(now);
         pendingFrame.set(rgbFrame);
         if (renderPending.compareAndSet(false, true)){
             SwingUtilities.invokeLater(this::renderPendingFrame);
@@ -221,9 +226,20 @@ public final class SwingVideoOutput implements VideoOutput {
 
     private void renderPendingFrame(){
         renderPending.set(false);
-        shown.record(System.nanoTime());
+        final long now = System.nanoTime();
+        shown.record(now);
+        shownListener.accept(now);
         image.setRGB(0, 0, WIDTH_PX, HEIGHT_PX, pendingFrame.get(), 0, WIDTH_PX);
         canvas.repaint();
+    }
+
+    /**
+     * Also hands each frame's {@link System#nanoTime()} to {@code produced} (on the clock thread, as the
+     * emulation finishes it) and to {@code shown} (on the EDT, as it is drawn) - e.g. for a live graph.
+     */
+    public void onFrameTimes(final LongConsumer produced, final LongConsumer shown){
+        producedListener = produced;
+        shownListener = shown;
     }
 
     /** EDT, once a second: the last second's frame timing under the game, in two lines. */
