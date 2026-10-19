@@ -109,4 +109,41 @@ public class ResamplerTest {
             assertEquals(expected, windowSizeOf(resampler, 0.5));
         }
     }
+
+    @Test
+    public void addReportsEachCompletedWindowAndOutputIsItsAverage(){
+        //10 input samples over 3 outputs -> windows of 3, 3, 4
+        final Resampler resampler = new Resampler(10, 3);
+
+        assertFalse(resampler.add(1.0));
+        assertFalse(resampler.add(2.0));
+        assertTrue(resampler.add(6.0));
+        assertEquals(3.0, resampler.output(), DELTA);
+
+        assertFalse(resampler.add(0.5));
+        assertFalse(resampler.add(0.5));
+        assertTrue(resampler.add(0.5));
+        assertEquals(0.5, resampler.output(), DELTA);
+
+        assertFalse(resampler.add(1.0));
+        assertFalse(resampler.add(1.0));
+        assertFalse(resampler.add(1.0));
+        assertTrue(resampler.add(5.0));
+        assertEquals(2.0, resampler.output(), DELTA);
+    }
+
+    @Test
+    public void addAndAcceptProduceTheSameStream(){
+        final Resampler viaAdd = new Resampler(1_789_773, 44_100);
+        final Resampler viaAccept = new Resampler(1_789_773, 44_100);
+
+        for (int i = 0; i < 10_000; i++){
+            final double sample = (i * 37 % 101) / 100.0;
+            final OptionalDouble expected = viaAccept.accept(sample);
+            assertEquals(expected.isPresent(), viaAdd.add(sample), "window completes on the same input " + i);
+            if (expected.isPresent()){
+                assertEquals(expected.getAsDouble(), viaAdd.output(), 0.0);
+            }
+        }
+    }
 }

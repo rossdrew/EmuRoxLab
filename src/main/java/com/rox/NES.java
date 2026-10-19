@@ -155,7 +155,9 @@ public class NES {
         //after the OAM DMA stall above, so a stall starting this tick holds recording back rather than the
         //same instruction being recorded twice - see InstructionTrace's class doc
         instructionTrace.tick();
-        resampler.accept(apu.outputSample()).ifPresent(audioOutput::write);
+        if (resampler.add(apu.outputSample())){
+            audioOutput.write(resampler.output());
+        }
         //polling the (possibly real, physical) gamepads is folded into this same frame-ready gate -
         //PPU.consumeFrameReady() is a one-shot flag (it resets itself the moment it's read true), so
         //checking it a second time would simply never see true
