@@ -57,6 +57,8 @@ pitest {
 dependencies {
     //MIT, built on Java's FFM API so no native .so/.dll bundling, requires JDK 22+
     implementation("de.gurkenlabs:input4j:1.3.1")
+    //roxUI memory debugger window (Skija + LWJGL), built from ../roxUI via includeBuild in settings.gradle.kts
+    implementation("com.rox:roxUI")
 
     testImplementation(platform("org.junit:junit-bom:6.0.0"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.12.2")
@@ -74,6 +76,11 @@ tasks.register<JavaExec>("runRomVideoSmokeDemo") {
     classpath = sourceSets.main.get().runtimeClasspath
     mainClass.set("com.rox.RomVideoSmokeDemo")
     javaLauncher.set(javaToolchains.launcherFor(java.toolchain))
+    //LWJGL/Skija natives, and -Droxui.open=true (open roxUI at start) / -Droxui.screenshot=<png> passed through
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    listOf("roxui.open", "roxui.screenshot", "roxui.screenshot.frame").forEach { key ->
+        System.getProperty(key)?.let { systemProperty(key, it) }
+    }
 }
 
 tasks.register<JavaExec>("runEmulationBenchmark") {
