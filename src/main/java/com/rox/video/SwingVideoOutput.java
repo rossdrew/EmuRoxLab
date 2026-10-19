@@ -8,11 +8,13 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 import javax.swing.event.AncestorEvent;
 import javax.swing.event.AncestorListener;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
@@ -26,6 +28,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -49,6 +52,10 @@ public final class SwingVideoOutput implements VideoOutput {
     //a large explicit size, like the debug panels': Swing's default font is unreadably small on a
     //high-DPI display here
     private static final float TOOL_BUTTON_FONT_SIZE = 24f;
+    private static final float JITTER_FONT_SIZE = 18f;
+    private static final int JITTER_REFRESH_MILLIS = 1000;
+    /** {@code -Dframejitter.log=true} also prints the readout to stdout once a second, to compare runs. */
+    private static final boolean LOG_JITTER = Boolean.getBoolean("framejitter.log");
 
     private final BufferedImage image = new BufferedImage(WIDTH_PX, HEIGHT_PX, BufferedImage.TYPE_INT_RGB);
     private final JPanel canvas = new JPanel(){
@@ -71,6 +78,13 @@ public final class SwingVideoOutput implements VideoOutput {
     //tool buttons and their hotkeys - EDT-only, like every other Swing interaction here
     private final JPanel toolBar = new JPanel(new FlowLayout(FlowLayout.RIGHT));
     private final Map<Integer, Runnable> hotkeys = new HashMap<>();
+    //frame-jitter readout: gaps between frames the emulation produced (clock thread) and between frames
+    //actually drawn (EDT), plus frames replaced by a newer one before the EDT got to them
+    private final FrameJitter produced = new FrameJitter();
+    private final FrameJitter shown = new FrameJitter();
+    private final AtomicInteger skipped = new AtomicInteger();
+    private final JLabel jitterLabel = new JLabel(" ");
+    private final Timer jitterTimer = new Timer(JITTER_REFRESH_MILLIS, e -> refreshJitter());
 
     /** The X button does nothing - see {@link #SwingVideoOutput(Runnable)} to opt into closing meaning something. */
     public SwingVideoOutput(){
@@ -86,7 +100,12 @@ public final class SwingVideoOutput implements VideoOutput {
     public SwingVideoOutput(final Runnable onClose){
         canvas.setPreferredSize(new Dimension(WIDTH_PX * SCALE, HEIGHT_PX * SCALE));
         frame.getContentPane().add(canvas, BorderLayout.CENTER);
-        frame.getContentPane().add(toolBar, BorderLayout.SOUTH);
+        jitterLabel.setFont(new Font(Font.MONOSPACED, Font.PLAIN, Math.round(JITTER_FONT_SIZE)));
+        final JPanel bottom = new JPanel(new BorderLayout());
+        bottom.add(jitterLabel, BorderLayout.WEST);
+        bottom.add(toolBar, BorderLayout.CENTER);
+        frame.getContentPane().add(bottom, BorderLayout.SOUTH);
+        jitterTimer.start();
         //hotkeys via a plain frame KeyListener - the same path controller input already takes, so they
         //work whenever the game itself is receiving keys
         frame.addKeyListener(new KeyAdapter(){
@@ -181,9 +200,12 @@ public final class SwingVideoOutput implements VideoOutput {
 
     @Override
     public void present(final int[] rgbFrame){
+        produced.record(System.nanoTime());
         pendingFrame.set(rgbFrame);
         if (renderPending.compareAndSet(false, true)){
             SwingUtilities.invokeLater(this::renderPendingFrame);
+        } else {
+            skipped.incrementAndGet();
         }
     }
 
@@ -199,12 +221,30 @@ public final class SwingVideoOutput implements VideoOutput {
 
     private void renderPendingFrame(){
         renderPending.set(false);
+        shown.record(System.nanoTime());
         image.setRGB(0, 0, WIDTH_PX, HEIGHT_PX, pendingFrame.get(), 0, WIDTH_PX);
         canvas.repaint();
     }
 
+    /** EDT, once a second: the last second's frame timing under the game, in two lines. */
+    private void refreshJitter(){
+        final FrameJitter.Stats emu = produced.takeStats();
+        final FrameJitter.Stats drawn = shown.takeStats();
+        final int skippedFrames = skipped.getAndSet(0);
+        jitterLabel.setText("<html>emu&nbsp;&nbsp; " + emu.describe().replace(" ", "&nbsp;")
+                + "<br>shown " + drawn.describe().replace(" ", "&nbsp;") + "&nbsp;&nbsp;skipped " + skippedFrames + "</html>");
+        if (LOG_JITTER){
+            System.out.println("[frame jitter] emu " + emu.describe() + "  |  shown " + drawn.describe()
+                    + "  skipped " + skippedFrames);
+        }
+    }
+
     /** Closes the window - the caller's responsibility, same as when to stop the emulation itself. */
     public void close(){
-        SwingUtilities.invokeLater(frame::dispose);
+        SwingUtilities.invokeLater(() -> {
+            //a running Timer keeps posting to the EDT, which would keep the JVM from exiting
+            jitterTimer.stop();
+            frame.dispose();
+        });
     }
 }

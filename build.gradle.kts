@@ -76,9 +76,10 @@ tasks.register<JavaExec>("runRomVideoSmokeDemo") {
     classpath = sourceSets.main.get().runtimeClasspath
     mainClass.set("com.rox.RomVideoSmokeDemo")
     javaLauncher.set(javaToolchains.launcherFor(java.toolchain))
-    //LWJGL/Skija natives, and -Droxui.open=true (open roxUI at start) / -Droxui.screenshot=<png> passed through
+    //LWJGL/Skija natives, and -Droxui.open=true (open roxUI at start) / -Droxui.screenshot=<png> passed through;
+    //-Dframejitter.log=true prints the frame-jitter readout to stdout once a second
     jvmArgs("--enable-native-access=ALL-UNNAMED")
-    listOf("roxui.open", "roxui.screenshot", "roxui.screenshot.frame").forEach { key ->
+    listOf("roxui.open", "roxui.screenshot", "roxui.screenshot.frame", "framejitter.log").forEach { key ->
         System.getProperty(key)?.let { systemProperty(key, it) }
     }
 }
