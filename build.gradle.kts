@@ -35,7 +35,7 @@ pitest {
     excludedClasses.set(listOf(
         //Manual entry points for human validation.
             "com.rox.AudioSmokeDemo", "com.rox.RomAudioSmokeDemo", "com.rox.PpuDebugViewerDemo*",
-            "com.rox.RomVideoSmokeDemo",
+            "com.rox.RomVideoSmokeDemo", "com.rox.EmulationBenchmark*",
         //Swing panels that are unproductive for automated testing
             "com.rox.ppu.debug.PpuDebugFrame", "com.rox.ppu.debug.ChrViewerPanel*",
             "com.rox.ppu.debug.NametableViewerPanel", "com.rox.ppu.debug.OamViewerPanel",
@@ -76,6 +76,15 @@ tasks.register<JavaExec>("runRomVideoSmokeDemo") {
     javaLauncher.set(javaToolchains.launcherFor(java.toolchain))
 }
 
+tasks.register<JavaExec>("runEmulationBenchmark") {
+    description = "Times the emulation thread per frame - headless, silent, unpaced. " +
+            "e.g. ./gradlew runEmulationBenchmark --args=\"resource/rom/loz.nes [snapshot.sav] [frames] [trials]\""
+    group = "application"
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass.set("com.rox.EmulationBenchmark")
+    javaLauncher.set(javaToolchains.launcherFor(java.toolchain))
+}
+
 tasks.test {
     useJUnitPlatform()
     finalizedBy(tasks.jacocoTestReport)
@@ -91,7 +100,7 @@ tasks.jacocoTestReport {
                 exclude(
                         "com/rox/AudioSmokeDemo.class", "com/rox/RomAudioSmokeDemo.class",
                         "com/rox/PpuDebugViewerDemo.class", "com/rox/PpuDebugViewerDemo\$1.class",
-                        "com/rox/RomVideoSmokeDemo.class",
+                        "com/rox/RomVideoSmokeDemo.class", "com/rox/EmulationBenchmark*.class",
                         "com/rox/ppu/debug/PpuDebugFrame.class",
                         "com/rox/ppu/debug/ChrViewerPanel.class", "com/rox/ppu/debug/ChrViewerPanel\$1.class",
                         "com/rox/ppu/debug/NametableViewerPanel.class",
