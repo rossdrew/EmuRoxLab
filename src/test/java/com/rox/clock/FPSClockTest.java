@@ -234,6 +234,60 @@ public class FPSClockTest {
     }
 
     @Test
+    void throttleSchedulesTheNextFrameOneFrameOnWhenOnTime() throws InterruptedException {
+        final FPSClock clock = new FPSClock(1, 1, () -> 0L, mock(Sleeper.class));
+
+        assertEquals(1_000_000_000L, clock.throttle(0L));
+    }
+
+    @Test
+    void throttleKeepsDebtUpToTheCatchUpLimit() throws InterruptedException {
+        final long now = 2_500_000_000L; //1.5 frames past this frame's end - within the 2-frame limit
+        final Sleeper sleeper = mock(Sleeper.class);
+        final FPSClock clock = new FPSClock(1, 1, () -> now, sleeper);
+
+        assertEquals(1_000_000_000L, clock.throttle(0L));
+        verify(sleeper, never()).sleepFor(anyLong());
+    }
+
+    @Test
+    void throttleForgivesDebtBeyondTheCatchUpLimit() throws InterruptedException {
+        final long now = 10_000_000_000L; //9 frames behind
+        final FPSClock clock = new FPSClock(1, 1, () -> now, mock(Sleeper.class));
+
+        assertEquals(now - FPSClock.MAX_CATCH_UP_FRAMES * 1_000_000_000L, clock.throttle(0L));
+    }
+
+    /**
+     * A long slow stretch (here one 10 second frame) mustn't be followed by 10 seconds of unthrottled
+     * frames: only {@link FPSClock#MAX_CATCH_UP_FRAMES} run back to back, then pacing resumes.
+     */
+    @Test
+    void runCatchesUpAtMostTheLimitAfterALongStall() throws InterruptedException {
+        final long frameTimeNs = 1_000_000_000L;
+        final long stalledUntil = 10 * frameTimeNs;
+        final TimeSource timeSource = mock(TimeSource.class);
+        when(timeSource.nanoTime()).thenReturn(0L, stalledUntil); //run() start, then frame 1 ends 9 frames late
+        final Sleeper sleeper = mock(Sleeper.class);
+        final FPSClock clock = new FPSClock(1, 1, timeSource, sleeper);
+        final ClockWatcher watcher = mock(ClockWatcher.class);
+        final int[] ticks = {0};
+        doAnswer(invocation -> {
+            if (++ticks[0] == 2 + FPSClock.MAX_CATCH_UP_FRAMES){
+                clock.stop();
+            }
+            return null;
+        }).when(watcher).tick();
+        clock.addListener(watcher);
+
+        clock.run();
+
+        //frames 2 and 3 catch up with no sleep; frame 4 is back on schedule and sleeps a whole frame
+        verify(sleeper, times(1)).sleepFor(anyLong());
+        verify(sleeper).sleepFor(frameTimeNs);
+    }
+
+    @Test
     void runGracefullyHandlesThreadSleepExceptions() throws InterruptedException {
         final TimeSource timeSource = () -> 100L;
         final Sleeper sleeper = mock(Sleeper.class);

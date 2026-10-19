@@ -20,6 +20,13 @@ public class FPSClock implements Clock, AutoCloseable {
     private final int FPS;
     /** The size of a frame in nanoseconds */
     private final long FRAME_TIME_NS;
+    /**
+     * How far behind schedule the clock may fall and still catch up by running frames back to back.
+     * Beyond this the extra lost time is dropped, as real hardware would: a slow stretch plays slowly,
+     * then carries on at normal speed rather than fast-forwarding through everything it missed.
+     */
+    static final int MAX_CATCH_UP_FRAMES = 2;
+    private final long MAX_BEHIND_NS;
     /** The number of approximate ticks per frame */
     private final long TICKS_PER_FRAME;
 
@@ -54,6 +61,7 @@ public class FPSClock implements Clock, AutoCloseable {
         HZ = hz;
         FPS = framesPerSecond;
         FRAME_TIME_NS = 1_000_000_000L / FPS;
+        MAX_BEHIND_NS = MAX_CATCH_UP_FRAMES * FRAME_TIME_NS;
         TICKS_PER_FRAME = HZ / FPS;
         TICKS_REMAINDER_PER_FRAME = HZ % FPS;
 
@@ -115,9 +123,9 @@ public class FPSClock implements Clock, AutoCloseable {
         //empirically, enough to exhaust a 200ms audio buffer margin in about 20 seconds. Anchoring
         //each frame's deadline to runStartTime + frameIndex*FRAME_TIME_NS means an oversleep on one
         //frame simply shortens (or skips) the next frame's sleep, so the schedule self-corrects
-        //instead of drifting indefinitely.
-        long runStartTime = timeSource.nanoTime();
-        long frameIndex = 0;
+        //instead of drifting indefinitely. How far it may fall behind is bounded, though - see
+        //MAX_CATCH_UP_FRAMES and throttle().
+        long frameStartTime = timeSource.nanoTime();
 
         while (running) {
             //XXX This could be wrapped in a executeWithinFrame(()->{})
@@ -126,16 +134,14 @@ public class FPSClock implements Clock, AutoCloseable {
                 if (parkWhilePaused()){
                     //however long the pause lasted, it isn't time the schedule should try to catch up
                     //on - re-anchor rather than racing through a burst of unthrottled frames
-                    runStartTime = timeSource.nanoTime();
-                    frameIndex = 0;
+                    frameStartTime = timeSource.nanoTime();
                     continue;
                 }
-                throttle(runStartTime + frameIndex * FRAME_TIME_NS);
+                frameStartTime = throttle(frameStartTime);
             } catch (InterruptedException e) {
                 /* LOG */System.out.println("Encountered issues using Thread.sleep(), terminating clock!");
                 running = false;
             }
-            frameIndex++;
         }
     }
 
@@ -174,17 +180,21 @@ public class FPSClock implements Clock, AutoCloseable {
     /**
      * Slow the rate of generating tickets by consuming the rest of the frame
      *
-     * @param frameStartTime used to calculate when the frame is expected to end.
+     * @param frameStartTime when this frame was scheduled to start
+     * @return when the next frame is scheduled to start: one frame on, unless that is more than
+     * {@link #MAX_CATCH_UP_FRAMES} behind now, in which case the excess is forgiven
      */
-    void throttle(final long frameStartTime) throws InterruptedException {
-        long elapsedSinceFrameStart = timeSource.nanoTime() - frameStartTime;
-        long timeRemainingInFrame = FRAME_TIME_NS - elapsedSinceFrameStart;
+    long throttle(final long frameStartTime) throws InterruptedException {
+        final long now = timeSource.nanoTime();
+        final long nextFrameStartTime = frameStartTime + FRAME_TIME_NS;
+        final long timeRemainingInFrame = nextFrameStartTime - now;
 
         if (timeRemainingInFrame > 0) {
 
             //XXX Do we want to just throw the exception here?
             sleeper.sleepFor(timeRemainingInFrame);
         }
+        return Math.max(nextFrameStartTime, now - MAX_BEHIND_NS);
     }
 
     /**
