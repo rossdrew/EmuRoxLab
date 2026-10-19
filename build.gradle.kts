@@ -74,6 +74,8 @@ tasks.register<JavaExec>("runRomVideoSmokeDemo") {
     classpath = sourceSets.main.get().runtimeClasspath
     mainClass.set("com.rox.RomVideoSmokeDemo")
     javaLauncher.set(javaToolchains.launcherFor(java.toolchain))
+    //-Dframejitter.log=true prints the frame-jitter readout to stdout once a second
+    System.getProperty("framejitter.log")?.let { systemProperty("framejitter.log", it) }
 }
 
 tasks.register<JavaExec>("runEmulationBenchmark") {
