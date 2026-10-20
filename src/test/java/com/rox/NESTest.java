@@ -5,6 +5,9 @@ import com.rox.audio.AudioOutput;
 import com.rox.cartridge.Cartridge;
 import com.rox.cartridge.NromMapperSnapshot;
 import com.rox.clock.Clock;
+import com.rox.clock.FPSClock;
+import com.rox.time.SystemTimeSource;
+import com.rox.time.ThreadSleeper;
 import com.rox.input.Controller;
 import com.rox.input.ControllerConfiguration;
 import com.rox.ppu.PpuSnapshot;
@@ -23,9 +26,11 @@ import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.Mockito.after;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockingDetails;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
@@ -1048,5 +1053,59 @@ public class NESTest {
         assertEquals(ticksAtPowerOff, nes.tickRateMonitor().ticks(), "nothing may tick after powerOff() returns");
         thread.join(5000);
         assertFalse(thread.isAlive());
+    }
+
+    // --- speed ---
+
+    @Test
+    public void speedStartsAtRealTime(){
+        assertEquals(1.0, manuallyTickedNes(blankCartridge()).speed());
+    }
+
+    @Test
+    public void setSpeedPacesTheClock(){
+        final NES nes = new NES(mock(AudioOutput.class), blankCartridge(), new FPSClock(1_789_773, 60, new SystemTimeSource(), new ThreadSleeper()));
+
+        nes.setSpeed(2);
+
+        assertEquals(2.0, nes.speed());
+        assertEquals(2.0, nes.clock().speed());
+    }
+
+    @Test
+    public void speedIsLimitedToTheSupportedRange(){
+        final NES nes = manuallyTickedNes(blankCartridge());
+
+        nes.setSpeed(NES.MIN_SPEED);
+        nes.setSpeed(NES.MAX_SPEED);
+        for (final double outOfRange : new double[]{NES.MIN_SPEED - 0.01, NES.MAX_SPEED + 0.01, Double.NaN}){
+            assertThrows(IllegalArgumentException.class, () -> nes.setSpeed(outOfRange), String.valueOf(outOfRange));
+        }
+        assertEquals(NES.MAX_SPEED, nes.speed(), "a rejected speed changes nothing");
+    }
+
+    /**
+     * Pitch-shifting: at 2x the CPU runs twice the cycles per real second, so each 44.1kHz output sample has to
+     * cover twice as many - half as many samples per frame. Takes effect from the frame after the change.
+     */
+    @Test
+    public void doubleSpeedRetunesAudioSoEachFrameMakesHalfTheSamples(){
+        final AudioOutput audio = mock(AudioOutput.class);
+        final NES nes = new NES(audio, busyLoopCartridge(0), new ManuallyTickedClock());
+        nes.cpu().reset();
+        nes.stepFrame(); //settle into whole frames
+        final long atRealTime = audioSamplesDuring(audio, nes::stepFrame);
+
+        nes.setSpeed(2);
+        nes.stepFrame(); //retunes at this frame's end
+        final long atDouble = audioSamplesDuring(audio, nes::stepFrame);
+
+        assertEquals(atRealTime / 2.0, atDouble, 3, "real time: " + atRealTime + " samples a frame, double: " + atDouble);
+    }
+
+    private static long audioSamplesDuring(final AudioOutput audio, final Runnable action){
+        clearInvocations(audio);
+        action.run();
+        return mockingDetails(audio).getInvocations().stream().filter(i -> i.getMethod().getName().equals("write")).count();
     }
 }

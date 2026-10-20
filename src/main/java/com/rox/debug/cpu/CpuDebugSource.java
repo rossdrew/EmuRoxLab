@@ -33,6 +33,12 @@ public interface CpuDebugSource {
     /** The clock rate real hardware runs at. */
     long intendedHz();
 
+    /** The emulation speed multiplier, 1 being real time - see {@code NES.setSpeed(double)}. */
+    double speed();
+
+    /** @throws IllegalArgumentException outside {@code NES.MIN_SPEED}-{@code NES.MAX_SPEED} */
+    void setSpeed(double multiplier);
+
     /** @return false if there was nothing running to pause */
     boolean pause();
 

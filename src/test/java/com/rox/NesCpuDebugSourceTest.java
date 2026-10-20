@@ -202,4 +202,15 @@ public class NesCpuDebugSourceTest {
     public void beforeAnythingRunsThereIsNoCurrentInstructionState(){
         assertTrue(new NesCpuDebugSource(nes()).currentInstructionState().isEmpty());
     }
+
+    @Test
+    public void speedPassesThroughToTheNes(){
+        final NES nes = nes();
+        final NesCpuDebugSource source = new NesCpuDebugSource(nes);
+
+        source.setSpeed(0.5);
+
+        assertEquals(0.5, nes.speed());
+        assertEquals(0.5, source.speed());
+    }
 }
