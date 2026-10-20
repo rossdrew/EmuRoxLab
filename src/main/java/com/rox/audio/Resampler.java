@@ -15,9 +15,9 @@ import java.util.OptionalDouble;
  * (kept exact, not just close, the same way {@code FPSClock} keeps its tick rate exact).
  */
 public class Resampler {
-    private final long baseWindowSize;
     private final long outputRate;
-    private final long windowSizeRemainderPerOutputSample;
+    private long baseWindowSize;
+    private long windowSizeRemainderPerOutputSample;
 
     private long windowRemainderBuffer;
     private long samplesNeededForCurrentWindow;
@@ -27,6 +27,27 @@ public class Resampler {
     private double output;
 
     public Resampler(final long inputRate, final long outputRate){
+        checkRates(inputRate, outputRate);
+        this.outputRate = outputRate;
+        this.baseWindowSize = inputRate / outputRate;
+        this.windowSizeRemainderPerOutputSample = inputRate % outputRate;
+        this.samplesNeededForCurrentWindow = nextWindowSize();
+    }
+
+    /**
+     * Retargets to a new input rate - e.g. the CPU running at double speed, so twice as many input samples
+     * make up each output sample (and the sound plays an octave up). The window in progress finishes at its
+     * old size; later ones use the new rate.
+     *
+     * @throws IllegalArgumentException as the constructor
+     */
+    public void setInputRate(final long inputRate){
+        checkRates(inputRate, outputRate);
+        baseWindowSize = inputRate / outputRate;
+        windowSizeRemainderPerOutputSample = inputRate % outputRate;
+    }
+
+    private static void checkRates(final long inputRate, final long outputRate){
         if (inputRate <= 0 || outputRate <= 0){
             throw new IllegalArgumentException(
                     "inputRate and outputRate must both be positive, got inputRate=" + inputRate + ", outputRate=" + outputRate);
@@ -35,10 +56,6 @@ public class Resampler {
             throw new IllegalArgumentException(
                     "inputRate must be >= outputRate (this is a downsampler only), got inputRate=" + inputRate + ", outputRate=" + outputRate);
         }
-        this.outputRate = outputRate;
-        this.baseWindowSize = inputRate / outputRate;
-        this.windowSizeRemainderPerOutputSample = inputRate % outputRate;
-        this.samplesNeededForCurrentWindow = nextWindowSize();
     }
 
     /**
