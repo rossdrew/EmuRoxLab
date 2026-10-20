@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
@@ -256,6 +257,60 @@ public class FPSClockTest {
         final FPSClock clock = new FPSClock(1, 1, () -> now, mock(Sleeper.class));
 
         assertEquals(now - FPSClock.MAX_CATCH_UP_FRAMES * 1_000_000_000L, clock.throttle(0L));
+    }
+
+    @Test
+    void doubleSpeedHalvesTheFrameTime() throws InterruptedException {
+        final FPSClock clock = new FPSClock(1, 1, () -> 0L, mock(Sleeper.class));
+
+        clock.setSpeed(2);
+
+        assertEquals(2.0, clock.speed());
+        assertEquals(500_000_000L, clock.throttle(0L));
+    }
+
+    @Test
+    void quarterSpeedQuadruplesTheFrameTimeAndSleepsItOut() throws InterruptedException {
+        final Sleeper sleeper = mock(Sleeper.class);
+        final FPSClock clock = new FPSClock(1, 1, () -> 0L, sleeper);
+
+        clock.setSpeed(0.25);
+
+        assertEquals(4_000_000_000L, clock.throttle(0L));
+        verify(sleeper).sleepFor(4_000_000_000L);
+    }
+
+    @Test
+    void theCatchUpLimitIsInFramesAtTheCurrentSpeed() throws InterruptedException {
+        final long now = 10_000_000_000L;
+        final FPSClock clock = new FPSClock(1, 1, () -> now, mock(Sleeper.class));
+
+        clock.setSpeed(2); //half-second frames
+
+        assertEquals(now - FPSClock.MAX_CATCH_UP_FRAMES * 500_000_000L, clock.throttle(0L));
+    }
+
+    @Test
+    void speedDoesNotChangeTheTicksInAFrame(){
+        final FPSClock clock = new FPSClock(60, 1, () -> 0L, mock(Sleeper.class));
+
+        clock.setSpeed(4);
+
+        assertEquals(60, clock.ticksThisFrame());
+    }
+
+    @Test
+    void startsAtNormalSpeed(){
+        assertEquals(1.0, unthrottledClock().speed());
+    }
+
+    @ParameterizedTest
+    @ValueSource(doubles = {0, -1, Double.NaN, Double.POSITIVE_INFINITY})
+    void speedMustBeAPositiveNumber(final double multiplier){
+        final FPSClock clock = unthrottledClock();
+
+        assertThrows(IllegalArgumentException.class, () -> clock.setSpeed(multiplier));
+        assertEquals(1.0, clock.speed(), "unchanged");
     }
 
     /**
@@ -731,6 +786,8 @@ public class FPSClockTest {
         assertFalse(bareClock.pause());
         assertDoesNotThrow(bareClock::resume);
         assertDoesNotThrow(bareClock::prepareToRun);
+        assertDoesNotThrow(() -> bareClock.setSpeed(2));
+        assertEquals(1.0, bareClock.speed(), "a clock that isn't paced against real time stays at 1x");
         bareClock.stopAndWait();
         assertTrue(stopped.get(), "stopAndWait() at least stops");
     }
