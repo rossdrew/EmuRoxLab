@@ -24,6 +24,7 @@ public class Resampler {
 
     private double accumulatedSum;
     private long accumulatedSampleCount;
+    private double output;
 
     public Resampler(final long inputRate, final long outputRate){
         if (inputRate <= 0 || outputRate <= 0){
@@ -45,18 +46,31 @@ public class Resampler {
      * been accumulated, otherwise empty.
      */
     public OptionalDouble accept(final double sample){
+        return add(sample) ? OptionalDouble.of(output) : OptionalDouble.empty();
+    }
+
+    /**
+     * {@link #accept} without the wrapper, for a caller on the per-cycle hot path: returns true when this sample
+     * completed a window, whose average is then {@link #output()}.
+     */
+    public boolean add(final double sample){
         accumulatedSum += sample;
         accumulatedSampleCount++;
 
         if (accumulatedSampleCount < samplesNeededForCurrentWindow){
-            return OptionalDouble.empty();
+            return false;
         }
 
-        final double average = accumulatedSum / accumulatedSampleCount;
+        output = accumulatedSum / accumulatedSampleCount;
         accumulatedSum = 0;
         accumulatedSampleCount = 0;
         samplesNeededForCurrentWindow = nextWindowSize();
-        return OptionalDouble.of(average);
+        return true;
+    }
+
+    /** The output sample from the last {@link #add} that returned true. */
+    public double output(){
+        return output;
     }
 
     private long nextWindowSize(){

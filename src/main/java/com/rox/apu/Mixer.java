@@ -24,8 +24,11 @@ package com.rox.apu;
  * index like {@code 3*triangle + 2*noise + dmc} (a common optimisation in other NES emulators):
  * that collapses three independently-weighted terms (divisors 8227/12241/22638 - not proportional
  * to 3:2:1) into one dimension, which is only an approximation of the real circuit's curve, not an
- * exact optimisation of it. The direct computation below is exact and cheap enough per call that
- * the accuracy trade-off isn't worth making.
+ * exact optimisation of it.
+ *
+ * <p>{@link #mix} is called on every CPU cycle, so both circuits are precomputed instead - but exactly: one
+ * entry per possible input (31 pulse sums; every triangle/noise/dmc combination, 16 x 16 x 128), each
+ * computed by the same formula as before, so a lookup returns the identical double.
  */
 public final class Mixer {
     /** Curve-fit coefficients for the pulse1+pulse2 summing circuit's output voltage. */
@@ -39,6 +42,24 @@ public final class Mixer {
     private static final double NOISE_CONTRIBUTION_DIVISOR = 12241.0;
     private static final double DMC_CONTRIBUTION_DIVISOR = 22638.0;
     private static final double TND_CIRCUIT_OFFSET = 100.0;
+
+    private static final int FOUR_BIT_VALUES = 16;
+    private static final int SEVEN_BIT_VALUES = 128;
+    private static final double[] PULSE_OUT = new double[2 * FOUR_BIT_VALUES - 1];
+    private static final double[] TND_OUT = new double[FOUR_BIT_VALUES * FOUR_BIT_VALUES * SEVEN_BIT_VALUES];
+
+    static {
+        for (int sum = 0; sum < PULSE_OUT.length; sum++){
+            PULSE_OUT[sum] = pulseOut(sum);
+        }
+        for (int triangle = 0; triangle < FOUR_BIT_VALUES; triangle++){
+            for (int noise = 0; noise < FOUR_BIT_VALUES; noise++){
+                for (int dmc = 0; dmc < SEVEN_BIT_VALUES; dmc++){
+                    TND_OUT[tndIndex(triangle, noise, dmc)] = tndOut(triangle, noise, dmc);
+                }
+            }
+        }
+    }
 
     private Mixer(){
         /**
@@ -55,13 +76,15 @@ public final class Mixer {
                              final int triangle,
                              final int noise,
                              final int dmc){
-        return pulseOut(pulse1, pulse2) + tndOut(triangle, noise, dmc);
+        return PULSE_OUT[pulse1 + pulse2] + TND_OUT[tndIndex(triangle, noise, dmc)];
     }
 
-    /** The pulse1+pulse2 summing circuit's output voltage (0 when both channels are silent). */
-    private static double pulseOut(final int pulse1,
-                                   final int pulse2){
-        final int sum = pulse1 + pulse2;
+    private static int tndIndex(final int triangle, final int noise, final int dmc){
+        return (triangle * FOUR_BIT_VALUES + noise) * SEVEN_BIT_VALUES + dmc;
+    }
+
+    /** The pulse1+pulse2 summing circuit's output voltage for {@code pulse1 + pulse2} (0 when both are silent). */
+    private static double pulseOut(final int sum){
         if (sum == 0){
             return 0;
         }
