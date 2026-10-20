@@ -78,6 +78,8 @@ public final class DockedDebugWindow extends JFrame {
     @Override
     public void dispose(){
         timers.forEach(Timer::stop);
+        //also closes any panel floated into its own window - those aren't owned by this one
+        Docking.deregisterAllDockingPanels();
         super.dispose();
     }
 
