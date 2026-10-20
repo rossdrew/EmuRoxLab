@@ -4,7 +4,9 @@ import com.rox.cpu.mos6502.MOS6502Snapshot;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JComponent;
+import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -22,6 +24,7 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.FontMetrics;
+import java.math.BigDecimal;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -52,6 +55,9 @@ public final class CpuStatePanel extends JPanel {
     private final JButton stepFrame = new JButton("Step frame");
     private final JButton stepCycles = new JButton("Step cycles:");
     private final JSpinner cycleCount = new JSpinner(new SpinnerNumberModel(1, 1, MAX_STEP_CYCLES, 1));
+    /** Speed multipliers offered, within {@code NES.MIN_SPEED}-{@code NES.MAX_SPEED}. */
+    private static final double[] SPEEDS = {0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4};
+    private final JComboBox<String> speed = new JComboBox<>(speedLabels());
 
     public CpuStatePanel(final CpuDebugSource source){
         super(new BorderLayout());
@@ -78,7 +84,11 @@ public final class CpuStatePanel extends JPanel {
         stepInstruction.addActionListener(e -> step(source::stepInstruction));
         stepFrame.addActionListener(e -> step(source::stepFrame));
         stepCycles.addActionListener(e -> step(() -> source.stepCycles((Integer) cycleCount.getValue())));
-        for (final JComponent control : new JComponent[]{stepInstruction, stepFrame, stepCycles, cycleCount}){
+        final JLabel speedLabel = new JLabel("Speed:");
+        speed.setSelectedIndex(speedIndex(source.speed()));
+        speed.setFocusable(false); //keep keyboard focus on the game, like the buttons
+        speed.addActionListener(e -> source.setSpeed(SPEEDS[speed.getSelectedIndex()]));
+        for (final JComponent control : new JComponent[]{stepInstruction, stepFrame, stepCycles, cycleCount, speedLabel, speed}){
             control.setFont(control.getFont().deriveFont(BUTTON_FONT_SIZE));
         }
         final JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT));
@@ -87,6 +97,8 @@ public final class CpuStatePanel extends JPanel {
         buttons.add(stepFrame);
         buttons.add(stepCycles);
         buttons.add(cycleCount);
+        buttons.add(speedLabel);
+        buttons.add(speed);
         add(buttons, BorderLayout.NORTH);
         refresh();
     }
@@ -163,5 +175,25 @@ public final class CpuStatePanel extends JPanel {
             JOptionPane.showMessageDialog(this, e.getMessage(), "Couldn't step", JOptionPane.ERROR_MESSAGE);
         }
         refresh();
+    }
+
+    /** e.g. {@code 0.25x}, {@code 1x}, {@code 1.5x}. */
+    private static String[] speedLabels(){
+        final String[] labels = new String[SPEEDS.length];
+        for (int i = 0; i < SPEEDS.length; i++){
+            labels[i] = BigDecimal.valueOf(SPEEDS[i]).stripTrailingZeros().toPlainString() + "x";
+        }
+        return labels;
+    }
+
+    /** The offered speed nearest {@code current}. */
+    private static int speedIndex(final double current){
+        int nearest = 0;
+        for (int i = 1; i < SPEEDS.length; i++){
+            if (Math.abs(SPEEDS[i] - current) < Math.abs(SPEEDS[nearest] - current)){
+                nearest = i;
+            }
+        }
+        return nearest;
     }
 }
