@@ -185,7 +185,7 @@ public class FPSClock implements Clock, AutoCloseable {
      * {@link #MAX_CATCH_UP_FRAMES} behind now, in which case the excess is forgiven
      */
     long throttle(final long frameStartTime) throws InterruptedException {
-        final long now = timeSource.nanoTime();
+        long now = timeSource.nanoTime();
         final long nextFrameStartTime = frameStartTime + FRAME_TIME_NS;
         final long timeRemainingInFrame = nextFrameStartTime - now;
 
@@ -193,6 +193,9 @@ public class FPSClock implements Clock, AutoCloseable {
 
             //XXX Do we want to just throw the exception here?
             sleeper.sleepFor(timeRemainingInFrame);
+            //a sleep can overrun by whole frames (a descheduled thread, a suspended machine) - measure
+            //the debt after it, or that overrun escapes the catch-up limit below
+            now = timeSource.nanoTime();
         }
         return Math.max(nextFrameStartTime, now - MAX_BEHIND_NS);
     }
