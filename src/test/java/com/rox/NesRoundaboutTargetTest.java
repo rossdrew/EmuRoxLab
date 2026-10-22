@@ -6,9 +6,9 @@ import com.rox.clock.TickRateMonitor;
 import com.rox.cpu.mos6502.MOS6502Snapshot;
 import com.rox.debug.cpu.InstructionTrace;
 import com.rox.debug.labels.MemoryLabel;
-import com.rox.ui.debugger.DebugTarget;
-import com.rox.ui.data.FrameTimes;
-import com.rox.ui.debugger.NesMemoryMap;
+import com.rox.roundabout.debugger.DebugTarget;
+import com.rox.roundabout.data.FrameTimes;
+import com.rox.roundabout.debugger.NesMemoryMap;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-public class NesRoxUiTargetTest {
+public class NesRoundaboutTargetTest {
     /** NROM, reset vector -> $9000: INX; STX $10; JMP $9000 (2 + 3 + 3 cycles per loop). PRG-ROM byte at $8000 is $42. */
     private static NES nes(){
         final Cartridge cartridge = TestRoms.nrom().prg(0, 0x42).at(0x9000, 0xE8, 0x86, 0x10, 0x4C, 0x00, 0x90).resetVector(0x9000).cartridge();
@@ -32,8 +32,8 @@ public class NesRoxUiTargetTest {
         return nes;
     }
 
-    private static NesRoxUiTarget target(final NES nes){
-        return new NesRoxUiTarget(nes, List.of());
+    private static NesRoundaboutTarget target(final NES nes){
+        return new NesRoundaboutTarget(nes, List.of());
     }
 
     private static void runLoops(final NES nes, final int loops){
@@ -44,7 +44,7 @@ public class NesRoxUiTargetTest {
 
     @Test
     public void coversTheWholeCpuAddressSpaceWithTheNesMap(){
-        final NesRoxUiTarget target = target(nes());
+        final NesRoundaboutTarget target = target(nes());
 
         assertEquals(0x10000, target.size());
         assertSame(target, target.memory());
@@ -55,7 +55,7 @@ public class NesRoxUiTargetTest {
     public void readsAreSideEffectFreeNesReads(){
         final NES nes = nes();
         runLoops(nes, 3);
-        final NesRoxUiTarget target = target(nes);
+        final NesRoundaboutTarget target = target(nes);
         final IntUnaryOperator reader = target.reader();
 
         assertEquals(3, target.peek(0x0010));
@@ -68,7 +68,7 @@ public class NesRoxUiTargetTest {
     public void aReaderIsOneCopyTakenWhenAskedFor(){
         final NES nes = nes();
         runLoops(nes, 3);
-        final NesRoxUiTarget target = target(nes);
+        final NesRoundaboutTarget target = target(nes);
         final IntUnaryOperator earlier = target.reader();
 
         runLoops(nes, 2);
@@ -79,7 +79,7 @@ public class NesRoxUiTargetTest {
 
     @Test
     public void editsGoThroughTheNes(){
-        final NesRoxUiTarget target = target(nes());
+        final NesRoundaboutTarget target = target(nes());
 
         assertTrue(target.isEditable(0x0010));
         assertFalse(target.isEditable(0x8000));
@@ -90,7 +90,7 @@ public class NesRoxUiTargetTest {
 
     @Test
     public void labelsBecomeWatchesAtTheirFirstByte(){
-        final NesRoxUiTarget target = new NesRoxUiTarget(nes(),
+        final NesRoundaboutTarget target = new NesRoundaboutTarget(nes(),
                 List.of(new MemoryLabel("rupees", 0x066D, 1), new MemoryLabel("score", 0x0070, 3)));
 
         assertEquals(List.of(new DebugTarget.Label("rupees", 0x066D), new DebugTarget.Label("score", 0x0070)),
@@ -100,27 +100,27 @@ public class NesRoxUiTargetTest {
     @Test
     public void cpuIsTheLiveRegisters(){
         final NES nes = nes();
-        final NesRoxUiTarget target = target(nes);
+        final NesRoundaboutTarget target = target(nes);
         target.stepInstruction(); //INX
 
         final DebugTarget.CpuState cpu = target.cpu();
         final MOS6502Snapshot live = nes.cpu().liveState();
 
         assertEquals(new DebugTarget.CpuState(0x9001, live.a(), 1, live.y(), live.stackPointer(),
-                NesRoxUiTarget.status(live)), cpu);
+                NesRoundaboutTarget.status(live)), cpu);
     }
 
     @Test
     public void statusPacksEachFlagIntoItsNvBdizcBitWithBit5Set(){
-        assertEquals(0x20, NesRoxUiTarget.status(flags(false, false, false, false, false, false, false)));
-        assertEquals(0xA0, NesRoxUiTarget.status(flags(true, false, false, false, false, false, false)));
-        assertEquals(0x60, NesRoxUiTarget.status(flags(false, true, false, false, false, false, false)));
-        assertEquals(0x30, NesRoxUiTarget.status(flags(false, false, true, false, false, false, false)));
-        assertEquals(0x28, NesRoxUiTarget.status(flags(false, false, false, true, false, false, false)));
-        assertEquals(0x24, NesRoxUiTarget.status(flags(false, false, false, false, true, false, false)));
-        assertEquals(0x22, NesRoxUiTarget.status(flags(false, false, false, false, false, true, false)));
-        assertEquals(0x21, NesRoxUiTarget.status(flags(false, false, false, false, false, false, true)));
-        assertEquals(0xFF, NesRoxUiTarget.status(flags(true, true, true, true, true, true, true)));
+        assertEquals(0x20, NesRoundaboutTarget.status(flags(false, false, false, false, false, false, false)));
+        assertEquals(0xA0, NesRoundaboutTarget.status(flags(true, false, false, false, false, false, false)));
+        assertEquals(0x60, NesRoundaboutTarget.status(flags(false, true, false, false, false, false, false)));
+        assertEquals(0x30, NesRoundaboutTarget.status(flags(false, false, true, false, false, false, false)));
+        assertEquals(0x28, NesRoundaboutTarget.status(flags(false, false, false, true, false, false, false)));
+        assertEquals(0x24, NesRoundaboutTarget.status(flags(false, false, false, false, true, false, false)));
+        assertEquals(0x22, NesRoundaboutTarget.status(flags(false, false, false, false, false, true, false)));
+        assertEquals(0x21, NesRoundaboutTarget.status(flags(false, false, false, false, false, false, true)));
+        assertEquals(0xFF, NesRoundaboutTarget.status(flags(true, true, true, true, true, true, true)));
     }
 
     private static MOS6502Snapshot flags(final boolean n, final boolean v, final boolean b, final boolean d,
@@ -131,7 +131,7 @@ public class NesRoxUiTargetTest {
     @Test
     public void runControlDrivesTheNes(){
         final NES nes = nes();
-        final NesRoxUiTarget target = target(nes);
+        final NesRoundaboutTarget target = target(nes);
         assertFalse(target.isPaused());
 
         target.pause();
@@ -154,7 +154,7 @@ public class NesRoxUiTargetTest {
     @Test
     public void statusShowsInstructionsAndSpeed(){
         final NES nes = nes();
-        final NesRoxUiTarget target = target(nes);
+        final NesRoundaboutTarget target = target(nes);
         for (int i = 0; i < 1234; i++){
             target.stepInstruction();
         }
@@ -183,7 +183,7 @@ public class NesRoxUiTargetTest {
         final FrameTimes emu = new FrameTimes("emu frames", 10);
         final FrameTimes shown = new FrameTimes("shown frames", 10);
 
-        assertEquals(List.of(emu, shown), new NesRoxUiTarget(nes(), List.of(), List.of(emu, shown)).frameTimings());
+        assertEquals(List.of(emu, shown), new NesRoundaboutTarget(nes(), List.of(), List.of(emu, shown)).frameTimings());
         assertEquals(List.of(), target(nes()).frameTimings());
     }
 }

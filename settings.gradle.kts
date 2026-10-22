@@ -1,4 +1,4 @@
 rootProject.name = "EmuRoxDos"
 
-//roxUI: GPU memory debugger (sibling checkout), substituted for com.rox:roxUI
+//Roundabout: GPU debugger UI (sibling checkout ../roxUI), substituted for com.rox:roundabout
 includeBuild("../roxUI")

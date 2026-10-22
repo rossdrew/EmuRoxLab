@@ -18,8 +18,8 @@ import com.rox.input.ControllerConfiguration;
 import com.rox.input.KeyboardController;
 import com.rox.save.BatterySaveManager;
 import com.rox.save.SavePaths;
-import com.rox.ui.data.FrameTimes;
-import com.rox.ui.debugger.MemoryDebugger;
+import com.rox.roundabout.data.FrameTimes;
+import com.rox.roundabout.debugger.MemoryDebugger;
 import com.rox.video.SwingVideoOutput;
 
 import javax.swing.SwingUtilities;
@@ -45,8 +45,8 @@ public final class RomVideoSmokeDemo {
     private static final int CPU_STATE_REFRESH_MILLIS = 100;
     //slower than the CPU view: a region can be 32KB, and memory changes are easier to follow at this pace
     private static final int MEMORY_VIEWER_REFRESH_MILLIS = 250;
-    /** Frame intervals each roxUI frame-timing graph keeps: ten seconds at 60 fps. */
-    private static final int ROXUI_FRAME_HISTORY = 600;
+    /** Frame intervals each Roundabout frame-timing graph keeps: ten seconds at 60 fps. */
+    private static final int ROUNDABOUT_FRAME_HISTORY = 600;
 
     private RomVideoSmokeDemo(){
     }
@@ -106,15 +106,15 @@ public final class RomVideoSmokeDemo {
             Thread.currentThread().interrupt();
         }
         attachKeyboardControllers(videoOutput, controllers);
-        //frames finished by the emulation and frames drawn by Swing, for roxUI's frame-timing graphs
-        final List<FrameTimes> frameTimings = List.of(new FrameTimes("emu frames", ROXUI_FRAME_HISTORY),
-                new FrameTimes("shown frames", ROXUI_FRAME_HISTORY));
+        //frames finished by the emulation and frames drawn by Swing, for Roundabout's frame-timing graphs
+        final List<FrameTimes> frameTimings = List.of(new FrameTimes("emu frames", ROUNDABOUT_FRAME_HISTORY),
+                new FrameTimes("shown frames", ROUNDABOUT_FRAME_HISTORY));
         videoOutput.onFrameTimes(frameTimings.get(0)::record, frameTimings.get(1)::record);
         //added on the EDT once the NES exists, disposed alongside the video window - a visible JFrame keeps
         //a non-daemon EDT alive, so leaving one would hang the JVM on exit
         final List<RefreshingDebugFrame> debugFrames = new CopyOnWriteArrayList<>();
-        //the roxUI memory debugger, while one is open - its own GLFW window on its own thread
-        final AtomicReference<MemoryDebugger> roxUi = new AtomicReference<>();
+        //the Roundabout memory debugger, while one is open - its own GLFW window on its own thread
+        final AtomicReference<MemoryDebugger> roundabout = new AtomicReference<>();
 
         //outer try/finally so the window is always closed, even if NES construction itself throws
         //(e.g. no audio line available) - a visible, undisposed JFrame keeps a non-daemon EDT thread
@@ -135,7 +135,7 @@ public final class RomVideoSmokeDemo {
                 final RefreshingDebugFrame watchDebugFrame = new RefreshingDebugFrame("EmuRoxLab - Watch",
                         labelWatchPanel, labelWatchPanel::refresh, MEMORY_VIEWER_REFRESH_MILLIS);
                 debugFrames.add(watchDebugFrame);
-                videoOutput.addToolButton("roxUI (F8)", KeyEvent.VK_F8, () -> openRoxUi(nes, romPath, frameTimings, roxUi));
+                videoOutput.addToolButton("Roundabout (F8)", KeyEvent.VK_F8, () -> openRoundabout(nes, romPath, frameTimings, roundabout));
                 videoOutput.addToolButton("Watch (F9)", KeyEvent.VK_F9, watchDebugFrame::showWindow);
                 videoOutput.addToolButton("Memory (F10)", KeyEvent.VK_F10, memoryDebugFrame::showWindow);
                 videoOutput.addToolButton("CPU state (F11)", KeyEvent.VK_F11, cpuDebugFrame::showWindow);
@@ -147,8 +147,8 @@ public final class RomVideoSmokeDemo {
                     + " (close the window to stop" + (runSeconds != null ? " early" : "") + ")...");
             final Thread nesThread = new Thread(nes::powerOn);
             nesThread.start();
-            if (Boolean.getBoolean("roxui.open")){
-                openRoxUi(nes, romPath, frameTimings, roxUi);
+            if (Boolean.getBoolean("roundabout.open")){
+                openRoundabout(nes, romPath, frameTimings, roundabout);
             }
             boolean interrupted = false;
             try {
@@ -176,9 +176,9 @@ public final class RomVideoSmokeDemo {
             }
         } finally {
             SwingUtilities.invokeLater(() -> debugFrames.forEach(RefreshingDebugFrame::dispose));
-            final MemoryDebugger openRoxUi = roxUi.get();
-            if (openRoxUi != null){
-                openRoxUi.close();
+            final MemoryDebugger openRoundabout = roundabout.get();
+            if (openRoundabout != null){
+                openRoundabout.close();
             }
             videoOutput.close();
             //only reached once the emulation thread (and thus all gamepad polling and cartridge
@@ -242,20 +242,20 @@ public final class RomVideoSmokeDemo {
     }
 
     /**
-     * The "roxUI" button/F8: opens the roxUI memory debugger, watching the ROM's saved labels - at most one at a
+     * The "Roundabout" button/F8: opens the Roundabout memory debugger, watching the ROM's saved labels - at most one at a
      * time. A daemon thread, so an open debugger never keeps the JVM alive once the game window has closed.
      */
-    private static void openRoxUi(final NES nes, final Path romPath, final List<FrameTimes> frameTimings,
+    private static void openRoundabout(final NES nes, final Path romPath, final List<FrameTimes> frameTimings,
                                   final AtomicReference<MemoryDebugger> open){
         List<MemoryLabel> labels;
         try {
             labels = new FileLabelStore(SavePaths.labelsFile(romPath)).load();
         } catch (IOException | LabelFileException e){
-            System.err.println("roxUI: not watching saved labels - " + e.getMessage());
+            System.err.println("Roundabout: not watching saved labels - " + e.getMessage());
             labels = List.of();
         }
-        final MemoryDebugger debugger = new MemoryDebugger(new NesRoxUiTarget(nes, labels, frameTimings),
-                "EmuRoxLab - roxUI - " + romPath.getFileName());
+        final MemoryDebugger debugger = new MemoryDebugger(new NesRoundaboutTarget(nes, labels, frameTimings),
+                "EmuRoxLab - Roundabout - " + romPath.getFileName());
         if (!open.compareAndSet(null, debugger)){
             return;
         }
@@ -265,7 +265,7 @@ public final class RomVideoSmokeDemo {
             } finally {
                 open.compareAndSet(debugger, null);
             }
-        }, "roxui");
+        }, "roundabout");
         thread.setDaemon(true);
         thread.start();
     }

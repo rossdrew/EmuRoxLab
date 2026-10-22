@@ -2,21 +2,21 @@ package com.rox;
 
 import com.rox.cpu.mos6502.MOS6502Snapshot;
 import com.rox.debug.labels.MemoryLabel;
-import com.rox.ui.data.FrameTimes;
-import com.rox.ui.data.MemoryRegion;
-import com.rox.ui.data.MemorySource;
-import com.rox.ui.debugger.DebugTarget;
-import com.rox.ui.debugger.NesMemoryMap;
+import com.rox.roundabout.data.FrameTimes;
+import com.rox.roundabout.data.MemoryRegion;
+import com.rox.roundabout.data.MemorySource;
+import com.rox.roundabout.debugger.DebugTarget;
+import com.rox.roundabout.debugger.NesMemoryMap;
 
 import java.util.List;
 import java.util.Locale;
 import java.util.function.IntUnaryOperator;
 
 /**
- * roxUI's {@link DebugTarget} over a live {@link NES} - reads through {@link NesMemoryDebugSource} (one RAM copy
+ * Roundabout's {@link DebugTarget} over a live {@link NES} - reads through {@link NesMemoryDebugSource} (one RAM copy
  * per pass), run control and registers through {@link NesCpuDebugSource}, and any frame-timing streams given.
  */
-final class NesRoxUiTarget implements DebugTarget, MemorySource {
+final class NesRoundaboutTarget implements DebugTarget, MemorySource {
     private static final int ADDRESS_SPACE = 0x10000;
     private static final int UNUSED_FLAG = 0x20;
 
@@ -25,11 +25,11 @@ final class NesRoxUiTarget implements DebugTarget, MemorySource {
     private final List<Label> labels;
     private final List<FrameTimes> frameTimings;
 
-    NesRoxUiTarget(final NES nes, final List<MemoryLabel> labels){
+    NesRoundaboutTarget(final NES nes, final List<MemoryLabel> labels){
         this(nes, labels, List.of());
     }
 
-    NesRoxUiTarget(final NES nes, final List<MemoryLabel> labels, final List<FrameTimes> frameTimings){
+    NesRoundaboutTarget(final NES nes, final List<MemoryLabel> labels, final List<FrameTimes> frameTimings){
         this.memory = new NesMemoryDebugSource(nes);
         this.cpu = new NesCpuDebugSource(nes);
         this.labels = labels.stream().map(l -> new Label(l.name(), l.start())).toList();
