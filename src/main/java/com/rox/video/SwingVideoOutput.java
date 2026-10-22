@@ -67,8 +67,18 @@ public final class SwingVideoOutput implements VideoOutput {
             final Graphics2D g2 = (Graphics2D) g;
             g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
             g2.drawImage(image, rect[0], rect[1], rect[2], rect[3], null);
+            //a frame counts as shown once it's painted - Swing may delay or merge repaints, and repaints
+            //of an unchanged image (a resize, an expose) aren't new frames
+            if (imageChanged){
+                imageChanged = false;
+                final long now = System.nanoTime();
+                shown.record(now);
+                shownListener.accept(now);
+            }
         }
     };
+    //a new frame is in the image but not yet painted - EDT only
+    private boolean imageChanged;
     private final JFrame frame = new JFrame(TITLE);
     //present() is called once per emulated frame (~60/sec) from the clock thread, far faster than a
     //loaded EDT can necessarily keep up with - rather than queuing one invokeLater (and one retained
@@ -226,16 +236,18 @@ public final class SwingVideoOutput implements VideoOutput {
 
     private void renderPendingFrame(){
         renderPending.set(false);
-        final long now = System.nanoTime();
-        shown.record(now);
-        shownListener.accept(now);
+        if (imageChanged){
+            //the previous frame was never painted - its repaint was merged into this one
+            skipped.incrementAndGet();
+        }
         image.setRGB(0, 0, WIDTH_PX, HEIGHT_PX, pendingFrame.get(), 0, WIDTH_PX);
+        imageChanged = true;
         canvas.repaint();
     }
 
     /**
      * Also hands each frame's {@link System#nanoTime()} to {@code produced} (on the clock thread, as the
-     * emulation finishes it) and to {@code shown} (on the EDT, as it is drawn) - e.g. for a live graph.
+     * emulation finishes it) and to {@code shown} (on the EDT, once it has been painted) - e.g. for a live graph.
      */
     public void onFrameTimes(final LongConsumer produced, final LongConsumer shown){
         producedListener = produced;
