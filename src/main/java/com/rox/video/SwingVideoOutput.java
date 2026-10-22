@@ -86,6 +86,10 @@ public final class SwingVideoOutput implements VideoOutput {
     //latest frame is kept and at most one render task is ever pending at a time
     private final AtomicReference<int[]> pendingFrame = new AtomicReference<>();
     private final AtomicBoolean renderPending = new AtomicBoolean(false);
+    //makes "set the latest frame, schedule a render if none is pending" and "take that frame, clear pending"
+    //atomic with each other - otherwise a frame presented between a render clearing pending and reading
+    //the frame is taken by that render and also schedules a second, redundant one
+    private final Object frameHandoff = new Object();
     //tool buttons and their hotkeys - EDT-only, like every other Swing interaction here
     private final JPanel toolBar = new JPanel(new FlowLayout(FlowLayout.RIGHT));
     private final Map<Integer, Runnable> hotkeys = new HashMap<>();
@@ -216,11 +220,13 @@ public final class SwingVideoOutput implements VideoOutput {
         final long now = System.nanoTime();
         produced.record(now);
         producedListener.accept(now);
-        pendingFrame.set(rgbFrame);
-        if (renderPending.compareAndSet(false, true)){
-            SwingUtilities.invokeLater(this::renderPendingFrame);
-        } else {
-            skipped.incrementAndGet();
+        synchronized (frameHandoff){
+            pendingFrame.set(rgbFrame);
+            if (renderPending.compareAndSet(false, true)){
+                SwingUtilities.invokeLater(this::renderPendingFrame);
+            } else {
+                skipped.incrementAndGet();
+            }
         }
     }
 
@@ -235,12 +241,16 @@ public final class SwingVideoOutput implements VideoOutput {
     }
 
     private void renderPendingFrame(){
-        renderPending.set(false);
+        final int[] frame;
+        synchronized (frameHandoff){
+            frame = pendingFrame.get();
+            renderPending.set(false);
+        }
         if (imageChanged){
             //the previous frame was never painted - its repaint was merged into this one
             skipped.incrementAndGet();
         }
-        image.setRGB(0, 0, WIDTH_PX, HEIGHT_PX, pendingFrame.get(), 0, WIDTH_PX);
+        image.setRGB(0, 0, WIDTH_PX, HEIGHT_PX, frame, 0, WIDTH_PX);
         imageChanged = true;
         canvas.repaint();
     }
