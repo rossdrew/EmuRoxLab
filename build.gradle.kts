@@ -12,6 +12,16 @@ version = "1.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
+    //Roundabout, on GitHub Packages - reading needs a token with read:packages, from gpr.user/gpr.key in
+    //~/.gradle/gradle.properties locally, or GITHUB_ACTOR/GITHUB_TOKEN in CI
+    maven {
+        url = uri("https://maven.pkg.github.com/rossdrew/roundabout")
+        credentials {
+            username = providers.gradleProperty("gpr.user").orNull ?: System.getenv("GITHUB_ACTOR")
+            password = providers.gradleProperty("gpr.key").orNull ?: System.getenv("GITHUB_TOKEN")
+        }
+        content { includeGroup("com.rox") }
+    }
 }
 
 java {
@@ -64,8 +74,8 @@ dependencies {
     implementation("io.github.andrewauclair:modern-docking-api:1.4.9")
     implementation("io.github.andrewauclair:modern-docking-single-app:1.4.9")
     implementation("io.github.andrewauclair:modern-docking-ui:1.4.9")
-    //Roundabout debugger window (Skija + LWJGL), built from ../roxUI via includeBuild in settings.gradle.kts
-    implementation("com.rox:roundabout")
+    //Roundabout debugger window (Skija + LWJGL), github.com/rossdrew/roundabout
+    implementation("com.rox:roundabout:0.1.0")
 
     testImplementation(platform("org.junit:junit-bom:6.0.0"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.12.2")

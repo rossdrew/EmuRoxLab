@@ -22,6 +22,11 @@ on:
 
 permissions:
   contents: read
+  packages: read
+
+# Roundabout comes from GitHub Packages, which needs a token even to read
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   build:
@@ -84,6 +89,7 @@ jobs:
 
     permissions:
       contents: read
+      packages: read
       pages: write
       id-token: write
 
@@ -130,6 +136,7 @@ jobs:
 
     permissions:
       contents: write
+      packages: read
 
     steps:
       - name: Checkout
