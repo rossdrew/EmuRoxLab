@@ -44,7 +44,8 @@ pitest {
             "com.rox.ppu.debug.PaletteViewerPanel", "com.rox.video.SwingVideoOutput*",
             "com.rox.cartridge.debug.RomInfoPanel",
             "com.rox.debug.cpu.CpuStatePanel", "com.rox.debug.RefreshingDebugFrame*",
-            "com.rox.debug.memory.MemoryViewerPanel*", "com.rox.debug.labels.LabelWatchPanel*"
+            "com.rox.debug.memory.MemoryViewerPanel*", "com.rox.debug.labels.LabelWatchPanel*",
+            "com.rox.debug.DockedDebugWindow*"
     ))
     threads.set(Runtime.getRuntime().availableProcessors())
     outputFormats.set(listOf("HTML", "XML"))
@@ -57,6 +58,12 @@ pitest {
 dependencies {
     //MIT, built on Java's FFM API so no native .so/.dll bundling, requires JDK 22+
     implementation("de.gurkenlabs:input4j:1.3.1")
+    //Apache-2.0 - modern dark Swing look and feel (modern UI prototype)
+    implementation("com.formdev:flatlaf:3.7.2")
+    //MIT - dockable/tabbable/floatable Swing panels (modern UI prototype)
+    implementation("io.github.andrewauclair:modern-docking-api:1.4.9")
+    implementation("io.github.andrewauclair:modern-docking-single-app:1.4.9")
+    implementation("io.github.andrewauclair:modern-docking-ui:1.4.9")
     //Roundabout debugger window (Skija + LWJGL), built from ../roxUI via includeBuild in settings.gradle.kts
     implementation("com.rox:roundabout")
 
@@ -118,7 +125,8 @@ tasks.jacocoTestReport {
                         "com/rox/video/SwingVideoOutput*.class",
                         "com/rox/cartridge/debug/RomInfoPanel.class",
                         "com/rox/debug/cpu/CpuStatePanel.class", "com/rox/debug/RefreshingDebugFrame*.class",
-                        "com/rox/debug/memory/MemoryViewerPanel*.class", "com/rox/debug/labels/LabelWatchPanel*.class"
+                        "com/rox/debug/memory/MemoryViewerPanel*.class", "com/rox/debug/labels/LabelWatchPanel*.class",
+                        "com/rox/debug/DockedDebugWindow*.class"
                 )
             }
         })
