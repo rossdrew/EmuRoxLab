@@ -6,8 +6,10 @@ import com.rox.cartridge.RomLoader;
 import com.rox.debug.DockedDebugWindow;
 import com.rox.debug.cpu.CpuStatePanel;
 import com.rox.debug.labels.FileLabelStore;
+import com.rox.debug.labels.LabelFileException;
 import com.rox.debug.labels.LabelWatchModel;
 import com.rox.debug.labels.LabelWatchPanel;
+import com.rox.debug.labels.MemoryLabel;
 import com.rox.debug.memory.MemoryViewerPanel;
 import com.rox.debug.report.DebugReport;
 import com.rox.debug.report.DebugReportWriter;
@@ -17,6 +19,8 @@ import com.rox.input.ControllerConfiguration;
 import com.rox.input.KeyboardController;
 import com.rox.save.BatterySaveManager;
 import com.rox.save.SavePaths;
+import com.rox.roundabout.data.FrameTimes;
+import com.rox.roundabout.debugger.MemoryDebugger;
 import com.rox.video.SwingVideoOutput;
 import io.github.andrewauclair.moderndocking.ext.ui.DockingUI;
 
@@ -30,6 +34,7 @@ import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Manual visual smoke test: loads a real {@code .nes} ROM file and shows its video output in a real
@@ -42,6 +47,8 @@ public final class RomVideoSmokeDemo {
     private static final int CPU_STATE_REFRESH_MILLIS = 100;
     //slower than the CPU view: a region can be 32KB, and memory changes are easier to follow at this pace
     private static final int MEMORY_VIEWER_REFRESH_MILLIS = 250;
+    /** Frame intervals each Roundabout frame-timing graph keeps: ten seconds at 60 fps. */
+    private static final int ROUNDABOUT_FRAME_HISTORY = 600;
 
     private RomVideoSmokeDemo(){
     }
@@ -104,9 +111,15 @@ public final class RomVideoSmokeDemo {
             Thread.currentThread().interrupt();
         }
         attachKeyboardControllers(videoOutput, controllers);
+        //frames finished by the emulation and frames drawn by Swing, for Roundabout's frame-timing graphs
+        final List<FrameTimes> frameTimings = List.of(new FrameTimes("emu frames", ROUNDABOUT_FRAME_HISTORY),
+                new FrameTimes("shown frames", ROUNDABOUT_FRAME_HISTORY));
+        videoOutput.onFrameTimes(frameTimings.get(0)::record, frameTimings.get(1)::record);
         //added on the EDT once the NES exists, disposed alongside the video window - a visible JFrame keeps
         //a non-daemon EDT alive, so leaving one would hang the JVM on exit
         final List<DockedDebugWindow> debugFrames = new CopyOnWriteArrayList<>();
+        //the Roundabout memory debugger, while one is open - its own GLFW window on its own thread
+        final AtomicReference<MemoryDebugger> roundabout = new AtomicReference<>();
 
         //outer try/finally so the window is always closed, even if NES construction itself throws
         //(e.g. no audio line available) - a visible, undisposed JFrame keeps a non-daemon EDT thread
@@ -123,6 +136,7 @@ public final class RomVideoSmokeDemo {
                         new DockedDebugWindow.Panel("memory", "Memory", memoryViewerPanel, memoryViewerPanel::refresh, MEMORY_VIEWER_REFRESH_MILLIS),
                         new DockedDebugWindow.Panel("watch", "Watch", labelWatchPanel, labelWatchPanel::refresh, MEMORY_VIEWER_REFRESH_MILLIS)));
                 debugFrames.add(debugger);
+                videoOutput.addToolButton("Roundabout (F8)", KeyEvent.VK_F8, () -> openRoundabout(nes, romPath, frameTimings, roundabout));
                 videoOutput.addToolButton("Watch (F9)", KeyEvent.VK_F9, () -> debugger.showPanel("watch"));
                 videoOutput.addToolButton("Memory (F10)", KeyEvent.VK_F10, () -> debugger.showPanel("memory"));
                 videoOutput.addToolButton("CPU state (F11)", KeyEvent.VK_F11, () -> debugger.showPanel("cpu"));
@@ -134,6 +148,9 @@ public final class RomVideoSmokeDemo {
                     + " (close the window to stop" + (runSeconds != null ? " early" : "") + ")...");
             final Thread nesThread = new Thread(nes::powerOn);
             nesThread.start();
+            if (Boolean.getBoolean("roundabout.open")){
+                openRoundabout(nes, romPath, frameTimings, roundabout);
+            }
             boolean interrupted = false;
             try {
                 if (runSeconds != null){
@@ -160,6 +177,10 @@ public final class RomVideoSmokeDemo {
             }
         } finally {
             SwingUtilities.invokeLater(() -> debugFrames.forEach(DockedDebugWindow::dispose));
+            final MemoryDebugger openRoundabout = roundabout.get();
+            if (openRoundabout != null){
+                openRoundabout.close();
+            }
             videoOutput.close();
             //only reached once the emulation thread (and thus all gamepad polling and cartridge
             //writes) has genuinely terminated - see the inner finally's join loop above. Nested in its
@@ -219,6 +240,35 @@ public final class RomVideoSmokeDemo {
             System.err.println(message);
             SwingUtilities.invokeLater(() -> videoOutput.showError("Couldn't save flagged issue", message));
         }
+    }
+
+    /**
+     * The "Roundabout" button/F8: opens the Roundabout memory debugger, watching the ROM's saved labels - at most one at a
+     * time. A daemon thread, so an open debugger never keeps the JVM alive once the game window has closed.
+     */
+    private static void openRoundabout(final NES nes, final Path romPath, final List<FrameTimes> frameTimings,
+                                  final AtomicReference<MemoryDebugger> open){
+        List<MemoryLabel> labels;
+        try {
+            labels = new FileLabelStore(SavePaths.labelsFile(romPath)).load();
+        } catch (IOException | LabelFileException e){
+            System.err.println("Roundabout: not watching saved labels - " + e.getMessage());
+            labels = List.of();
+        }
+        final MemoryDebugger debugger = new MemoryDebugger(new NesRoundaboutTarget(nes, labels, frameTimings),
+                "EmuRoxLab - Roundabout - " + romPath.getFileName());
+        if (!open.compareAndSet(null, debugger)){
+            return;
+        }
+        final Thread thread = new Thread(() -> {
+            try {
+                debugger.run();
+            } finally {
+                open.compareAndSet(debugger, null);
+            }
+        }, "roundabout");
+        thread.setDaemon(true);
+        thread.start();
     }
 
     private static ControllerConfiguration loadControllers(final String configPathArg) throws IOException {
