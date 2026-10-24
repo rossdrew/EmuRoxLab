@@ -43,4 +43,18 @@ public interface Clock {
     /** Let a {@link #pause()}d {@link #run()} loop carry on; does nothing if it isn't paused. */
     default void resume(){
     }
+
+    /**
+     * Runs {@link #run()} at {@code multiplier} times real time - e.g. 2 for double speed. Does nothing by
+     * default, for clocks that aren't paced against real time.
+     *
+     * @throws IllegalArgumentException if {@code multiplier} isn't a positive number
+     */
+    default void setSpeed(final double multiplier){
+    }
+
+    /** The speed multiplier {@link #run()} is paced at - see {@link #setSpeed}. */
+    default double speed(){
+        return 1;
+    }
 }

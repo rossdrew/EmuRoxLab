@@ -26,7 +26,6 @@ public class FPSClock implements Clock, AutoCloseable {
      * then carries on at normal speed rather than fast-forwarding through everything it missed.
      */
     static final int MAX_CATCH_UP_FRAMES = 2;
-    private final long MAX_BEHIND_NS;
     /** The number of approximate ticks per frame */
     private final long TICKS_PER_FRAME;
 
@@ -51,6 +50,11 @@ public class FPSClock implements Clock, AutoCloseable {
     /** {@link #run()} is executing - guarded by pauseLock. */
     private boolean inRun = false;
 
+    /** See {@link #setSpeed} - read by the run loop, so volatile. */
+    private volatile double speed = 1;
+    /** How long a frame takes at the current {@link #speed}; the ticks in it don't change. */
+    private volatile long frameTimeNs;
+
     /** Current total of remainder ticks after rounding */
     private long tickRemainderBuffer = 0;
 
@@ -61,9 +65,9 @@ public class FPSClock implements Clock, AutoCloseable {
         HZ = hz;
         FPS = framesPerSecond;
         FRAME_TIME_NS = 1_000_000_000L / FPS;
-        MAX_BEHIND_NS = MAX_CATCH_UP_FRAMES * FRAME_TIME_NS;
         TICKS_PER_FRAME = HZ / FPS;
         TICKS_REMAINDER_PER_FRAME = HZ % FPS;
+        frameTimeNs = FRAME_TIME_NS;
 
         this.timeSource = timeSource;
         this.sleeper = sleeper;
@@ -182,11 +186,13 @@ public class FPSClock implements Clock, AutoCloseable {
      *
      * @param frameStartTime when this frame was scheduled to start
      * @return when the next frame is scheduled to start: one frame on, unless that is more than
-     * {@link #MAX_CATCH_UP_FRAMES} behind now, in which case the excess is forgiven
+     * {@link #MAX_CATCH_UP_FRAMES} behind now, in which case the excess is forgiven. A frame is as long
+     * as the current {@link #setSpeed speed} makes it, so a speed change applies from the next frame.
      */
     long throttle(final long frameStartTime) throws InterruptedException {
+        final long frameTime = frameTimeNs;
         long now = timeSource.nanoTime();
-        final long nextFrameStartTime = frameStartTime + FRAME_TIME_NS;
+        final long nextFrameStartTime = frameStartTime + frameTime;
         final long timeRemainingInFrame = nextFrameStartTime - now;
 
         if (timeRemainingInFrame > 0) {
@@ -197,7 +203,22 @@ public class FPSClock implements Clock, AutoCloseable {
             //the debt after it, or that overrun escapes the catch-up limit below
             now = timeSource.nanoTime();
         }
-        return Math.max(nextFrameStartTime, now - MAX_BEHIND_NS);
+        return Math.max(nextFrameStartTime, now - MAX_CATCH_UP_FRAMES * frameTime);
+    }
+
+    /** Paces frames {@code multiplier} times faster (or slower) than real time; each frame still runs the same ticks. */
+    @Override
+    public void setSpeed(final double multiplier){
+        if (!(multiplier > 0) || Double.isInfinite(multiplier)){
+            throw new IllegalArgumentException("Speed must be a positive number, got " + multiplier);
+        }
+        speed = multiplier;
+        frameTimeNs = Math.round(FRAME_TIME_NS / multiplier);
+    }
+
+    @Override
+    public double speed(){
+        return speed;
     }
 
     /**

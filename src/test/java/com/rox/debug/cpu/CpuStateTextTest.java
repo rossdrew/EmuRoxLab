@@ -67,6 +67,8 @@ public class CpuStateTextTest {
             }
             @Override public long instructionCount(){ return 0; }
             @Override public double measuredHz(){ return 1_789_773; }
+            @Override public double speed(){ return 1; }
+            @Override public void setSpeed(final double multiplier){ }
             @Override public long intendedHz(){ return 1_789_773; }
             @Override public boolean pause(){ return true; }
             @Override public void resume(){ }
@@ -133,6 +135,8 @@ public class CpuStateTextTest {
             @Override public java.util.Optional<MOS6502Snapshot> currentInstructionState(){ return java.util.Optional.empty(); }
             @Override public long instructionCount(){ return 0; }
             @Override public double measuredHz(){ return 0; }
+            @Override public double speed(){ return 1; }
+            @Override public void setSpeed(final double multiplier){ }
             @Override public long intendedHz(){ return 1; }
             @Override public boolean pause(){ return true; }
             @Override public void resume(){ }

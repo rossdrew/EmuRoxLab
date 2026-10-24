@@ -37,6 +37,9 @@ public class NES {
     /** The NES's 2KB of CPU RAM - NESMemoryBus mirrors it across $0000-$1FFF. */
     private static final int CPU_RAM_SIZE = NESMemoryBus.CPU_RAM_MIRROR_MASK + 1;
     private static final long AUDIO_SAMPLE_RATE_HZ = 44_100;
+    /** The slowest and fastest {@link #setSpeed} allows. */
+    public static final double MIN_SPEED = 0.25;
+    public static final double MAX_SPEED = 4;
     /**
      * Gives the JVM's JIT time to compile the emulation's hot per-cycle tick loop, and lets the ring buffer build
      * up a cushion, before audio playback (and thus underrun risk) begins. See {@link SpeakerAudioOutput} class doc
@@ -64,6 +67,10 @@ public class NES {
     private volatile long framesPresented;
     /** set by {@link #powerOff()}, so {@link #powerOn()} skips warm-up and audio once a shutdown is asked for */
     private volatile boolean stopRequested;
+    /** See {@link #setSpeed}. */
+    private volatile double speed = 1;
+    /** The speed the audio resampler is set for - clock thread only, caught up with {@link #speed} once a frame. */
+    private double audioSpeed = 1;
     /** guards {@link #powerOn()}'s setup and audio start against {@link #powerOff()} */
     private final Object lifecycleLock = new Object();
 
@@ -163,6 +170,12 @@ public class NES {
         //checking it a second time would simply never see true
         if (ppu.consumeFrameReady()){
             framesPresented++;
+            if (audioSpeed != speed){
+                //speed x as many CPU cycles a real second, still 44.1kHz out: the sound speeds up and pitches up with
+                //the game, and the audio buffer fills exactly as fast as it drains
+                audioSpeed = speed;
+                resampler.setInputRate(Math.round(audioSpeed * CPU_HZ));
+            }
             videoOutput.present(ppu.rgbFramebuffer());
             controllers.player1().poll();
             controllers.player2().poll();
@@ -240,6 +253,24 @@ public class NES {
         audioOutput.pause();
         paused = true;
         return true;
+    }
+
+    /**
+     * Runs the emulation {@code multiplier} times faster (or slower) than a real NES - frames paced now, audio
+     * retuned from the next frame so it pitches with the game.
+     *
+     * @throws IllegalArgumentException unless {@code multiplier} is between {@link #MIN_SPEED} and {@link #MAX_SPEED}
+     */
+    public void setSpeed(final double multiplier){
+        if (!(multiplier >= MIN_SPEED && multiplier <= MAX_SPEED)){
+            throw new IllegalArgumentException("Speed must be " + MIN_SPEED + "-" + MAX_SPEED + "x, got " + multiplier);
+        }
+        clock.setSpeed(multiplier);
+        speed = multiplier;
+    }
+
+    public double speed(){
+        return speed;
     }
 
     /** True from a successful {@link #pause()} until {@link #resume()}. */
