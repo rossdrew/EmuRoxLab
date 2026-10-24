@@ -215,7 +215,8 @@ public class FPSClockTest {
         when(timeSource.nanoTime()).thenReturn(
                 0L,                              //run(): runStartTime
                 0L,                              //frame 1's throttle() check: right on schedule
-                frameTimeNs + oversleepNs         //frame 2's throttle() check: 50ms late
+                frameTimeNs + oversleepNs,        //frame 1's sleep ends 50ms late
+                frameTimeNs + oversleepNs         //frame 2's throttle() check: still 50ms late
         );
         final Sleeper sleeper = mock(Sleeper.class);
         final FPSClock clock = new FPSClock(1, 1, timeSource, sleeper);
@@ -311,6 +312,19 @@ public class FPSClockTest {
 
         assertThrows(IllegalArgumentException.class, () -> clock.setSpeed(multiplier));
         assertEquals(1.0, clock.speed(), "unchanged");
+    }
+
+    @Test
+    void throttleForgivesDebtBeyondTheCatchUpLimitWhenTheSleepOverruns() throws InterruptedException {
+        final long frameTimeNs = 1_000_000_000L;
+        final long wokeAt = 10 * frameTimeNs; //asked to sleep 1 frame, woke 9 frames late
+        final TimeSource timeSource = mock(TimeSource.class);
+        when(timeSource.nanoTime()).thenReturn(0L, wokeAt);
+        final Sleeper sleeper = mock(Sleeper.class);
+        final FPSClock clock = new FPSClock(1, 1, timeSource, sleeper);
+
+        assertEquals(wokeAt - FPSClock.MAX_CATCH_UP_FRAMES * frameTimeNs, clock.throttle(0L));
+        verify(sleeper).sleepFor(frameTimeNs);
     }
 
     /**

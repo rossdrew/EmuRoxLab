@@ -8,11 +8,13 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 import javax.swing.event.AncestorEvent;
 import javax.swing.event.AncestorListener;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
@@ -26,7 +28,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.LongConsumer;
 
 /**
  * The actual "screen" a player would watch, as opposed to the {@code com.rox.ppu.debug} package's
@@ -49,6 +53,10 @@ public final class SwingVideoOutput implements VideoOutput {
     //a large explicit size, like the debug panels': Swing's default font is unreadably small on a
     //high-DPI display here
     private static final float TOOL_BUTTON_FONT_SIZE = 24f;
+    private static final float JITTER_FONT_SIZE = 18f;
+    private static final int JITTER_REFRESH_MILLIS = 1000;
+    /** {@code -Dframejitter.log=true} also prints the readout to stdout once a second, to compare runs. */
+    private static final boolean LOG_JITTER = Boolean.getBoolean("framejitter.log");
 
     private final BufferedImage image = new BufferedImage(WIDTH_PX, HEIGHT_PX, BufferedImage.TYPE_INT_RGB);
     private final JPanel canvas = new JPanel(){
@@ -59,8 +67,18 @@ public final class SwingVideoOutput implements VideoOutput {
             final Graphics2D g2 = (Graphics2D) g;
             g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
             g2.drawImage(image, rect[0], rect[1], rect[2], rect[3], null);
+            //a frame counts as shown once it's painted - Swing may delay or merge repaints, and repaints
+            //of an unchanged image (a resize, an expose) aren't new frames
+            if (imageChanged){
+                imageChanged = false;
+                final long now = System.nanoTime();
+                shown.record(now);
+                shownListener.accept(now);
+            }
         }
     };
+    //a new frame is in the image but not yet painted - EDT only
+    private boolean imageChanged;
     private final JFrame frame = new JFrame(TITLE);
     //present() is called once per emulated frame (~60/sec) from the clock thread, far faster than a
     //loaded EDT can necessarily keep up with - rather than queuing one invokeLater (and one retained
@@ -68,9 +86,22 @@ public final class SwingVideoOutput implements VideoOutput {
     //latest frame is kept and at most one render task is ever pending at a time
     private final AtomicReference<int[]> pendingFrame = new AtomicReference<>();
     private final AtomicBoolean renderPending = new AtomicBoolean(false);
+    //makes "set the latest frame, schedule a render if none is pending" and "take that frame, clear pending"
+    //atomic with each other - otherwise a frame presented between a render clearing pending and reading
+    //the frame is taken by that render and also schedules a second, redundant one
+    private final Object frameHandoff = new Object();
     //tool buttons and their hotkeys - EDT-only, like every other Swing interaction here
     private final JPanel toolBar = new JPanel(new FlowLayout(FlowLayout.RIGHT));
     private final Map<Integer, Runnable> hotkeys = new HashMap<>();
+    //frame-jitter readout: gaps between frames the emulation produced (clock thread) and between frames
+    //actually drawn (EDT), plus frames replaced by a newer one before the EDT got to them
+    private final FrameJitter produced = new FrameJitter();
+    private final FrameJitter shown = new FrameJitter();
+    private final AtomicInteger skipped = new AtomicInteger();
+    private final JLabel jitterLabel = new JLabel(" ");
+    private volatile LongConsumer producedListener = nanos -> { };
+    private volatile LongConsumer shownListener = nanos -> { };
+    private final Timer jitterTimer = new Timer(JITTER_REFRESH_MILLIS, e -> refreshJitter());
 
     /** The X button does nothing - see {@link #SwingVideoOutput(Runnable)} to opt into closing meaning something. */
     public SwingVideoOutput(){
@@ -86,7 +117,12 @@ public final class SwingVideoOutput implements VideoOutput {
     public SwingVideoOutput(final Runnable onClose){
         canvas.setPreferredSize(new Dimension(WIDTH_PX * SCALE, HEIGHT_PX * SCALE));
         frame.getContentPane().add(canvas, BorderLayout.CENTER);
-        frame.getContentPane().add(toolBar, BorderLayout.SOUTH);
+        jitterLabel.setFont(new Font(Font.MONOSPACED, Font.PLAIN, Math.round(JITTER_FONT_SIZE)));
+        final JPanel bottom = new JPanel(new BorderLayout());
+        bottom.add(jitterLabel, BorderLayout.WEST);
+        bottom.add(toolBar, BorderLayout.CENTER);
+        frame.getContentPane().add(bottom, BorderLayout.SOUTH);
+        jitterTimer.start();
         //hotkeys via a plain frame KeyListener - the same path controller input already takes, so they
         //work whenever the game itself is receiving keys
         frame.addKeyListener(new KeyAdapter(){
@@ -181,9 +217,16 @@ public final class SwingVideoOutput implements VideoOutput {
 
     @Override
     public void present(final int[] rgbFrame){
-        pendingFrame.set(rgbFrame);
-        if (renderPending.compareAndSet(false, true)){
-            SwingUtilities.invokeLater(this::renderPendingFrame);
+        final long now = System.nanoTime();
+        produced.record(now);
+        producedListener.accept(now);
+        synchronized (frameHandoff){
+            pendingFrame.set(rgbFrame);
+            if (renderPending.compareAndSet(false, true)){
+                SwingUtilities.invokeLater(this::renderPendingFrame);
+            } else {
+                skipped.incrementAndGet();
+            }
         }
     }
 
@@ -198,13 +241,48 @@ public final class SwingVideoOutput implements VideoOutput {
     }
 
     private void renderPendingFrame(){
-        renderPending.set(false);
-        image.setRGB(0, 0, WIDTH_PX, HEIGHT_PX, pendingFrame.get(), 0, WIDTH_PX);
+        final int[] frame;
+        synchronized (frameHandoff){
+            frame = pendingFrame.get();
+            renderPending.set(false);
+        }
+        if (imageChanged){
+            //the previous frame was never painted - its repaint was merged into this one
+            skipped.incrementAndGet();
+        }
+        image.setRGB(0, 0, WIDTH_PX, HEIGHT_PX, frame, 0, WIDTH_PX);
+        imageChanged = true;
         canvas.repaint();
+    }
+
+    /**
+     * Also hands each frame's {@link System#nanoTime()} to {@code produced} (on the clock thread, as the
+     * emulation finishes it) and to {@code shown} (on the EDT, once it has been painted) - e.g. for a live graph.
+     */
+    public void onFrameTimes(final LongConsumer produced, final LongConsumer shown){
+        producedListener = produced;
+        shownListener = shown;
+    }
+
+    /** EDT, once a second: the last second's frame timing under the game, in two lines. */
+    private void refreshJitter(){
+        final FrameJitter.Stats emu = produced.takeStats();
+        final FrameJitter.Stats drawn = shown.takeStats();
+        final int skippedFrames = skipped.getAndSet(0);
+        jitterLabel.setText("<html>emu&nbsp;&nbsp; " + emu.describe().replace(" ", "&nbsp;")
+                + "<br>shown " + drawn.describe().replace(" ", "&nbsp;") + "&nbsp;&nbsp;skipped " + skippedFrames + "</html>");
+        if (LOG_JITTER){
+            System.out.println("[frame jitter] emu " + emu.describe() + "  |  shown " + drawn.describe()
+                    + "  skipped " + skippedFrames);
+        }
     }
 
     /** Closes the window - the caller's responsibility, same as when to stop the emulation itself. */
     public void close(){
-        SwingUtilities.invokeLater(frame::dispose);
+        SwingUtilities.invokeLater(() -> {
+            //a running Timer keeps posting to the EDT, which would keep the JVM from exiting
+            jitterTimer.stop();
+            frame.dispose();
+        });
     }
 }
