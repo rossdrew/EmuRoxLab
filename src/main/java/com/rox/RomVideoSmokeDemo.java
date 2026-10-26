@@ -49,6 +49,7 @@ public final class RomVideoSmokeDemo {
     private static final int MEMORY_VIEWER_REFRESH_MILLIS = 250;
     /** Frame intervals each Roundabout frame-timing graph keeps: ten seconds at 60 fps. */
     private static final int ROUNDABOUT_FRAME_HISTORY = 600;
+    private static final float ROUNDABOUT_FRAME_BUDGET_MS = 1000 / 60f;
 
     private RomVideoSmokeDemo(){
     }
@@ -112,8 +113,8 @@ public final class RomVideoSmokeDemo {
         }
         attachKeyboardControllers(videoOutput, controllers);
         //frames finished by the emulation and frames drawn by Swing, for Roundabout's frame-timing graphs
-        final List<FrameTimes> frameTimings = List.of(new FrameTimes("emu frames", ROUNDABOUT_FRAME_HISTORY),
-                new FrameTimes("shown frames", ROUNDABOUT_FRAME_HISTORY));
+        final List<FrameTimes> frameTimings = List.of(new FrameTimes("emu frames", ROUNDABOUT_FRAME_HISTORY,
+                ROUNDABOUT_FRAME_BUDGET_MS), new FrameTimes("shown frames", ROUNDABOUT_FRAME_HISTORY, ROUNDABOUT_FRAME_BUDGET_MS));
         videoOutput.onFrameTimes(frameTimings.get(0)::record, frameTimings.get(1)::record);
         //added on the EDT once the NES exists, disposed alongside the video window - a visible JFrame keeps
         //a non-daemon EDT alive, so leaving one would hang the JVM on exit

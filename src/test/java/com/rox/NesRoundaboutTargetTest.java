@@ -6,9 +6,9 @@ import com.rox.clock.TickRateMonitor;
 import com.rox.cpu.mos6502.MOS6502Snapshot;
 import com.rox.debug.cpu.InstructionTrace;
 import com.rox.debug.labels.MemoryLabel;
+import com.rox.roundabout.data.AddressFormat;
 import com.rox.roundabout.debugger.DebugTarget;
 import com.rox.roundabout.data.FrameTimes;
-import com.rox.roundabout.debugger.NesMemoryMap;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -22,6 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_F;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_I;
 
 public class NesRoundaboutTargetTest {
     /** NROM, reset vector -> $9000: INX; STX $10; JMP $9000 (2 + 3 + 3 cycles per loop). PRG-ROM byte at $8000 is $42. */
@@ -101,13 +103,17 @@ public class NesRoundaboutTargetTest {
     public void cpuIsTheLiveRegisters(){
         final NES nes = nes();
         final NesRoundaboutTarget target = target(nes);
-        target.stepInstruction(); //INX
+        target.steps().get(1).run().run(); //INX
 
         final DebugTarget.CpuState cpu = target.cpu();
         final MOS6502Snapshot live = nes.cpu().liveState();
 
-        assertEquals(new DebugTarget.CpuState(0x9001, live.a(), 1, live.y(), live.stackPointer(),
-                NesRoundaboutTarget.status(live)), cpu);
+        final int p = NesRoundaboutTarget.status(live);
+        assertEquals(List.of(new DebugTarget.Register("PC", 0x9001, 16), new DebugTarget.Register("A", live.a(), 8),
+                new DebugTarget.Register("X", 1, 8), new DebugTarget.Register("Y", live.y(), 8),
+                new DebugTarget.Register("SP", live.stackPointer(), 8), new DebugTarget.Register("P", p, 8)),
+                cpu.registers());
+        assertEquals(DebugTarget.Flag.fromBits("NV-BDIZC", p), cpu.flags());
     }
 
     @Test
@@ -143,10 +149,22 @@ public class NesRoundaboutTargetTest {
     }
 
     @Test
+    public void stepsAreFrameThenInstructionOnFAndI(){
+        final List<DebugTarget.Step> steps = target(nes()).steps();
+
+        assertEquals(List.of("Step frame", "Step instr"), steps.stream().map(DebugTarget.Step::label).toList());
+        assertEquals(List.of(GLFW_KEY_F, GLFW_KEY_I), steps.stream().map(DebugTarget.Step::key).toList());
+    }
+
+    @Test
+    public void addressesAreWrittenTheAssemblerWay(){
+        assertEquals(AddressFormat.Style.MOTOROLA, target(nes()).numberStyle());
+    }
+
+    @Test
     public void stepFrameRunsAFrame(){
         final NES nes = nes();
-
-        target(nes).stepFrame();
+        target(nes).steps().get(0).run().run();
 
         assertTrue(nes.tickRateMonitor().ticks() > 20_000, "ran (most of) a frame - the first frame starts mid-way");
     }
@@ -156,7 +174,7 @@ public class NesRoundaboutTargetTest {
         final NES nes = nes();
         final NesRoundaboutTarget target = target(nes);
         for (int i = 0; i < 1234; i++){
-            target.stepInstruction();
+            target.steps().get(1).run().run();
         }
 
         assertEquals("1,234 instructions  ·  0.000 MHz (0%)", target.status(),
@@ -180,8 +198,8 @@ public class NesRoundaboutTargetTest {
 
     @Test
     public void offersTheFrameTimingStreamsItWasGiven(){
-        final FrameTimes emu = new FrameTimes("emu frames", 10);
-        final FrameTimes shown = new FrameTimes("shown frames", 10);
+        final FrameTimes emu = new FrameTimes("emu frames", 10, 16);
+        final FrameTimes shown = new FrameTimes("shown frames", 10, 16);
 
         assertEquals(List.of(emu, shown), new NesRoundaboutTarget(nes(), List.of(), List.of(emu, shown)).frameTimings());
         assertEquals(List.of(), target(nes()).frameTimings());
