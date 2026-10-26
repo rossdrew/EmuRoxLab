@@ -75,7 +75,7 @@ dependencies {
     implementation("io.github.andrewauclair:modern-docking-single-app:1.4.9")
     implementation("io.github.andrewauclair:modern-docking-ui:1.4.9")
     //Roundabout debugger window (Skija + LWJGL), github.com/rossdrew/roundabout
-    implementation("com.rox:roundabout:0.1.0")
+    implementation("com.rox:roundabout:0.2.0")
 
     testImplementation(platform("org.junit:junit-bom:6.0.0"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.12.2")
