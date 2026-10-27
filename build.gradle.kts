@@ -12,8 +12,8 @@ version = "1.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
-    //Roundabout, on GitHub Packages - reading needs a token with read:packages, from gpr.user/gpr.key in
-    //~/.gradle/gradle.properties locally, or GITHUB_ACTOR/GITHUB_TOKEN in CI
+    //Roundabout, on GitHub Packages - public, but reading still needs a token with read:packages: from
+    //gpr.user/gpr.key in ~/.gradle/gradle.properties locally, or GITHUB_ACTOR/GITHUB_TOKEN in CI
     maven {
         url = uri("https://maven.pkg.github.com/rossdrew/roundabout")
         credentials {
