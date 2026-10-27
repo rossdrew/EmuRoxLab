@@ -22,11 +22,12 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
-# Roundabout comes from GitHub Packages in the private rossdrew/roundabout repo. Maven packages follow their
-# repo's permissions, so this workflow's own token can't read it: a classic PAT with read:packages can
+# Roundabout comes from GitHub Packages (public rossdrew/roundabout), which still needs a token to read;
+# this workflow's own token with packages: read is enough
 env:
-  GITHUB_TOKEN: ${{ secrets.ROUNDABOUT_PACKAGES_TOKEN }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   build:
@@ -89,6 +90,7 @@ jobs:
 
     permissions:
       contents: read
+      packages: read
       pages: write
       id-token: write
 
@@ -135,6 +137,7 @@ jobs:
 
     permissions:
       contents: write
+      packages: read
 
     steps:
       - name: Checkout
