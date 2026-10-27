@@ -2,11 +2,12 @@ package com.rox;
 
 import com.rox.cpu.mos6502.MOS6502Snapshot;
 import com.rox.debug.labels.MemoryLabel;
-import com.rox.roundabout.data.AddressFormat;
-import com.rox.roundabout.data.FrameTimes;
-import com.rox.roundabout.data.MemoryRegion;
-import com.rox.roundabout.data.MemorySource;
 import com.rox.roundabout.debugger.DebugTarget;
+import com.rox.roundabout.memory.AddressFormat;
+import com.rox.roundabout.memory.MemoryRegion;
+import com.rox.roundabout.memory.MemorySource;
+import com.rox.roundabout.memory.NamedAddress;
+import com.rox.roundabout.timing.FrameTimes;
 
 import java.util.List;
 import java.util.Locale;
@@ -25,7 +26,7 @@ final class NesRoundaboutTarget implements DebugTarget, MemorySource {
 
     private final NesMemoryDebugSource memory;
     private final NesCpuDebugSource cpu;
-    private final List<Label> labels;
+    private final List<NamedAddress> labels;
     private final List<FrameTimes> frameTimings;
     private final List<Step> steps;
 
@@ -36,7 +37,7 @@ final class NesRoundaboutTarget implements DebugTarget, MemorySource {
     NesRoundaboutTarget(final NES nes, final List<MemoryLabel> labels, final List<FrameTimes> frameTimings){
         this.memory = new NesMemoryDebugSource(nes);
         this.cpu = new NesCpuDebugSource(nes);
-        this.labels = labels.stream().map(l -> new Label(l.name(), l.start())).toList();
+        this.labels = labels.stream().map(l -> new NamedAddress(l.name(), l.start())).toList();
         this.frameTimings = List.copyOf(frameTimings);
         this.steps = List.of(new Step("Step frame", GLFW_KEY_F, cpu::stepFrame),
                 new Step("Step instr", GLFW_KEY_I, cpu::stepInstruction));
@@ -59,7 +60,7 @@ final class NesRoundaboutTarget implements DebugTarget, MemorySource {
     }
 
     @Override
-    public List<Label> labels(){
+    public List<NamedAddress> labels(){
         return labels;
     }
 

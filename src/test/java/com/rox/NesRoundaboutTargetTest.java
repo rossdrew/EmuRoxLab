@@ -6,9 +6,10 @@ import com.rox.clock.TickRateMonitor;
 import com.rox.cpu.mos6502.MOS6502Snapshot;
 import com.rox.debug.cpu.InstructionTrace;
 import com.rox.debug.labels.MemoryLabel;
-import com.rox.roundabout.data.AddressFormat;
 import com.rox.roundabout.debugger.DebugTarget;
-import com.rox.roundabout.data.FrameTimes;
+import com.rox.roundabout.memory.AddressFormat;
+import com.rox.roundabout.memory.NamedAddress;
+import com.rox.roundabout.timing.FrameTimes;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -95,7 +96,7 @@ public class NesRoundaboutTargetTest {
         final NesRoundaboutTarget target = new NesRoundaboutTarget(nes(),
                 List.of(new MemoryLabel("rupees", 0x066D, 1), new MemoryLabel("score", 0x0070, 3)));
 
-        assertEquals(List.of(new DebugTarget.Label("rupees", 0x066D), new DebugTarget.Label("score", 0x0070)),
+        assertEquals(List.of(new NamedAddress("rupees", 0x066D), new NamedAddress("score", 0x0070)),
                 target.labels());
     }
 

@@ -19,7 +19,7 @@ import com.rox.input.ControllerConfiguration;
 import com.rox.input.KeyboardController;
 import com.rox.save.BatterySaveManager;
 import com.rox.save.SavePaths;
-import com.rox.roundabout.data.FrameTimes;
+import com.rox.roundabout.timing.FrameTimes;
 import com.rox.roundabout.debugger.MemoryDebugger;
 import com.rox.video.SwingVideoOutput;
 import io.github.andrewauclair.moderndocking.ext.ui.DockingUI;
