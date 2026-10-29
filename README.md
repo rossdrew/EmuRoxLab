@@ -2,7 +2,7 @@
 
 [![Build Status](https://github.com/rossdrew/EmuRoxLab/actions/workflows/gradle.yml/badge.svg)](https://github.com/rossdrew/EmuRoxLab/actions/workflows/gradle.yml)
 [![Code Coverage](https://codecov.io/github/rossdrew/EmuRoxLab/graph/badge.svg)](https://codecov.io/github/rossdrew/EmuRoxLab)
-[![Mutation Coverage](https://img.shields.io/endpoint?url=https://rossdrew.github.io/EmuRoxLab/pitest.json)](https://rossdrew.github.io/EmuRoxLab/pitest/)
+[![Mutation Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rossdrew/EmuRoxLab/badges/pitest.json)](https://rossdrew.github.io/EmuRoxLab/pitest/)
 
 [EmuRox](https://github.com/rossdrew/emuRox) has gotten a little behind the times and I'm now faced with two issues on that repo
  1. Bringing everything up to date so that it works
@@ -60,7 +60,7 @@ We have a fully functioning emulator for certain mappers and lots of bugs. I'm p
 # The Build System
 1. Builds the code using Gradle and Kotlin
 2. Uses JaCoCo to build code coverage data and Codecov to build a report from it
-3. Uses pitest and a custom embedded Kotlin script to build a badge 
+3. Uses pitest for mutation testing, with the badge and report published by [Pitest Badge](https://github.com/marketplace/actions/pitest-badge)
    1. only runs manually or when '+fullBuild' is in the commit message
    2. expensive so can be run on a subset using `-PpitestScope=com.rox.apu.*` 
 4. Will skip builds on non code changes

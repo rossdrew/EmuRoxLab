@@ -19,6 +19,7 @@ on:
       - "gradle/**"
       - "gradlew"
       - ".github/workflows/**"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -88,16 +89,6 @@ jobs:
     continue-on-error: true
     if: contains(github.event.head_commit.message, '+fullBuild') || github.event_name == 'workflow_dispatch'
 
-    permissions:
-      contents: read
-      packages: read
-      pages: write
-      id-token: write
-
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -114,20 +105,57 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
 
-      - name: Generate PIT badge and report
-        run: ./gradlew pitestBadge
+      - name: Mutation tests
+        run: ./gradlew pitest
 
-      - name: Prepare PIT Pages site
-        run: |
-          mkdir -p public/pitest
-          cp badges/pitest.json public/pitest.json
-          cp -r build/reports/pitest/* public/pitest/
-
-      - name: Upload PIT report to Pages
-        uses: actions/upload-pages-artifact@v4
+      # even when the score is under mutationThreshold, so the badge shows the drop
+      - name: Upload PIT report
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          path: public
+          name: pitest-report
+          path: build/reports/pitest
 
+  # main only: the badge (badges branch) and the report site for Pages. A job of its own, so the
+  # token that can push never meets the build or its dependencies
+  badge:
+    runs-on: ubuntu-latest
+    needs: mutation
+    continue-on-error: true
+    if: github.ref == 'refs/heads/main'
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download PIT report
+        uses: actions/download-artifact@v4
+        with:
+          name: pitest-report
+          path: pitest
+
+      - name: Badge and report site
+        uses: rossdrew/PitestCI@v1
+        with:
+          reports: pitest/mutations.xml
+          report: true
+          publish: true
+
+  # the report at https://rossdrew.github.io/EmuRoxLab/pitest/
+  pages:
+    runs-on: ubuntu-latest
+    needs: badge
+    continue-on-error: true
+
+    permissions:
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
       - name: Deploy PIT report to Pages
         id: deployment
         uses: actions/deploy-pages@v4

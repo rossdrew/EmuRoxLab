@@ -1,6 +1,3 @@
-import javax.xml.parsers.DocumentBuilderFactory
-import kotlin.math.roundToInt
-
 plugins {
     id("java")
     id("jacoco") //test coverage
@@ -146,57 +143,5 @@ tasks.jacocoTestReport {
         html.required = true
         xml.required = true
         csv.required = false
-    }
-}
-
-tasks.register("pitestBadge") {
-    description = "Substitute for the lack of a Pitest report service"
-    dependsOn("pitest")
-
-    doLast {
-        val mutations = DocumentBuilderFactory.newInstance()
-            .newDocumentBuilder()
-            .parse(file("build/reports/pitest/mutations.xml"))
-            .getElementsByTagName("mutation")
-
-        val statuses = (0 until mutations.length)
-            .map { mutations.item(it) }
-            .map {
-                it.attributes
-                    .getNamedItem("status")
-                    .nodeValue
-            }
-
-        //Pitest's own "detected" statuses (DetectionStatus.isDetected() in Pitest 1.22.1) - the mutants a test
-        //actually caught. Counting everything but NO_COVERAGE instead also counted SURVIVED mutants: code
-        //the tests run but wouldn't notice breaking, which overstated the score
-        val detectedStatuses = setOf("KILLED", "TIMED_OUT", "NON_VIABLE", "MEMORY_ERROR", "RUN_ERROR")
-        val total = statuses.size
-        val detected = statuses.count { it in detectedStatuses }
-
-        val score = if (total == 0) 0 else
-            ((detected.toDouble() / total) * 100).roundToInt()
-
-        val color = when {
-            score >= 80 -> "brightgreen"
-            score >= 60 -> "yellow"
-            else -> "red"
-        }
-
-        val badgeJson = """
-        {
-          "schemaVersion": 1,
-          "label": "mutation coverage",
-          "message": "$score%",
-          "color": "$color"
-        }
-        """.trimIndent()
-
-        val badgesDir = file("badges")
-        badgesDir.mkdirs()
-
-        file("badges/pitest.json").writeText(badgeJson)
-
-        println("Mutation coverage: $score%")
     }
 }
