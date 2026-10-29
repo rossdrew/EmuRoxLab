@@ -3,6 +3,7 @@
 [![Build Status](https://github.com/rossdrew/EmuRoxLab/actions/workflows/gradle.yml/badge.svg)](https://github.com/rossdrew/EmuRoxLab/actions/workflows/gradle.yml)
 [![Code Coverage](https://codecov.io/github/rossdrew/EmuRoxLab/graph/badge.svg)](https://codecov.io/github/rossdrew/EmuRoxLab)
 [![Mutation Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/rossdrew/EmuRoxLab/badges/pitest.json)](https://rossdrew.github.io/EmuRoxLab/pitest/)
+![AI Powered](https://img.shields.io/badge/AI%20Powered-blue)
 
 [EmuRox](https://github.com/rossdrew/emuRox) has gotten a little behind the times and I'm now faced with two issues on that repo
  1. Bringing everything up to date so that it works
