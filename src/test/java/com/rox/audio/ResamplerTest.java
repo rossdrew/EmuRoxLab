@@ -146,4 +146,43 @@ public class ResamplerTest {
             }
         }
     }
+
+    // --- setInputRate ---
+
+    @Test
+    public void aNewInputRateAppliesFromTheNextWindow(){
+        final Resampler resampler = new Resampler(10, 3); //windows 3,3,4,...
+        resampler.accept(1.0); //1 of the current 3-sample window
+
+        resampler.setInputRate(20); //6 and two-thirds a window from now on
+
+        assertEquals(2, windowSizeOf(resampler, 1.0), "the window in progress finishes at its old size");
+        //the fractional remainder already built up carries over, so the new 6,7,7 cycle starts part-way through
+        assertEquals(7, windowSizeOf(resampler, 1.0));
+        assertEquals(6, windowSizeOf(resampler, 1.0));
+        assertEquals(7, windowSizeOf(resampler, 1.0));
+    }
+
+    @Test
+    public void aNewInputRateKeepsTheLongRunAverageExact(){
+        final Resampler resampler = new Resampler(10, 3);
+        resampler.setInputRate(20);
+
+        int consumed = 0;
+        for (int output = 0; output < 9; output++){
+            consumed += windowSizeOf(resampler, 1.0);
+        }
+
+        //the constructor's first window (3) was already sized; the 8 after it average 20/3 each, remainder carried
+        assertEquals(3 + 7 + 6 + 7 + 7 + 6 + 7 + 7 + 6, consumed);
+    }
+
+    @Test
+    public void setInputRateRejectsWhatTheConstructorDoes(){
+        final Resampler resampler = new Resampler(10, 3);
+
+        assertThrows(IllegalArgumentException.class, () -> resampler.setInputRate(0));
+        assertThrows(IllegalArgumentException.class, () -> resampler.setInputRate(2));
+        assertEquals(3, windowSizeOf(resampler, 1.0), "unchanged after a rejected rate");
+    }
 }

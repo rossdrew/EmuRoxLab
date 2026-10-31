@@ -68,6 +68,16 @@ final class NesCpuDebugSource implements CpuDebugSource {
     }
 
     @Override
+    public double speed(){
+        return nes.speed();
+    }
+
+    @Override
+    public void setSpeed(final double multiplier){
+        nes.setSpeed(multiplier);
+    }
+
+    @Override
     public boolean pause(){
         return nes.pause();
     }
