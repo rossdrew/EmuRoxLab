@@ -206,7 +206,8 @@ public final class RomVideoSmokeDemo {
     private static void flagIssue(final NES nes, final SwingVideoOutput videoOutput, final Path romPath){
         //already paused from the CPU state window: capture there, and leave it paused afterwards
         final boolean alreadyPaused = nes.isPaused();
-        if (!alreadyPaused && !nes.pause()){
+        //at a frame's end, so the captured state matches the screenshot
+        if (!alreadyPaused && !nes.pause(NES.PauseAt.END_OF_FRAME)){
             return; //nothing running to flag - not started yet, or already shutting down
         }
         final DebugReport report;

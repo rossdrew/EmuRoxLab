@@ -10,7 +10,7 @@ public interface Clock {
     void removeListener(final ClockWatcher listener);
     /** Inform all {@link ClockWatcher}s of a <cc>tick()</cc> event **/
     void tick();
-    /** Returns the number of {@link ClockWatcher}s on this {@link Ticker} **/
+    /** Returns the number of {@link ClockWatcher}s on this {@link Clock} **/
     int listeners();
 
     void run();
@@ -31,13 +31,21 @@ public interface Clock {
     boolean isRunning();
 
     /**
-     * Freeze a running {@link #run()} loop without ending it, blocking until it has genuinely stopped
-     * ticking - so on {@code true} the caller may safely {@link #tick()} it by hand until {@link #resume()}.
+     * Freeze a running {@link #run()} loop without ending it, after the tick in progress, blocking until it has
+     * genuinely stopped ticking - so on {@code true} the caller may safely {@link #tick()} it by hand until
+     * {@link #resume()}. Never call it from a {@link ClockWatcher}: use {@link #requestPause()}.
      *
      * @return false if there was nothing to pause (not running, or stopped while waiting)
      */
     default boolean pause(){
         return false;
+    }
+
+    /**
+     * {@link #pause()} without waiting: a running {@link #run()} loop parks after the tick in progress. Safe from a
+     * {@link ClockWatcher}, on {@code run()}'s own thread.
+     */
+    default void requestPause(){
     }
 
     /** Let a {@link #pause()}d {@link #run()} loop carry on; does nothing if it isn't paused. */

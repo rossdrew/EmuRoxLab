@@ -623,7 +623,66 @@ public class FPSClockTest {
     }
 
     @Test
-    void pauseBlocksUntilTheCurrentFrameHasFinished() throws InterruptedException {
+    void pauseParksAfterTheTickInProgressRatherThanTheRestOfTheFrame() throws InterruptedException {
+        final FPSClock clock = new FPSClock(1_000, 1, () -> 0L, mock(Sleeper.class)); //1000 ticks a frame
+        final AtomicLong ticks = new AtomicLong();
+        final Thread pauser = new Thread(clock::pause, "pauser");
+        clock.addListener(() -> {
+            if (ticks.incrementAndGet() == 10){
+                pauser.start();
+                awaitBlocked(pauser); //pause() has asked, mid-frame
+            }
+        });
+        final Thread runThread = new Thread(clock::run, "clock-run");
+        runThread.start();
+
+        joinOrFail(pauser);
+        assertEquals(10, ticks.get(), "parks straight after the tick that was running, not 990 ticks later");
+
+        clock.stop();
+        joinOrFail(runThread);
+    }
+
+    @Test
+    void requestPauseFromAListenerParksAfterThatTickWithoutBlockingIt() throws InterruptedException {
+        final FPSClock clock = new FPSClock(1_000, 1, () -> 0L, mock(Sleeper.class));
+        final AtomicLong ticks = new AtomicLong();
+        clock.addListener(() -> {
+            if (ticks.incrementAndGet() == 10){
+                clock.requestPause();
+            }
+        });
+        final Thread runThread = new Thread(clock::run, "clock-run");
+        runThread.start();
+
+        awaitBlocked(runThread);
+        assertEquals(10, ticks.get());
+        assertTrue(clock.pause(), "already parked");
+
+        clock.resume();
+        awaitTrue(() -> ticks.get() > 10, "ticking to carry on after resume()");
+        clock.stop();
+        joinOrFail(runThread);
+    }
+
+    @Test
+    void requestPauseWhenNotRunningDoesNothing() throws InterruptedException {
+        final FPSClock clock = unthrottledClock();
+        final AtomicLong ticks = new AtomicLong();
+        clock.addListener(() -> {
+            if (ticks.incrementAndGet() > 2){
+                clock.stop();
+            }
+        });
+        clock.requestPause();
+
+        clock.run(); //would park on its first frame if the request had stuck
+
+        assertEquals(3, ticks.get());
+    }
+
+    @Test
+    void pauseBlocksUntilTheTickInProgressHasFinished() throws InterruptedException {
         final FPSClock clock = unthrottledClock();
         final AtomicBoolean pauseReturned = new AtomicBoolean();
         final AtomicBoolean pauseReturnedMidFrame = new AtomicBoolean();
@@ -635,7 +694,7 @@ public class FPSClockTest {
         clock.addListener(() -> {
             if (firstTick.getAndSet(false)){
                 pauser.start();
-                awaitBlocked(pauser); //pause() is now waiting, while this frame is still mid-tick
+                awaitBlocked(pauser); //pause() is now waiting, while this tick is still running
                 pauseReturnedMidFrame.set(pauseReturned.get());
             }
         });
@@ -643,7 +702,7 @@ public class FPSClockTest {
         runThread.start();
 
         joinOrFail(pauser);
-        assertFalse(pauseReturnedMidFrame.get(), "pause() must not return while a frame is still ticking");
+        assertFalse(pauseReturnedMidFrame.get(), "pause() must not return while a tick is still running");
         assertTrue(pauseReturned.get());
 
         clock.stop();
