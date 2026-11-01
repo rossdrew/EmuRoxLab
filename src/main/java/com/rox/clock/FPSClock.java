@@ -323,12 +323,6 @@ public class FPSClock implements Clock, AutoCloseable {
         this.listeners.remove(listener);
     }
 
-    public void tick(final long count){
-        for (long i = 0; i < count; i++){
-            tick();
-        }
-    }
-
     public void tick(){
         listeners.forEach(ClockWatcher::tick);
     }
