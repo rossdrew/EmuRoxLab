@@ -1,6 +1,7 @@
 package com.rox.debug.cpu;
 
 import com.rox.cpu.mos6502.MOS6502Snapshot;
+import com.rox.debug.breakpoints.Breakpoints;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -24,6 +25,8 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.FontMetrics;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.math.BigDecimal;
 import java.util.EnumMap;
 import java.util.List;
@@ -32,7 +35,7 @@ import java.util.Map;
 /**
  * Live CPU state - registers, flags, clock rate, recent and upcoming instructions (all rendered by
  * {@link CpuStateText#panel}) - plus Pause/Resume, and while paused, Step instruction, Step frame
- * and Step N cycles. {@link #refresh()} is the caller's to drive (e.g. from a Swing Timer); EDT only.
+ * and Step N cycles. Double-click an instruction to set or clear a breakpoint on it. {@link #refresh()} is the caller's to drive (e.g. from a Swing Timer); EDT only.
  */
 public final class CpuStatePanel extends JPanel {
     static final int UPCOMING_INSTRUCTION_COUNT = 10;
@@ -63,6 +66,14 @@ public final class CpuStatePanel extends JPanel {
         super(new BorderLayout());
         this.source = source;
         text.setEditable(false);
+        text.addMouseListener(new MouseAdapter(){
+            @Override
+            public void mouseClicked(final MouseEvent e){
+                if (e.getClickCount() == 2){
+                    toggleBreakpointAt(text.viewToModel2D(e.getPoint()));
+                }
+            }
+        });
         final Font font = new Font(Font.MONOSPACED, Font.PLAIN, FONT_SIZE);
         text.setFont(font);
         final JScrollPane scrollPane = new JScrollPane(text);
@@ -129,6 +140,29 @@ public final class CpuStatePanel extends JPanel {
         stepFrame.setEnabled(paused);
         stepCycles.setEnabled(paused);
         cycleCount.setEnabled(paused);
+    }
+
+    /** Sets or clears a breakpoint on the instruction at {@code offset} in the text, if that line is one. */
+    private void toggleBreakpointAt(final int offset){
+        final String content;
+        try {
+            //the document's own text: its offsets are the ones viewToModel2D gives
+            content = text.getDocument().getText(0, text.getDocument().getLength());
+        } catch (BadLocationException e){
+            throw new IllegalStateException(e); //can't happen: the whole document
+        }
+        final int lineStart = content.lastIndexOf('\n', offset - 1) + 1;
+        final int newline = content.indexOf('\n', offset);
+        final String line = content.substring(lineStart, newline < 0 ? content.length() : newline);
+        CpuStateText.instructionAddress(line).ifPresent(address -> {
+            final Breakpoints breakpoints = source.breakpoints();
+            if (breakpoints.breakpoints().contains(address)){
+                breakpoints.removeBreakpoint(address);
+            } else {
+                breakpoints.addBreakpoint(address);
+            }
+            refresh();
+        });
     }
 
     /** Colours for a light background; backgrounds mark the current instruction and changed values. */
