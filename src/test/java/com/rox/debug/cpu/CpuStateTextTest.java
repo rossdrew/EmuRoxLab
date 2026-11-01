@@ -69,6 +69,8 @@ public class CpuStateTextTest {
             @Override public double measuredHz(){ return 1_789_773; }
             @Override public double speed(){ return 1; }
             @Override public void setSpeed(final double multiplier){ }
+            @Override public com.rox.debug.breakpoints.Breakpoints breakpoints(){ return new com.rox.debug.breakpoints.Breakpoints(); }
+            @Override public java.util.Optional<com.rox.debug.breakpoints.BreakHit> lastHit(){ return java.util.Optional.empty(); }
             @Override public long intendedHz(){ return 1_789_773; }
             @Override public boolean pause(){ return true; }
             @Override public void resume(){ }
@@ -137,6 +139,8 @@ public class CpuStateTextTest {
             @Override public double measuredHz(){ return 0; }
             @Override public double speed(){ return 1; }
             @Override public void setSpeed(final double multiplier){ }
+            @Override public com.rox.debug.breakpoints.Breakpoints breakpoints(){ return new com.rox.debug.breakpoints.Breakpoints(); }
+            @Override public java.util.Optional<com.rox.debug.breakpoints.BreakHit> lastHit(){ return java.util.Optional.empty(); }
             @Override public long intendedHz(){ return 1; }
             @Override public boolean pause(){ return true; }
             @Override public void resume(){ }
