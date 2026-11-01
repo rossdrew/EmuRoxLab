@@ -4,6 +4,7 @@ import com.formdev.flatlaf.FlatDarkLaf;
 import com.rox.cartridge.Cartridge;
 import com.rox.cartridge.RomLoader;
 import com.rox.debug.DockedDebugWindow;
+import com.rox.debug.breakpoints.BreakpointsPanel;
 import com.rox.debug.cpu.CpuStatePanel;
 import com.rox.debug.labels.FileLabelStore;
 import com.rox.debug.labels.LabelFileException;
@@ -132,11 +133,16 @@ public final class RomVideoSmokeDemo {
                 final MemoryViewerPanel memoryViewerPanel = new MemoryViewerPanel(new NesMemoryDebugSource(nes));
                 final LabelWatchPanel labelWatchPanel = new LabelWatchPanel(new LabelWatchModel(
                         new FileLabelStore(SavePaths.labelsFile(romPath)), new NesLabelWatchTarget(nes)));
+                final BreakpointsPanel breakpointsPanel = new BreakpointsPanel(nes.breakpoints(), nes::lastHit,
+                        new FileLabelStore(SavePaths.labelsFile(romPath)));
                 final DockedDebugWindow debugger = new DockedDebugWindow("EmuRoxLab - Debugger", List.of(
                         new DockedDebugWindow.Panel("cpu", "CPU state", cpuStatePanel, cpuStatePanel::refresh, CPU_STATE_REFRESH_MILLIS),
                         new DockedDebugWindow.Panel("memory", "Memory", memoryViewerPanel, memoryViewerPanel::refresh, MEMORY_VIEWER_REFRESH_MILLIS),
-                        new DockedDebugWindow.Panel("watch", "Watch", labelWatchPanel, labelWatchPanel::refresh, MEMORY_VIEWER_REFRESH_MILLIS)));
+                        new DockedDebugWindow.Panel("watch", "Watch", labelWatchPanel, labelWatchPanel::refresh, MEMORY_VIEWER_REFRESH_MILLIS),
+                        new DockedDebugWindow.Panel("breakpoints", "Breakpoints", breakpointsPanel, breakpointsPanel::refresh,
+                                CPU_STATE_REFRESH_MILLIS)));
                 debugFrames.add(debugger);
+                videoOutput.addToolButton("Breakpoints (F7)", KeyEvent.VK_F7, () -> debugger.showPanel("breakpoints"));
                 videoOutput.addToolButton("Roundabout (F8)", KeyEvent.VK_F8, () -> openRoundabout(nes, romPath, frameTimings, roundabout));
                 videoOutput.addToolButton("Watch (F9)", KeyEvent.VK_F9, () -> debugger.showPanel("watch"));
                 videoOutput.addToolButton("Memory (F10)", KeyEvent.VK_F10, () -> debugger.showPanel("memory"));
