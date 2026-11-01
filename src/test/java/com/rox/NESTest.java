@@ -3,6 +3,8 @@ package com.rox;
 import com.rox.apu.APU;
 import com.rox.audio.AudioOutput;
 import com.rox.cartridge.Cartridge;
+import com.rox.debug.breakpoints.BreakHit;
+import com.rox.debug.breakpoints.WatchKind;
 import com.rox.cartridge.NromMapperSnapshot;
 import com.rox.clock.Clock;
 import com.rox.clock.FPSClock;
@@ -15,6 +17,7 @@ import com.rox.save.SystemSnapshot;
 import com.rox.video.VideoOutput;
 import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.rox.RecordAssertions.assertRecordsEqual;
@@ -710,6 +713,92 @@ public class NESTest {
         nes.stepCycles(100);
 
         assertEquals(before + 100, ticks.get());
+    }
+
+    // --- breakpoints ---
+
+    /** $9000: NOP; NOP; JMP $9000. */
+    private static Cartridge nopLoopCartridge(){
+        return TestRoms.nrom().at(0x9000, 0xEA, 0xEA, 0x4C, 0x00, 0x90).resetVector(0x9000).cartridge();
+    }
+
+    @Test
+    public void aBreakpointStopsAStepWithThePcOnIt(){
+        final NES nes = manuallyTickedNes(nopLoopCartridge());
+        nes.breakpoints().addBreakpoint(0x9001);
+
+        nes.stepFrame();
+
+        assertEquals(0x9001, nes.cpu().programCounter());
+        assertTrue(nes.cpu().isAtInstructionBoundary());
+        assertEquals(Optional.of(new BreakHit(BreakHit.Cause.BREAKPOINT, 0x9001, 0, 0x9001)), nes.lastHit());
+    }
+
+    @Test
+    public void aWatchedWriteStopsAStepOnceTheWritingInstructionFinishes(){
+        final NES nes = manuallyTickedNes(busyLoopCartridge(0)); //$9000: INX; $9001: STX $10; $9003: STX $2001...
+        nes.breakpoints().addWatch(0x0810, WatchKind.WRITE); //a mirror of $10
+
+        nes.stepFrame();
+
+        assertEquals(Optional.of(new BreakHit(BreakHit.Cause.WRITE, 0x0010, 1, 0x9001)), nes.lastHit());
+        assertEquals(0x9003, nes.cpu().programCounter());
+        assertTrue(nes.cpu().isAtInstructionBoundary());
+    }
+
+    @Test
+    public void aWatchedReadStopsAStep(){
+        final NES nes = manuallyTickedNes(nopLoopCartridge());
+        nes.breakpoints().addWatch(0x9002, WatchKind.READ); //JMP's opcode fetch
+
+        nes.stepFrame();
+
+        assertEquals(BreakHit.Cause.READ, nes.lastHit().orElseThrow().cause());
+        assertEquals(0x9000, nes.cpu().programCounter(), "after the JMP");
+    }
+
+    @Test
+    public void noBreakpointsMeansNoHit(){
+        final NES nes = manuallyTickedNes(nopLoopCartridge());
+
+        nes.stepFrame();
+
+        assertEquals(Optional.empty(), nes.lastHit());
+    }
+
+    @Test
+    public void aBreakpointPausesARunningNesAndResumeClearsTheHitAndCarriesOn() throws InterruptedException {
+        final AudioOutput audioOutput = mock(AudioOutput.class);
+        final NES nes = new NES(audioOutput, nopLoopCartridge());
+        nes.breakpoints().addBreakpoint(0x9001);
+        final Thread thread = new Thread(nes::powerOn);
+        thread.start();
+        try {
+            awaitPaused(nes);
+            assertEquals(0x9001, nes.cpu().programCounter());
+            assertEquals(BreakHit.Cause.BREAKPOINT, nes.lastHit().orElseThrow().cause());
+            verify(audioOutput).pause();
+
+            nes.breakpoints().removeBreakpoint(0x9001);
+            nes.breakpoints().addBreakpoint(0x9002);
+            nes.resume();
+            assertEquals(Optional.empty(), nes.lastHit());
+
+            awaitPaused(nes);
+            assertEquals(0x9002, nes.cpu().programCounter(), "ran on to the next breakpoint");
+        } finally {
+            nes.powerOff();
+            thread.join(5000);
+        }
+        assertFalse(thread.isAlive());
+    }
+
+    private static void awaitPaused(final NES nes){
+        final long deadline = System.currentTimeMillis() + 5000;
+        while (!nes.isPaused() && System.currentTimeMillis() < deadline){
+            Thread.onSpinWait();
+        }
+        assertTrue(nes.isPaused(), "a breakpoint should have paused it");
     }
 
     /** A breakpoint's case: the clock's own thread asks, so it can't wait - the run must still park, and resume. */

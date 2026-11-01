@@ -9,6 +9,8 @@ import com.rox.clock.Clock;
 import com.rox.clock.FPSClock;
 import com.rox.clock.TickRateMonitor;
 import com.rox.cpu.mos6502.MOS6502;
+import com.rox.debug.breakpoints.BreakHit;
+import com.rox.debug.breakpoints.Breakpoints;
 import com.rox.debug.cpu.InstructionTrace;
 import com.rox.debug.memory.MemoryEditor;
 import com.rox.input.ControllerConfiguration;
@@ -21,6 +23,7 @@ import com.rox.video.VideoOutput;
 
 import javax.sound.sampled.LineUnavailableException;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.zip.CRC32;
 
@@ -66,6 +69,7 @@ public class NES {
     private final TickRateMonitor tickRateMonitor;
     private final MemoryEditor memoryEditor;
     private final InstructionTrace instructionTrace;
+    private final Breakpoints breakpoints = new Breakpoints();
     private final Resampler resampler;
     private final VideoOutput videoOutput;
     private final ControllerConfiguration controllers;
@@ -89,6 +93,8 @@ public class NES {
     private PauseAt pendingPause;
     /** A {@link #pendingPause} has stopped the ticks being run by hand - ticking thread only. */
     private boolean handTicksPaused;
+    /** What the last {@link #breakpoints} stop was, until {@link #resume()}. */
+    private volatile BreakHit lastHit;
 
     public NES(final Cartridge cartridge) throws LineUnavailableException {
         this(new SpeakerAudioOutput(), VideoOutput.NO_OP, ControllerConfiguration.NONE, cartridge);
@@ -138,7 +144,8 @@ public class NES {
         //NESMemoryBus (which would need apu itself to construct, a circular dependency)
         this.apu = new APU(cartridge);
         this.ppu = new PPU(cartridge);
-        this.memoryBus = new Latched8BitMemoryBus(new NESMemoryBus(ramBus, apu, cartridge, ppu, controllers));
+        this.memoryBus = new Latched8BitMemoryBus(new WatchedMemoryBus(new NESMemoryBus(ramBus, apu, cartridge, ppu, controllers),
+                breakpoints::recordAccess));
         this.cpu = new MOS6502(memoryBus);
         this.tickRateMonitor = new TickRateMonitor(new SystemTimeSource());
         this.memoryEditor = new MemoryEditor(ram::write, cartridge::writePrgRamWithoutSaving);
@@ -178,6 +185,11 @@ public class NES {
         //after the OAM DMA stall above, so a stall starting this tick holds recording back rather than the
         //same instruction being recorded twice - see InstructionTrace's class doc
         instructionTrace.tick();
+        final Optional<BreakHit> hit = breakpoints.check(cpu.isAtInstructionBoundary(), cpu.programCounter());
+        if (hit.isPresent()){
+            lastHit = hit.get();
+            pause(PauseAt.NEXT_INSTRUCTION);
+        }
         if (resampler.add(apu.outputSample())){
             audioOutput.write(resampler.output());
         }
@@ -344,6 +356,7 @@ public class NES {
 
     /** Carry on after a {@link #pause()}; does nothing if not paused. */
     public void resume(){
+        lastHit = null;
         paused = false;
         audioOutput.resume();
         clock.resume();
@@ -421,7 +434,7 @@ public class NES {
 
     /**
      * Runs exactly {@code cycles} CPU cycles - which can leave the CPU part-way through an instruction -
-     * or fewer, if a {@link #pause(PauseAt)} from inside one of them stops it first.
+     * or fewer, if a breakpoint (or any {@link #pause(PauseAt)} from inside a tick) stops it first.
      * Same "paused or not running" precondition as {@link #stepInstruction()}.
      *
      * @throws IllegalArgumentException if {@code cycles} isn't positive
@@ -442,7 +455,7 @@ public class NES {
      * Runs until the next frame is finished and presented (the start of vertical blanking), then
      * finishes the instruction in progress - so each step shows exactly one new frame and stops at the
      * same point in it. A fixed cycle count can't do that: an NTSC frame is 29,780.5 CPU cycles. Stops
-     * sooner if a {@link #pause(PauseAt)} from inside a tick does. Same "paused or not running"
+     * sooner at a breakpoint (or any {@link #pause(PauseAt)} from inside a tick). Same "paused or not running"
      * precondition as {@link #stepInstruction()}.
      *
      * @throws IllegalStateException if the clock is running and not paused, or no frame finishes within
@@ -529,6 +542,16 @@ public class NES {
 
     public void unlockMemory(final int address){
         memoryEditor.unlock(address);
+    }
+
+    /** Where the emulation stops, by PC or by memory access - editable any time, from any thread. */
+    public Breakpoints breakpoints(){
+        return breakpoints;
+    }
+
+    /** What stopped the emulation - or a step - last, until {@link #resume()}. */
+    public Optional<BreakHit> lastHit(){
+        return Optional.ofNullable(lastHit);
     }
 
     /** Locked bytes, address to value, in address order (RAM by its real {@code $0000-$07FF} address). */
