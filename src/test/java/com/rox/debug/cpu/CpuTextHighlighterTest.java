@@ -78,6 +78,18 @@ public class CpuTextHighlighterTest {
     }
 
     @Test
+    public void aBreakpointMarkIsMarked(){
+        assertEquals(List.of("BREAKPOINT:\u25CF", "ADDRESS:$8000", "FLAGS_AND_STACK:NOP"), spans(" \u25CF$8000  NOP"));
+        assertEquals(List.of("CURRENT_LINE:>\u25CF$8000  NOP", "BREAKPOINT:\u25CF", "ADDRESS:$8000", "FLAGS_AND_STACK:NOP"),
+                spans(">\u25CF$8000  NOP"));
+    }
+
+    @Test
+    public void whatStoppedTheEmulationIsMarked(){
+        assertEquals(List.of("HIT:Write $0042 = $05 by $C0F1"), spans("Stopped by: Write $0042 = $05 by $C0F1"));
+    }
+
+    @Test
     public void immediateAndMemoryOperandsAreDistinguished(){
         assertEquals(List.of("ADDRESS:$8000", "LOAD_STORE:LDA", "IMMEDIATE:#$05"), spans("  $8000  LDA #$05"));
         assertEquals(List.of("ADDRESS:$8000", "ARITHMETIC:ORA", "OPERAND:($40),Y"), spans("  $8000  ORA ($40),Y"));

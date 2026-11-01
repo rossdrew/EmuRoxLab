@@ -152,6 +152,8 @@ public final class CpuStatePanel extends JPanel {
         styles.put(CpuTextHighlighter.Kind.IMMEDIATE, style(new Color(0x00, 0x80, 0x00), false, null));
         styles.put(CpuTextHighlighter.Kind.OPERAND, style(new Color(0x90, 0x60, 0x00), false, null));
         styles.put(CpuTextHighlighter.Kind.UNKNOWN, style(Color.RED, false, null));
+        styles.put(CpuTextHighlighter.Kind.BREAKPOINT, style(new Color(0xD0, 0x00, 0x00), true, null));
+        styles.put(CpuTextHighlighter.Kind.HIT, style(new Color(0xD0, 0x00, 0x00), true, null));
         return styles;
     }
 
