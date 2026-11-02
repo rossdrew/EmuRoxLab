@@ -9,6 +9,8 @@ import com.rox.clock.Clock;
 import com.rox.clock.FPSClock;
 import com.rox.clock.TickRateMonitor;
 import com.rox.cpu.mos6502.MOS6502;
+import com.rox.debug.breakpoints.BreakHit;
+import com.rox.debug.breakpoints.Breakpoints;
 import com.rox.debug.cpu.InstructionTrace;
 import com.rox.debug.memory.MemoryEditor;
 import com.rox.input.ControllerConfiguration;
@@ -21,10 +23,19 @@ import com.rox.video.VideoOutput;
 
 import javax.sound.sampled.LineUnavailableException;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.zip.CRC32;
 
 public class NES {
+    /** Where a {@link #pause(PauseAt)} stops. Either way the CPU is left between instructions. */
+    public enum PauseAt {
+        /** As soon as the instruction in progress finishes. */
+        NEXT_INSTRUCTION,
+        /** Once the frame being drawn is presented (as {@link #stepFrame()}), so the state matches the picture. */
+        END_OF_FRAME
+    }
+
     private static final long CPU_HZ = 1_789_773;
     /**
      * Far beyond any real instruction (7 cycles max, plus a 514-cycle OAM DMA stall and a 7-cycle
@@ -58,6 +69,7 @@ public class NES {
     private final TickRateMonitor tickRateMonitor;
     private final MemoryEditor memoryEditor;
     private final InstructionTrace instructionTrace;
+    private final Breakpoints breakpoints = new Breakpoints();
     private final Resampler resampler;
     private final VideoOutput videoOutput;
     private final ControllerConfiguration controllers;
@@ -73,6 +85,16 @@ public class NES {
     private double audioSpeed = 1;
     /** guards {@link #powerOn()}'s setup and audio start against {@link #powerOff()} */
     private final Object lifecycleLock = new Object();
+    /** The clock's {@code run()} thread while powered on. */
+    private volatile Thread clockThread;
+    /** Whoever is ticking: {@link #clockThread}, or a thread ticking by hand (a step, a pause finishing an instruction). */
+    private volatile Thread tickingThread;
+    /** A {@link #pause(PauseAt)} asked for from inside a tick, waiting for its stopping point - ticking thread only. */
+    private PauseAt pendingPause;
+    /** A {@link #pendingPause} has stopped the ticks being run by hand - ticking thread only. */
+    private boolean handTicksPaused;
+    /** What the last {@link #breakpoints} stop was, until {@link #resume()}. */
+    private volatile BreakHit lastHit;
 
     public NES(final Cartridge cartridge) throws LineUnavailableException {
         this(new SpeakerAudioOutput(), VideoOutput.NO_OP, ControllerConfiguration.NONE, cartridge);
@@ -122,7 +144,8 @@ public class NES {
         //NESMemoryBus (which would need apu itself to construct, a circular dependency)
         this.apu = new APU(cartridge);
         this.ppu = new PPU(cartridge);
-        this.memoryBus = new Latched8BitMemoryBus(new NESMemoryBus(ramBus, apu, cartridge, ppu, controllers));
+        this.memoryBus = new Latched8BitMemoryBus(new WatchedMemoryBus(new NESMemoryBus(ramBus, apu, cartridge, ppu, controllers),
+                breakpoints::recordAccess));
         this.cpu = new MOS6502(memoryBus);
         this.tickRateMonitor = new TickRateMonitor(new SystemTimeSource());
         this.memoryEditor = new MemoryEditor(ram::write, cartridge::writePrgRamWithoutSaving);
@@ -162,13 +185,19 @@ public class NES {
         //after the OAM DMA stall above, so a stall starting this tick holds recording back rather than the
         //same instruction being recorded twice - see InstructionTrace's class doc
         instructionTrace.tick();
+        final Optional<BreakHit> hit = breakpoints.check(cpu.isAtInstructionBoundary(), cpu.programCounter());
+        if (hit.isPresent()){
+            lastHit = hit.get();
+            pause(PauseAt.NEXT_INSTRUCTION);
+        }
         if (resampler.add(apu.outputSample())){
             audioOutput.write(resampler.output());
         }
         //polling the (possibly real, physical) gamepads is folded into this same frame-ready gate -
         //PPU.consumeFrameReady() is a one-shot flag (it resets itself the moment it's read true), so
         //checking it a second time would simply never see true
-        if (ppu.consumeFrameReady()){
+        final boolean framePresented = ppu.consumeFrameReady();
+        if (framePresented){
             framesPresented++;
             if (audioSpeed != speed){
                 //speed x as many CPU cycles a real second, still 44.1kHz out: the sound speeds up and pitches up with
@@ -182,6 +211,25 @@ public class NES {
             controllers.player3().poll();
             controllers.player4().poll();
         }
+        //last: once the clock is asked to park, nothing here runs again until it's resumed
+        if (pendingPause != null){
+            pauseIfStoppingPointReached(framePresented);
+        }
+    }
+
+    private void pauseIfStoppingPointReached(final boolean framePresented){
+        if (pendingPause == PauseAt.END_OF_FRAME && framePresented){
+            pendingPause = PauseAt.NEXT_INSTRUCTION;
+        }
+        if (pendingPause == PauseAt.NEXT_INSTRUCTION && cpu.isAtInstructionBoundary()){
+            pendingPause = null;
+            if (Thread.currentThread() == clockThread){
+                clock.requestPause();
+                markPaused();
+            } else {
+                handTicksPaused = true;
+            }
+        }
     }
 
     public void powerOn(){
@@ -194,6 +242,9 @@ public class NES {
         synchronized (lifecycleLock){
             cpu.reset();
             stopRequested = false;
+            pendingPause = null;
+            this.clockThread = clockThread;
+            tickingThread = clockThread;
             clock.prepareToRun(); //a stop() from here on ends the run, even one landing before run() starts
             clockThread.start();
         }
@@ -228,6 +279,8 @@ public class NES {
                 clock.stop();
             }
         }
+        this.clockThread = null;
+        tickingThread = null;
         //standard practice even though nothing in this method (or its callers) observes the flag
         //afterward - powerOn() returns right after this, so this is an accepted, unobservable pitest
         //survivor rather than something worth chasing a test for
@@ -236,23 +289,46 @@ public class NES {
         }
     }
 
+    /** {@link #pause(PauseAt)} at the {@link PauseAt#NEXT_INSTRUCTION next instruction}. */
+    public boolean pause(){
+        return pause(PauseAt.NEXT_INSTRUCTION);
+    }
+
     /**
-     * Freezes a running emulation without resetting or tearing anything down: the clock parks at the
-     * end of its current frame, then the CPU is single-stepped to the end of whatever instruction it
-     * was part-way through - so CPU state is fully captured by {@code getEnvironmentSnapshot()} for as
-     * long as the pause lasts - and audio is silenced. {@link #resume()} carries on from exactly there.
+     * Freezes a running emulation without resetting or tearing anything down, with the CPU between
+     * instructions - so its state is fully captured for as long as the pause lasts - and audio silenced.
+     * {@link #resume()} carries on from exactly there.
+     * <ul>
+     *     <li><b>from another thread</b>: the clock parks after the tick in progress, then this thread ticks on to
+     *     {@code where}, returning once paused.</li>
+     *     <li><b>from inside a tick</b> (e.g. a breakpoint): can't wait for itself, so returns straight away; the
+     *     ticking stops at {@code where} - the clock parks, or a step ends there.</li>
+     * </ul>
      *
      * @return false if there was nothing running to pause
      */
-    public boolean pause(){
+    public boolean pause(final PauseAt where){
+        if (Thread.currentThread() == tickingThread){
+            pendingPause = where;
+            return true;
+        }
         if (!clock.pause()){
             return false;
         }
         //safe to tick from this thread: a true pause() guarantees the clock thread is parked
-        finishInFlightInstruction();
+        tickByHand(() -> {
+            if (where == PauseAt.END_OF_FRAME){
+                tickUntilFramePresented(MAX_CYCLES_PER_STEPPED_FRAME);
+            }
+            finishInFlightInstruction();
+        });
+        markPaused();
+        return true;
+    }
+
+    private void markPaused(){
         audioOutput.pause();
         paused = true;
-        return true;
     }
 
     /**
@@ -280,6 +356,7 @@ public class NES {
 
     /** Carry on after a {@link #pause()}; does nothing if not paused. */
     public void resume(){
+        lastHit = null;
         paused = false;
         audioOutput.resume();
         clock.resume();
@@ -299,7 +376,7 @@ public class NES {
      */
     public SystemSnapshot captureSnapshot(){
         requireNothingTicking();
-        finishInFlightInstruction();
+        tickByHand(this::finishInFlightInstruction);
         return new SystemSnapshot(romCrc32(cartridge), cpu.snapshot(), ppu.snapshot(), apu.snapshot(), ram.snapshot(),
                 cartridge.snapshot());
     }
@@ -343,18 +420,21 @@ public class NES {
      */
     public void stepInstruction(){
         requireNothingTicking();
-        int cycles = 0;
-        do {
-            if (cycles++ == MAX_CYCLES_PER_STEPPED_INSTRUCTION){
-                throw new IllegalStateException("CPU didn't finish an instruction within "
-                        + MAX_CYCLES_PER_STEPPED_INSTRUCTION + " cycles");
-            }
-            clock.tick();
-        } while (!cpu.isAtInstructionBoundary());
+        tickByHand(() -> {
+            int cycles = 0;
+            do {
+                if (cycles++ == MAX_CYCLES_PER_STEPPED_INSTRUCTION){
+                    throw new IllegalStateException("CPU didn't finish an instruction within "
+                            + MAX_CYCLES_PER_STEPPED_INSTRUCTION + " cycles");
+                }
+                clock.tick();
+            } while (!cpu.isAtInstructionBoundary());
+        });
     }
 
     /**
-     * Runs exactly {@code cycles} CPU cycles - which can leave the CPU part-way through an instruction.
+     * Runs exactly {@code cycles} CPU cycles - which can leave the CPU part-way through an instruction -
+     * or fewer, if a breakpoint (or any {@link #pause(PauseAt)} from inside a tick) stops it first.
      * Same "paused or not running" precondition as {@link #stepInstruction()}.
      *
      * @throws IllegalArgumentException if {@code cycles} isn't positive
@@ -364,16 +444,19 @@ public class NES {
         if (cycles < 1){
             throw new IllegalArgumentException("Step at least one cycle, not " + cycles);
         }
-        for (int i = 0; i < cycles; i++){
-            clock.tick();
-        }
+        tickByHand(() -> {
+            for (int i = 0; i < cycles && !handTicksPaused; i++){
+                clock.tick();
+            }
+        });
     }
 
     /**
      * Runs until the next frame is finished and presented (the start of vertical blanking), then
      * finishes the instruction in progress - so each step shows exactly one new frame and stops at the
-     * same point in it. A fixed cycle count can't do that: an NTSC frame is 29,780.5 CPU cycles. Same
-     * "paused or not running" precondition as {@link #stepInstruction()}.
+     * same point in it. A fixed cycle count can't do that: an NTSC frame is 29,780.5 CPU cycles. Stops
+     * sooner at a breakpoint (or any {@link #pause(PauseAt)} from inside a tick). Same "paused or not running"
+     * precondition as {@link #stepInstruction()}.
      *
      * @throws IllegalStateException if the clock is running and not paused, or no frame finishes within
      * {@link #MAX_CYCLES_PER_STEPPED_FRAME} cycles
@@ -385,15 +468,41 @@ public class NES {
     /** {@link #stepFrame()} with a given cap - a test seam, since a real PPU always finishes a frame well inside the real one. */
     void stepFrame(final int maxCycles){
         requireNothingTicking();
+        tickByHand(() -> {
+            if (!tickUntilFramePresented(maxCycles) && !handTicksPaused){
+                throw new IllegalStateException("No frame finished within " + maxCycles + " cycles");
+            }
+            finishInFlightInstruction();
+        });
+    }
+
+    /**
+     * Runs {@code ticks} on this thread, as the {@link #tickingThread} - so a {@link #pause(PauseAt)} from inside
+     * them stops them rather than waiting on itself.
+     */
+    private void tickByHand(final Runnable ticks){
+        final Thread previous = tickingThread;
+        tickingThread = Thread.currentThread();
+        handTicksPaused = false;
+        try {
+            ticks.run();
+        } finally {
+            pendingPause = null; //not reached, but the ticking that asked for it has stopped anyway
+            tickingThread = previous;
+        }
+    }
+
+    /** @return false if no frame was presented within {@code maxCycles}, or a pause stopped the ticks first */
+    private boolean tickUntilFramePresented(final int maxCycles){
         final long startingFrame = framesPresented;
         int cycles = 0;
         while (framesPresented <= startingFrame){
-            if (cycles++ == maxCycles){
-                throw new IllegalStateException("No frame finished within " + maxCycles + " cycles");
+            if (cycles++ == maxCycles || handTicksPaused){
+                return false;
             }
             clock.tick();
         }
-        finishInFlightInstruction();
+        return true;
     }
 
     private void finishInFlightInstruction(){
@@ -433,6 +542,16 @@ public class NES {
 
     public void unlockMemory(final int address){
         memoryEditor.unlock(address);
+    }
+
+    /** Where the emulation stops, by PC or by memory access - editable any time, from any thread. */
+    public Breakpoints breakpoints(){
+        return breakpoints;
+    }
+
+    /** What stopped the emulation - or a step - last, until {@link #resume()}. */
+    public Optional<BreakHit> lastHit(){
+        return Optional.ofNullable(lastHit);
     }
 
     /** Locked bytes, address to value, in address order (RAM by its real {@code $0000-$07FF} address). */

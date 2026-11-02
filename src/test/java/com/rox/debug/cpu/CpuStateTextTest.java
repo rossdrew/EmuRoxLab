@@ -2,6 +2,8 @@ package com.rox.debug.cpu;
 
 import com.rox.cpu.mos6502.MOS6502Snapshot;
 import com.rox.cpu.mos6502.assembler.DisassembledInstruction;
+import com.rox.debug.breakpoints.BreakHit;
+import com.rox.debug.breakpoints.Breakpoints;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -48,6 +50,10 @@ public class CpuStateTextTest {
 
     /** A fixed-answer {@link CpuDebugSource}, for checking what the panel text is built from. */
     private static CpuDebugSource source(final boolean paused){
+        return source(paused, new Breakpoints(), null);
+    }
+
+    private static CpuDebugSource source(final boolean paused, final Breakpoints breakpoints, final BreakHit hit){
         return new CpuDebugSource(){
             @Override public MOS6502Snapshot state(){ return SOME_SET; }
             @Override public java.util.List<DisassembledInstruction> upcomingInstructions(final int count){
@@ -69,6 +75,8 @@ public class CpuStateTextTest {
             @Override public double measuredHz(){ return 1_789_773; }
             @Override public double speed(){ return 1; }
             @Override public void setSpeed(final double multiplier){ }
+            @Override public Breakpoints breakpoints(){ return breakpoints; }
+            @Override public java.util.Optional<BreakHit> lastHit(){ return java.util.Optional.ofNullable(hit); }
             @Override public long intendedHz(){ return 1_789_773; }
             @Override public boolean pause(){ return true; }
             @Override public void resume(){ }
@@ -95,6 +103,60 @@ public class CpuStateTextTest {
                   $8121  LDA #$05       A:10 X:02 Y:00 SP:FF  nv-bdIzC  irq
                   $8120  INX            A:10 X:01 Y:00 SP:FF  nv-bdizc
                 """, CpuStateText.panel(source(false), 3));
+    }
+
+    @Test
+    public void panelMarksLinesWithABreakpointAndSaysWhatStoppedIt(){
+        final Breakpoints breakpoints = new Breakpoints();
+        breakpoints.addBreakpoint(0x8124);
+        breakpoints.addBreakpoint(0x8120);
+
+        assertEquals("""
+                PAUSED  Clock: 1,789,773 Hz of 1,789,773 Hz (100.0%)
+                Stopped by: Breakpoint at $8124
+                PC: $8123  A: $01  X: $02  Y: $03  SP: $FD
+                Flags: Nv-BdIzC  (NV-BDIZC)
+                IRQ line: clear  NMI pending: yes
+
+                --- Next (furthest ahead at top) ---
+                  $8125  NOP
+                 \u25CF$8124  NOP
+                > $8123  NOP            A:01 X:02 Y:03 SP:FD  Nv-BdIzC  nmi
+                --- Recent (latest at top) ---
+                  $8121  LDA #$05       A:10 X:02 Y:00 SP:FF  nv-bdIzC  irq
+                 \u25CF$8120  INX            A:10 X:01 Y:00 SP:FF  nv-bdizc
+                """, CpuStateText.panel(source(true, breakpoints, new BreakHit(BreakHit.Cause.BREAKPOINT, 0x8124, 0, 0x8124)), 3));
+    }
+
+    @Test
+    public void theCurrentLineKeepsItsMarkerAlongsideABreakpoint(){
+        final Breakpoints breakpoints = new Breakpoints();
+        breakpoints.addBreakpoint(0x8123);
+
+        assertTrue(CpuStateText.panel(source(false, breakpoints, null), 1).contains("\n>\u25CF$8123  NOP"));
+    }
+
+    @Test
+    public void hitSaysWhatStoppedTheEmulation(){
+        assertEquals("Breakpoint at $C123", CpuStateText.hit(new BreakHit(BreakHit.Cause.BREAKPOINT, 0xC123, 0, 0xC123)));
+        assertEquals("Read $0042 = $05 by $C0F1", CpuStateText.hit(new BreakHit(BreakHit.Cause.READ, 0x42, 5, 0xC0F1)));
+        assertEquals("Write $2006 = $20 by $C0F1", CpuStateText.hit(new BreakHit(BreakHit.Cause.WRITE, 0x2006, 0x20, 0xC0F1)));
+    }
+
+    @Test
+    public void instructionAddressReadsAnyInstructionLine(){
+        assertEquals(java.util.OptionalInt.of(0x8123), CpuStateText.instructionAddress("> $8123  NOP            A:01"));
+        assertEquals(java.util.OptionalInt.of(0x8124), CpuStateText.instructionAddress("  $8124  NOP"));
+        assertEquals(java.util.OptionalInt.of(0xC000), CpuStateText.instructionAddress(" \u25CF$C000  JMP $C000"));
+        assertEquals(java.util.OptionalInt.of(0xC000), CpuStateText.instructionAddress(">\u25CF$C000  JMP $C000"));
+    }
+
+    @Test
+    public void instructionAddressIgnoresEveryOtherLine(){
+        assertEquals(java.util.OptionalInt.empty(), CpuStateText.instructionAddress("PC: $8123  A: $01"));
+        assertEquals(java.util.OptionalInt.empty(), CpuStateText.instructionAddress("Stopped by: Breakpoint at $8124"));
+        assertEquals(java.util.OptionalInt.empty(), CpuStateText.instructionAddress("--- Recent (latest at top) ---"));
+        assertEquals(java.util.OptionalInt.empty(), CpuStateText.instructionAddress(""));
     }
 
     @Test
@@ -137,6 +199,8 @@ public class CpuStateTextTest {
             @Override public double measuredHz(){ return 0; }
             @Override public double speed(){ return 1; }
             @Override public void setSpeed(final double multiplier){ }
+            @Override public Breakpoints breakpoints(){ return new Breakpoints(); }
+            @Override public java.util.Optional<BreakHit> lastHit(){ return java.util.Optional.empty(); }
             @Override public long intendedHz(){ return 1; }
             @Override public boolean pause(){ return true; }
             @Override public void resume(){ }

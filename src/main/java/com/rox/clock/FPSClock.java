@@ -39,7 +39,7 @@ public class FPSClock implements Clock, AutoCloseable {
     private volatile boolean running = false;
 
     //pause()/resume() handshake with run()'s loop - both guarded by pauseLock. pauseRequested is also
-    //volatile so run() can check it once per frame without taking the lock in the common, unpaused case
+    //volatile so run() can check it every tick without taking the lock in the common, unpaused case
     private final Object pauseLock = new Object();
     private volatile boolean pauseRequested = false;
     private boolean parked = false;
@@ -175,10 +175,13 @@ public class FPSClock implements Clock, AutoCloseable {
     }
 
     /**
-     * Execute all <cc>tick()</cc>s in this frame
+     * Execute all <cc>tick()</cc>s in this frame - or fewer, stopping after the tick in progress when a pause is asked for
      */
     void runFrame() {
-        tick(ticksThisFrame());
+        final long ticks = ticksThisFrame();
+        for (long i = 0; i < ticks && !pauseRequested; i++){
+            tick();
+        }
     }
 
     /**
@@ -266,18 +269,16 @@ public class FPSClock implements Clock, AutoCloseable {
     }
 
     /**
-     * Freezes {@link #run()} at the end of its current frame (up to one frame's worth of ticks away),
-     * blocking until it's genuinely parked. Like {@code NES.powerOn()}, waits out interrupts rather
-     * than returning early - the caller relies on a {@code true} meaning nothing else is ticking.
+     * Freezes {@link #run()} after the tick in progress, blocking until it's genuinely parked. Like
+     * {@code NES.powerOn()}, waits out interrupts rather than returning early - the caller relies on a
+     * {@code true} meaning nothing else is ticking.
      */
     @Override
     public boolean pause(){
         boolean interrupted = false;
         final boolean paused;
         synchronized (pauseLock){
-            if (running){
-                pauseRequested = true;
-            }
+            requestPause();
             while (pauseRequested && !parked){
                 try {
                     pauseLock.wait();
@@ -291,6 +292,15 @@ public class FPSClock implements Clock, AutoCloseable {
             Thread.currentThread().interrupt();
         }
         return paused;
+    }
+
+    @Override
+    public void requestPause(){
+        synchronized (pauseLock){
+            if (running){
+                pauseRequested = true;
+            }
+        }
     }
 
     @Override
@@ -311,12 +321,6 @@ public class FPSClock implements Clock, AutoCloseable {
 
     public void removeListener(final ClockWatcher listener){
         this.listeners.remove(listener);
-    }
-
-    public void tick(final long count){
-        for (long i = 0; i < count; i++){
-            tick();
-        }
     }
 
     public void tick(){

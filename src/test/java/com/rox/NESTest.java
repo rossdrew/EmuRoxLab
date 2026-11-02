@@ -3,6 +3,8 @@ package com.rox;
 import com.rox.apu.APU;
 import com.rox.audio.AudioOutput;
 import com.rox.cartridge.Cartridge;
+import com.rox.debug.breakpoints.BreakHit;
+import com.rox.debug.breakpoints.WatchKind;
 import com.rox.cartridge.NromMapperSnapshot;
 import com.rox.clock.Clock;
 import com.rox.clock.FPSClock;
@@ -15,6 +17,7 @@ import com.rox.save.SystemSnapshot;
 import com.rox.video.VideoOutput;
 import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.rox.RecordAssertions.assertRecordsEqual;
@@ -637,6 +640,220 @@ public class NESTest {
 
         assertFalse(thread.isAlive(), "a parked clock must not keep powerOn() blocked after powerOff()");
         verify(audioOutput).stop();
+    }
+
+    @Test
+    public void pauseAtEndOfFrameRunsOnToTheNextPresentedFrameThenFinishesTheInstruction(){
+        final VideoOutput videoOutput = mock(VideoOutput.class);
+        final NES nes = new NES(mock(AudioOutput.class), videoOutput, selfLoopingCartridge(), new ManuallyTickedClock());
+        nes.cpu().reset();
+
+        assertTrue(nes.pause(NES.PauseAt.END_OF_FRAME));
+
+        verify(videoOutput).present(any());
+        assertTrue(nes.cpu().isAtInstructionBoundary());
+    }
+
+    @Test
+    public void pauseAtNextInstructionDoesNotRunOnToTheEndOfTheFrame(){
+        final VideoOutput videoOutput = mock(VideoOutput.class);
+        final NES nes = new NES(mock(AudioOutput.class), videoOutput, selfLoopingCartridge(), new ManuallyTickedClock());
+        nes.cpu().reset();
+        nes.clock().tick();
+
+        assertTrue(nes.pause());
+
+        verify(videoOutput, never()).present(any());
+        assertTrue(nes.cpu().isAtInstructionBoundary());
+    }
+
+    /** Counts ticks, and calls {@code nes.pause(where)} from inside tick number {@code pauseOnTick}. */
+    private static AtomicLong pauseFromInsideTick(final NES nes, final long pauseOnTick, final NES.PauseAt where){
+        final AtomicLong ticks = new AtomicLong();
+        nes.clock().addListener(() -> {
+            if (ticks.incrementAndGet() == pauseOnTick){
+                assertTrue(nes.pause(where), "returns straight away, rather than waiting on its own tick");
+            }
+        });
+        return ticks;
+    }
+
+    @Test
+    public void aPauseFromInsideASteppedTickEndsTheStepAtTheNextInstruction(){
+        final NES nes = manuallyTickedNes(selfLoopingCartridge());
+        final AtomicLong ticks = pauseFromInsideTick(nes, 5, NES.PauseAt.NEXT_INSTRUCTION);
+
+        nes.stepCycles(1_000);
+
+        assertTrue(ticks.get() >= 5 && ticks.get() < 10, "JMP is 3 cycles - stopped just after tick 5, got " + ticks.get());
+        assertTrue(nes.cpu().isAtInstructionBoundary());
+        assertFalse(nes.isPaused(), "a step ended early - nothing was running to pause");
+    }
+
+    @Test
+    public void aPauseFromInsideASteppedFrameEndsItBeforeTheFrame(){
+        final VideoOutput videoOutput = mock(VideoOutput.class);
+        final NES nes = new NES(mock(AudioOutput.class), videoOutput, selfLoopingCartridge(), new ManuallyTickedClock());
+        nes.cpu().reset();
+        final AtomicLong ticks = pauseFromInsideTick(nes, 5, NES.PauseAt.NEXT_INSTRUCTION);
+
+        nes.stepFrame();
+
+        assertTrue(ticks.get() < 10, "stopped just after tick 5, got " + ticks.get());
+        verify(videoOutput, never()).present(any());
+    }
+
+    @Test
+    public void anEndOfFramePauseFromInsideASteppedTickEndsTheStepJustAfterTheFrame(){
+        final VideoOutput videoOutput = mock(VideoOutput.class);
+        final NES nes = new NES(mock(AudioOutput.class), videoOutput, selfLoopingCartridge(), new ManuallyTickedClock());
+        nes.cpu().reset();
+        final AtomicLong ticks = pauseFromInsideTick(nes, 5, NES.PauseAt.END_OF_FRAME);
+        final AtomicLong ticksAtFrame = new AtomicLong();
+        doAnswer(invocation -> {
+            ticksAtFrame.set(ticks.get());
+            return null;
+        }).when(videoOutput).present(any());
+
+        nes.stepCycles(NES.MAX_CYCLES_PER_STEPPED_FRAME);
+
+        verify(videoOutput).present(any());
+        assertTrue(ticks.get() - ticksAtFrame.get() <= 3, "stopped at the instruction after the frame, not "
+                + (ticks.get() - ticksAtFrame.get()) + " ticks on");
+        assertTrue(nes.cpu().isAtInstructionBoundary());
+    }
+
+    @Test
+    public void aPauseNotReachedByTheEndOfAStepDoesNotCarryOverIntoTheNext(){
+        final NES nes = manuallyTickedNes(selfLoopingCartridge());
+        final AtomicLong ticks = pauseFromInsideTick(nes, 1, NES.PauseAt.END_OF_FRAME);
+        nes.stepInstruction(); //asks for the end of a frame it never reaches
+
+        final long before = ticks.get();
+        nes.stepCycles(100);
+
+        assertEquals(before + 100, ticks.get());
+    }
+
+    // --- breakpoints ---
+
+    /** $9000: NOP; NOP; JMP $9000. */
+    private static Cartridge nopLoopCartridge(){
+        return TestRoms.nrom().at(0x9000, 0xEA, 0xEA, 0x4C, 0x00, 0x90).resetVector(0x9000).cartridge();
+    }
+
+    @Test
+    public void aBreakpointStopsAStepWithThePcOnIt(){
+        final NES nes = manuallyTickedNes(nopLoopCartridge());
+        nes.breakpoints().addBreakpoint(0x9001);
+
+        nes.stepFrame();
+
+        assertEquals(0x9001, nes.cpu().programCounter());
+        assertTrue(nes.cpu().isAtInstructionBoundary());
+        assertEquals(Optional.of(new BreakHit(BreakHit.Cause.BREAKPOINT, 0x9001, 0, 0x9001)), nes.lastHit());
+    }
+
+    @Test
+    public void aWatchedWriteStopsAStepOnceTheWritingInstructionFinishes(){
+        final NES nes = manuallyTickedNes(busyLoopCartridge(0)); //$9000: INX; $9001: STX $10; $9003: STX $2001...
+        nes.breakpoints().addWatch(0x0810, WatchKind.WRITE); //a mirror of $10
+
+        nes.stepFrame();
+
+        assertEquals(Optional.of(new BreakHit(BreakHit.Cause.WRITE, 0x0010, 1, 0x9001)), nes.lastHit());
+        assertEquals(0x9003, nes.cpu().programCounter());
+        assertTrue(nes.cpu().isAtInstructionBoundary());
+    }
+
+    @Test
+    public void aWatchedReadStopsAStep(){
+        final NES nes = manuallyTickedNes(nopLoopCartridge());
+        nes.breakpoints().addWatch(0x9002, WatchKind.READ); //JMP's opcode fetch
+
+        nes.stepFrame();
+
+        assertEquals(BreakHit.Cause.READ, nes.lastHit().orElseThrow().cause());
+        assertEquals(0x9000, nes.cpu().programCounter(), "after the JMP");
+    }
+
+    @Test
+    public void noBreakpointsMeansNoHit(){
+        final NES nes = manuallyTickedNes(nopLoopCartridge());
+
+        nes.stepFrame();
+
+        assertEquals(Optional.empty(), nes.lastHit());
+    }
+
+    @Test
+    public void aBreakpointPausesARunningNesAndResumeClearsTheHitAndCarriesOn() throws InterruptedException {
+        final AudioOutput audioOutput = mock(AudioOutput.class);
+        final NES nes = new NES(audioOutput, nopLoopCartridge());
+        nes.breakpoints().addBreakpoint(0x9001);
+        final Thread thread = new Thread(nes::powerOn);
+        thread.start();
+        try {
+            awaitPaused(nes);
+            assertEquals(0x9001, nes.cpu().programCounter());
+            assertEquals(BreakHit.Cause.BREAKPOINT, nes.lastHit().orElseThrow().cause());
+            verify(audioOutput).pause();
+
+            nes.breakpoints().removeBreakpoint(0x9001);
+            nes.breakpoints().addBreakpoint(0x9002);
+            nes.resume();
+            assertEquals(Optional.empty(), nes.lastHit());
+
+            awaitPaused(nes);
+            assertEquals(0x9002, nes.cpu().programCounter(), "ran on to the next breakpoint");
+        } finally {
+            nes.powerOff();
+            thread.join(5000);
+        }
+        assertFalse(thread.isAlive());
+    }
+
+    private static void awaitPaused(final NES nes){
+        final long deadline = System.currentTimeMillis() + 5000;
+        while (!nes.isPaused() && System.currentTimeMillis() < deadline){
+            Thread.onSpinWait();
+        }
+        assertTrue(nes.isPaused(), "a breakpoint should have paused it");
+    }
+
+    /** A breakpoint's case: the clock's own thread asks, so it can't wait - the run must still park, and resume. */
+    @Test
+    public void aPauseFromTheClockThreadParksItAtTheNextInstruction() throws InterruptedException {
+        final AudioOutput audioOutput = mock(AudioOutput.class);
+        final NES nes = new NES(audioOutput, selfLoopingCartridge());
+        final AtomicLong ticks = pauseFromInsideTick(nes, 100_000, NES.PauseAt.NEXT_INSTRUCTION);
+        final Thread thread = new Thread(nes::powerOn);
+        thread.start();
+        try {
+            final long deadline = System.currentTimeMillis() + 5000;
+            while (!nes.isPaused() && System.currentTimeMillis() < deadline){
+                Thread.onSpinWait();
+            }
+            assertTrue(nes.isPaused());
+            verify(audioOutput).pause();
+            verify(audioOutput, after(200).never()).resume(); //and the clock thread's had time to park
+            final long ticksWhenPaused = ticks.get();
+            assertTrue(ticksWhenPaused - 100_000 < 10, "parked at the next instruction, not the frame's end: " + ticksWhenPaused);
+            Thread.sleep(100);
+            assertEquals(ticksWhenPaused, ticks.get(), "no ticks while paused");
+            assertTrue(nes.cpu().isAtInstructionBoundary());
+
+            nes.resume();
+            final long resumeDeadline = System.currentTimeMillis() + 2000;
+            while (ticks.get() == ticksWhenPaused && System.currentTimeMillis() < resumeDeadline){
+                Thread.onSpinWait();
+            }
+            assertTrue(ticks.get() > ticksWhenPaused, "emulation should carry on after resume()");
+        } finally {
+            nes.powerOff();
+            thread.join(5000);
+        }
+        assertFalse(thread.isAlive());
     }
 
     // --- snapshots ---

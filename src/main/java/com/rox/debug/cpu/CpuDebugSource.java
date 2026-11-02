@@ -2,6 +2,8 @@ package com.rox.debug.cpu;
 
 import com.rox.cpu.mos6502.MOS6502Snapshot;
 import com.rox.cpu.mos6502.assembler.DisassembledInstruction;
+import com.rox.debug.breakpoints.BreakHit;
+import com.rox.debug.breakpoints.Breakpoints;
 
 import java.util.List;
 import java.util.Optional;
@@ -54,4 +56,10 @@ public interface CpuDebugSource {
 
     /** Runs until the next frame is finished - only while paused. See {@code NES.stepFrame()}. */
     void stepFrame();
+
+    /** Where the emulation stops - editable any time, from any thread. */
+    Breakpoints breakpoints();
+
+    /** What stopped the emulation (or a step) last, until resumed. */
+    Optional<BreakHit> lastHit();
 }

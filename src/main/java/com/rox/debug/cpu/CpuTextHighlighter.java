@@ -16,7 +16,8 @@ import java.util.regex.Pattern;
 public final class CpuTextHighlighter {
     public enum Kind {
         PAUSED, REGISTER_NAME, REGISTER_VALUE, CHANGED, FLAG_SET, FLAG_CLEAR, ACTIVE, HEADER,
-        CURRENT_LINE, ADDRESS, JUMP_FLASH, FLOW, LOAD_STORE, ARITHMETIC, FLAGS_AND_STACK, IMMEDIATE, OPERAND, UNKNOWN
+        CURRENT_LINE, ADDRESS, JUMP_FLASH, FLOW, LOAD_STORE, ARITHMETIC, FLAGS_AND_STACK, IMMEDIATE, OPERAND, UNKNOWN,
+        BREAKPOINT, HIT
     }
 
     /** {@code length} characters of the text from {@code start}. */
@@ -34,7 +35,8 @@ public final class CpuTextHighlighter {
 
     private static final Pattern REGISTER = Pattern.compile("(PC|A|X|Y|SP): (\\$[0-9A-F]+)");
     private static final Pattern ACTIVE = Pattern.compile("\\b(asserted|yes)\\b");
-    private static final Pattern INSTRUCTION = Pattern.compile("([> ]) (\\$[0-9A-F]{4})  (\\S+(?: \\S+)?)(?: +(A:.*))?");
+    private static final Pattern INSTRUCTION = Pattern.compile("([> ])([ " + CpuStateText.BREAKPOINT_MARK
+            + "])(\\$[0-9A-F]{4})  (\\S+(?: \\S+)?)(?: +(A:.*))?");
     private static final Pattern LINE_REGISTER = Pattern.compile("(A|X|Y|SP):([0-9A-F]{2})");
     private static final Pattern LINE_FLAGS = Pattern.compile("[Nn][Vv]-[Bb][Dd][Ii][Zz][Cc]");
     private static final Pattern LINE_INTERRUPT = Pattern.compile("\\b(irq|nmi)\\b");
@@ -110,6 +112,8 @@ public final class CpuTextHighlighter {
             while (active.find()){
                 spans.add(new Span(offset + active.start(), active.group().length(), Kind.ACTIVE));
             }
+        } else if (line.startsWith(CpuStateText.HIT_PREFIX)){
+            spans.add(new Span(offset + CpuStateText.HIT_PREFIX.length(), line.length() - CpuStateText.HIT_PREFIX.length(), Kind.HIT));
         } else if (line.startsWith("---")){
             spans.add(new Span(offset, line.length(), Kind.HEADER));
         } else {
@@ -126,15 +130,18 @@ public final class CpuTextHighlighter {
         if (instruction.group(1).equals(">")){
             spans.add(new Span(offset, line.length(), Kind.CURRENT_LINE));
         }
-        spans.add(new Span(offset + instruction.start(2), instruction.group(2).length(), Kind.ADDRESS));
+        if (instruction.group(2).charAt(0) == CpuStateText.BREAKPOINT_MARK){
+            spans.add(new Span(offset + instruction.start(2), 1, Kind.BREAKPOINT));
+        }
+        spans.add(new Span(offset + instruction.start(3), instruction.group(3).length(), Kind.ADDRESS));
         if (flashCurrentAddress && instruction.group(1).equals(">")){
-            spans.add(new Span(offset + instruction.start(2), instruction.group(2).length(), Kind.JUMP_FLASH));
+            spans.add(new Span(offset + instruction.start(3), instruction.group(3).length(), Kind.JUMP_FLASH));
         }
-        if (instruction.group(4) != null){
-            states.add(highlightState(instruction.group(4), offset + instruction.start(4), spans));
+        if (instruction.group(5) != null){
+            states.add(highlightState(instruction.group(5), offset + instruction.start(5), spans));
         }
-        final String code = instruction.group(3);
-        final int codeStart = offset + instruction.start(3);
+        final String code = instruction.group(4);
+        final int codeStart = offset + instruction.start(4);
         if (code.startsWith("???")){
             spans.add(new Span(codeStart, code.length(), Kind.UNKNOWN));
             return;

@@ -10,6 +10,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
@@ -212,5 +213,17 @@ public class NesCpuDebugSourceTest {
 
         assertEquals(0.5, nes.speed());
         assertEquals(0.5, source.speed());
+    }
+
+    @Test
+    public void breakpointsAndTheLastHitPassThroughToTheNes(){
+        final NES nes = nes();
+        final NesCpuDebugSource source = new NesCpuDebugSource(nes);
+
+        source.breakpoints().addBreakpoint(0x9001);
+        source.stepFrame();
+
+        assertSame(nes.breakpoints(), source.breakpoints());
+        assertEquals(0x9001, source.lastHit().orElseThrow().address());
     }
 }

@@ -3,6 +3,8 @@ package com.rox;
 import com.rox.cpu.mos6502.MOS6502Snapshot;
 import com.rox.cpu.mos6502.assembler.DisassembledInstruction;
 import com.rox.cpu.mos6502.assembler.Disassembler;
+import com.rox.debug.breakpoints.BreakHit;
+import com.rox.debug.breakpoints.Breakpoints;
 import com.rox.debug.cpu.CpuDebugSource;
 import com.rox.debug.cpu.InstructionTrace;
 import com.rox.debug.cpu.TracedInstruction;
@@ -105,6 +107,16 @@ final class NesCpuDebugSource implements CpuDebugSource {
     @Override
     public void stepFrame(){
         nes.stepFrame();
+    }
+
+    @Override
+    public Breakpoints breakpoints(){
+        return nes.breakpoints();
+    }
+
+    @Override
+    public Optional<BreakHit> lastHit(){
+        return nes.lastHit();
     }
 
     private IntUnaryOperator peek(){
