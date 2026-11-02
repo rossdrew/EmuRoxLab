@@ -704,6 +704,26 @@ public class NESTest {
     }
 
     @Test
+    public void anEndOfFramePauseFromInsideASteppedTickEndsTheStepJustAfterTheFrame(){
+        final VideoOutput videoOutput = mock(VideoOutput.class);
+        final NES nes = new NES(mock(AudioOutput.class), videoOutput, selfLoopingCartridge(), new ManuallyTickedClock());
+        nes.cpu().reset();
+        final AtomicLong ticks = pauseFromInsideTick(nes, 5, NES.PauseAt.END_OF_FRAME);
+        final AtomicLong ticksAtFrame = new AtomicLong();
+        doAnswer(invocation -> {
+            ticksAtFrame.set(ticks.get());
+            return null;
+        }).when(videoOutput).present(any());
+
+        nes.stepCycles(NES.MAX_CYCLES_PER_STEPPED_FRAME);
+
+        verify(videoOutput).present(any());
+        assertTrue(ticks.get() - ticksAtFrame.get() <= 3, "stopped at the instruction after the frame, not "
+                + (ticks.get() - ticksAtFrame.get()) + " ticks on");
+        assertTrue(nes.cpu().isAtInstructionBoundary());
+    }
+
+    @Test
     public void aPauseNotReachedByTheEndOfAStepDoesNotCarryOverIntoTheNext(){
         final NES nes = manuallyTickedNes(selfLoopingCartridge());
         final AtomicLong ticks = pauseFromInsideTick(nes, 1, NES.PauseAt.END_OF_FRAME);
