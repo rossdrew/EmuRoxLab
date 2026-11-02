@@ -119,6 +119,7 @@ public final class Breakpoints {
         }
         final State current = state;
         if (current.breakpointAt() == null && current.watchAt() == null){
+            pendingWatchHit = null; //its watch was removed before its instruction finished
             return Optional.empty();
         }
         instructionStart = pc;

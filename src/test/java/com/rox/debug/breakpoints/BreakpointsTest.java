@@ -129,6 +129,19 @@ class BreakpointsTest {
     }
 
     @Test
+    void aHitWhoseWatchIsRemovedBeforeItsInstructionFinishesIsNeverReported(){
+        breakpoints.addWatch(0x0042, WatchKind.WRITE);
+        breakpoints.check(true, 0xC0F1);
+        breakpoints.recordAccess(0x0042, true, 0x05);
+
+        breakpoints.removeWatch(0x0042); //the last one left
+        assertEquals(Optional.empty(), breakpoints.check(true, 0xC0F3));
+        breakpoints.addBreakpoint(0xC0F5);
+
+        assertEquals(Optional.of(new BreakHit(BreakHit.Cause.BREAKPOINT, 0xC0F5, 0, 0xC0F5)), breakpoints.check(true, 0xC0F5));
+    }
+
+    @Test
     void aBreakpointKeepsTheWatchesAndAWatchKeepsTheBreakpoints(){
         breakpoints.addWatch(0x0042, WatchKind.WRITE);
         breakpoints.addBreakpoint(0xC000);
