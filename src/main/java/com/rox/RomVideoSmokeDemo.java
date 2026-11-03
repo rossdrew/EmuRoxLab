@@ -18,7 +18,6 @@ import com.rox.input.Controller;
 import com.rox.input.ControllerConfigLoader;
 import com.rox.input.ControllerConfiguration;
 import com.rox.input.KeyboardController;
-import com.rox.save.BatterySaveManager;
 import com.rox.save.SavePaths;
 import com.rox.roundabout.timing.FrameTimes;
 import com.rox.roundabout.debugger.MemoryDebugger;
@@ -74,18 +73,6 @@ public final class RomVideoSmokeDemo {
 
         final Cartridge cartridge = RomLoader.load(romPath);
 
-        //mirrors inserting a cartridge whose battery was already charged - silent, no prompt, exactly
-        //like real hardware. Only battery-backed carts pay any cost here (see Cartridge.write()'s
-        //own no-op-by-default onPrgRamWrite hook)
-        final BatterySaveManager batterySaveManager;
-        if (cartridge.rom().hasBattery()){
-            final Path batterySaveFile = SavePaths.batterySaveFile(romPath);
-            BatterySaveManager.loadIfPresent(batterySaveFile, cartridge);
-            batterySaveManager = BatterySaveManager.start(batterySaveFile, cartridge);
-        } else {
-            batterySaveManager = null;
-        }
-
         final CountDownLatch windowClosed = new CountDownLatch(1);
         //Swing components must only be constructed on the EDT - see PpuDebugViewerDemo's own comment.
         //invokeLater + our own retried-on-interrupt latch, not invokeAndWait, since invokeAndWait's own
@@ -127,8 +114,10 @@ public final class RomVideoSmokeDemo {
         //outer try/finally so the window is always closed, even if NES construction itself throws
         //(e.g. no audio line available) - a visible, undisposed JFrame keeps a non-daemon EDT thread
         //alive, so skipping close() here would hang the JVM on exit instead of surfacing the error
+        GameSession session = null;
         try {
-            final NES nes = new NES(videoOutput, controllers, cartridge);
+            session = GameSession.start(romPath, cartridge, c -> new NES(videoOutput, controllers, c));
+            final NES nes = session.nes();
             SwingUtilities.invokeLater(() -> {
                 final CpuStatePanel cpuStatePanel = new CpuStatePanel(new NesCpuDebugSource(nes));
                 final MemoryViewerPanel memoryViewerPanel = new MemoryViewerPanel(new NesMemoryDebugSource(nes));
@@ -155,12 +144,9 @@ public final class RomVideoSmokeDemo {
             System.out.println("Showing " + romPath
                     + (runSeconds != null ? " for up to " + runSeconds + " seconds" : "")
                     + " (close the window to stop" + (runSeconds != null ? " early" : "") + ")...");
-            final Thread nesThread = new Thread(nes::powerOn);
-            nesThread.start();
             if (Boolean.getBoolean("roundabout.open")){
                 openRoundabout(nes, romPath, frameTimings, roundabout);
             }
-            boolean interrupted = false;
             try {
                 if (runSeconds != null){
                     windowClosed.await(runSeconds, TimeUnit.SECONDS);
@@ -168,39 +154,22 @@ public final class RomVideoSmokeDemo {
                     windowClosed.await();
                 }
             } catch (InterruptedException e){
-                interrupted = true;
-            } finally {
-                nes.powerOff();
-                //retry until nesThread has genuinely terminated - a single interrupted join() would
-                //otherwise return early without actually waiting, leaving the emulation thread running
-                while (nesThread.isAlive()){
-                    try {
-                        nesThread.join();
-                    } catch (InterruptedException e){
-                        interrupted = true;
-                    }
-                }
-            }
-            if (interrupted){
                 Thread.currentThread().interrupt();
             }
         } finally {
-            SwingUtilities.invokeLater(() -> debugFrames.forEach(DockedDebugWindow::dispose));
-            final MemoryDebugger openRoundabout = roundabout.get();
-            if (openRoundabout != null){
-                openRoundabout.close();
-            }
-            videoOutput.close();
-            //only reached once the emulation thread (and thus all gamepad polling and cartridge
-            //writes) has genuinely terminated - see the inner finally's join loop above. Nested in its
-            //own finally so a thrown IOException from gamepad cleanup can't skip the save manager's
-            //own shutdown-time flush
             try {
-                ControllerConfigLoader.closeConnectedGamepads();
-            } finally {
-                if (batterySaveManager != null){
-                    batterySaveManager.stop();
+                if (session != null){
+                    session.close();
                 }
+            } finally {
+                SwingUtilities.invokeLater(() -> debugFrames.forEach(DockedDebugWindow::dispose));
+                final MemoryDebugger openRoundabout = roundabout.get();
+                if (openRoundabout != null){
+                    openRoundabout.close();
+                }
+                videoOutput.close();
+                //only once the session has ended all gamepad polling
+                ControllerConfigLoader.closeConnectedGamepads();
             }
         }
         System.out.println("Done.");
