@@ -1,6 +1,7 @@
 package com.rox;
 
 import com.rox.cartridge.Cartridge;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -31,6 +32,12 @@ class GameSwitcherTest {
             events.add("started " + session.romPath().getFileName());
         }
     };
+
+    /** Ends every game's emulation thread, closed by the test or not. */
+    @AfterEach
+    void powerOffEverything(){
+        built.forEach(NES::powerOff);
+    }
 
     private GameSession start(final Path rom, final Cartridge cartridge) throws LineUnavailableException {
         return GameSession.start(rom, cartridge, c -> {

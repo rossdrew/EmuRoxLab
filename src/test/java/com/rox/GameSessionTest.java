@@ -95,9 +95,9 @@ class GameSessionTest {
 
         assertSame(noAudio, assertThrows(LineUnavailableException.class,
                 () -> GameSession.start(rom(), cartridge, c -> { throw noAudio; })));
-        cartridge.write(0x6000, 0x42);
 
-        assertTrue(SaveFileFormat.readBatterySave(SavePaths.batterySaveFile(rom())).isEmpty(), "no saver left running");
+        assertTrue(Thread.getAllStackTraces().keySet().stream().noneMatch(
+                thread -> thread.getName().equals("BatterySaveManager-flush")), "no saver left running");
     }
 
     @Test
