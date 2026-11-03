@@ -85,7 +85,10 @@ public final class RomVideoSmokeDemo {
                     @Override
                     public void closing(final GameSession session){
                         reopenRoundabout = closeRoundabout();
-                        SwingUtilities.invokeLater(() -> debugItems.forEach(item -> item.setEnabled(false)));
+                        SwingUtilities.invokeLater(() -> {
+                            debugItems.forEach(item -> item.setEnabled(false));
+                            videoOutput.showGame(null);
+                        });
                     }
 
                     @Override
@@ -236,6 +239,7 @@ public final class RomVideoSmokeDemo {
             debugger.replacePanels(panels);
         }
         debugItems.forEach(item -> item.setEnabled(true));
+        videoOutput.showGame(session.romPath().getFileName().toString());
         if (reopenRoundabout || firstGame && Boolean.getBoolean("roundabout.open")){
             openRoundabout(session);
         }

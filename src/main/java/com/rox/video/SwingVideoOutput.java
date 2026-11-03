@@ -96,6 +96,9 @@ public final class SwingVideoOutput implements VideoOutput {
     private final Object frameHandoff = new Object();
     /** EDT only, like every other Swing interaction here. */
     private final JMenuBar menuBar = new JMenuBar();
+    /** shown in the title after {@link #TITLE} - EDT only */
+    private String gameName;
+    private String status;
     //frame-jitter readout: gaps between frames the emulation produced (clock thread) and between frames
     //actually drawn (EDT), plus frames replaced by a newer one before the EDT got to them
     private final FrameJitter produced = new FrameJitter();
@@ -259,7 +262,26 @@ public final class SwingVideoOutput implements VideoOutput {
 
     /** Appends {@code status} to the window title (or clears it, for {@code null}) - a quiet, non-modal notice. EDT only. */
     public void showStatus(final String status){
-        frame.setTitle(status == null ? TITLE : TITLE + " - " + status);
+        this.status = status;
+        updateTitle();
+    }
+
+    /** Names the game being played in the window title ({@code null} for none), clearing any status. EDT only. */
+    public void showGame(final String gameName){
+        this.gameName = gameName;
+        this.status = null;
+        updateTitle();
+    }
+
+    private void updateTitle(){
+        final StringBuilder title = new StringBuilder(TITLE);
+        if (gameName != null){
+            title.append(" - ").append(gameName);
+        }
+        if (status != null){
+            title.append(" - ").append(status);
+        }
+        frame.setTitle(title.toString());
     }
 
     @Override
