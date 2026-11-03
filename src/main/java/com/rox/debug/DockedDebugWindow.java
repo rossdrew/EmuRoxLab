@@ -20,7 +20,8 @@ import java.util.Map;
  * Modern UI prototype: one debugger window holding several panels as ModernDocking dockables - drag a tab
  * to rearrange, split, tab together or float it. Each panel refreshes on its own timer, only while it's
  * actually showing (a background tab or a hidden window doesn't redraw). Like {@link RefreshingDebugFrame},
- * opening it leaves keyboard focus on the game, and closing it just hides it. EDT only.
+ * opening it leaves keyboard focus on the game, and closing it just hides it. {@link #replacePanels} swaps in
+ * another game's panels without disturbing the layout. EDT only.
  */
 public final class DockedDebugWindow extends JFrame {
     private static final Dimension DEFAULT_SIZE = new Dimension(2200, 1300);
@@ -46,9 +47,10 @@ public final class DockedDebugWindow extends JFrame {
             dockables.put(panel.id(), dockable);
             final Timer timer = new Timer(panel.refreshMillis(), e -> {
                 if (dockable.isShowing()){
-                    panel.refresh().run();
+                    dockable.panel.refresh().run();
                 }
             });
+            dockable.timer = timer;
             timers.add(timer);
         }
         dockDefaultLayout(new ArrayList<>(dockables.values()));
@@ -65,6 +67,21 @@ public final class DockedDebugWindow extends JFrame {
         for (int i = 2; i < panels.size(); i++){
             Docking.dock(panels.get(i), panels.get(1), DockingRegion.CENTER);
         }
+    }
+
+    /**
+     * Swaps each panel for the one in {@code panels} with the same id - e.g. another game's - keeping
+     * where it's docked, and whether the window is showing.
+     *
+     * @throws IllegalArgumentException unless {@code panels} has exactly this window's ids
+     */
+    public void replacePanels(final List<Panel> panels){
+        final Map<String, Panel> byId = new LinkedHashMap<>();
+        panels.forEach(panel -> byId.put(panel.id(), panel));
+        if (byId.size() != panels.size() || !byId.keySet().equals(dockables.keySet())){
+            throw new IllegalArgumentException("Expected panels " + dockables.keySet() + ", got " + byId.keySet());
+        }
+        byId.forEach((id, panel) -> dockables.get(id).replace(panel));
     }
 
     /** Shows (or raises) the window with panel {@code id} brought forward - re-docking it if it was closed. */
@@ -85,13 +102,23 @@ public final class DockedDebugWindow extends JFrame {
 
     /** An existing debug panel, wrapped so ModernDocking can dock it. */
     private static final class PanelDockable extends JPanel implements Dockable {
-        private final Panel panel;
+        private Panel panel;
+        private Timer timer;
 
         PanelDockable(final Panel panel){
             super(new BorderLayout());
             this.panel = panel;
             add(panel.content(), BorderLayout.CENTER);
             Docking.registerDockable(this);
+        }
+
+        void replace(final Panel replacement){
+            remove(panel.content());
+            panel = replacement;
+            add(replacement.content(), BorderLayout.CENTER);
+            timer.setDelay(replacement.refreshMillis());
+            revalidate();
+            repaint();
         }
 
         @Override

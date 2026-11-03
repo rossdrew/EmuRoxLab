@@ -67,6 +67,8 @@ public final class RomVideoSmokeDemo {
     private Path lastRomDirectory;
     /** created with the first game, kept for later ones - EDT only */
     private DockedDebugWindow debugger;
+    /** Roundabout was open when the last game closed, so opens again on the next */
+    private volatile boolean reopenRoundabout;
     /** the Roundabout memory debugger, while one is open - its own GLFW window on its own thread */
     private final AtomicReference<OpenRoundabout> roundabout = new AtomicReference<>();
 
@@ -82,7 +84,7 @@ public final class RomVideoSmokeDemo {
                 new GameSwitcher.Listener(){
                     @Override
                     public void closing(final GameSession session){
-                        closeRoundabout();
+                        reopenRoundabout = closeRoundabout();
                         SwingUtilities.invokeLater(() -> debugItems.forEach(item -> item.setEnabled(false)));
                     }
 
@@ -224,14 +226,17 @@ public final class RomVideoSmokeDemo {
         }
     }
 
-    /** EDT (via {@link #openRom}): hooks the debug tools up to the new game. */
+    /** EDT (via {@link #openRom}): hooks the debug tools up to the new game, as they were for the last. */
     private void gameStarted(final GameSession session){
         final List<DockedDebugWindow.Panel> panels = debuggerPanels(session);
-        if (debugger == null){
+        final boolean firstGame = debugger == null;
+        if (firstGame){
             debugger = new DockedDebugWindow("EmuRoxLab - Debugger", panels);
+        } else {
+            debugger.replacePanels(panels);
         }
         debugItems.forEach(item -> item.setEnabled(true));
-        if (Boolean.getBoolean("roundabout.open")){
+        if (reopenRoundabout || firstGame && Boolean.getBoolean("roundabout.open")){
             openRoundabout(session);
         }
     }
