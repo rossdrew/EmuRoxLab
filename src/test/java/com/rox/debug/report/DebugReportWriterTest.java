@@ -1,5 +1,6 @@
 package com.rox.debug.report;
 
+import com.rox.cartridge.Mirroring;
 import com.rox.cartridge.NromMapperSnapshot;
 import com.rox.cpu.mos6502.assembler.DisassembledInstruction;
 import com.rox.ppu.PpuSnapshot;
@@ -51,7 +52,7 @@ public class DebugReportWriterTest {
                 new DisassembledInstruction(0x8123, 3, "JMP", new int[]{0x00, 0x90}, "JMP $9000"),
                 new DisassembledInstruction(0x9000, 1, "INX", new int[0], "INX"));
         return new DebugReport(CAPTURED_AT, "loz.nes", "Link froze mid-swing", screenshot, solidFrame(0x123456),
-                snapshot, mapperState, upcoming);
+                snapshot, Mirroring.HORIZONTAL, mapperState, upcoming);
     }
 
     private static DebugReport report(){
@@ -162,7 +163,7 @@ public class DebugReportWriterTest {
         assertTrue(state.contains("write toggle: 0\n"), state);
         assertTrue(state.contains("VBlank: no\n"), state);
         assertTrue(state.contains("Sprite overflow: no  Sprite 0 hit: no\n"), state);
-        assertTrue(state.contains("R0: $02\nIRQ latch: $20\n"), state);
+        assertTrue(state.contains("--- Mapper ---\nMirroring: HORIZONTAL\nR0: $02\nIRQ latch: $20\n"), state);
     }
 
     @Test
@@ -189,7 +190,7 @@ public class DebugReportWriterTest {
 
         assertTrue(state.contains("Flags: nV-bDiZc"), state);
         assertTrue(state.contains("IRQ line: asserted  NMI pending: no\n"), state);
-        assertTrue(state.contains("(fixed mapping, no bank registers)\n"), state);
+        assertTrue(state.contains("Mirroring: HORIZONTAL\n(fixed mapping, no bank registers)\n"), state);
         assertTrue(state.contains("write toggle: 1\n"), state);
         assertTrue(state.contains("VBlank: yes\n"), state);
         assertTrue(state.contains("Sprite overflow: yes  Sprite 0 hit: yes\n"), state);
