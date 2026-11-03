@@ -27,6 +27,7 @@ import javax.swing.JMenuItem;
 import javax.swing.KeyStroke;
 import javax.sound.sampled.LineUnavailableException;
 import javax.swing.SwingUtilities;
+import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -53,6 +54,7 @@ public final class RomVideoSmokeDemo {
     /** Frame intervals each Roundabout frame-timing graph keeps: ten seconds at 60 fps. */
     private static final int ROUNDABOUT_FRAME_HISTORY = 600;
     private static final float ROUNDABOUT_FRAME_BUDGET_MS = 1000 / 60f;
+    private static final List<String> ROM_MENU = List.of("File", "Open", "ROM");
     private static final List<String> DEBUG_MENU = List.of("Debug");
 
     private final SwingVideoOutput videoOutput;
@@ -61,6 +63,8 @@ public final class RomVideoSmokeDemo {
     private final GameSwitcher switcher;
     /** greyed out while no game is loaded - EDT only */
     private final List<JMenuItem> debugItems = new ArrayList<>();
+    /** where Browse starts when no game is loaded: the last folder a ROM was opened from - EDT only */
+    private Path lastRomDirectory;
     /** created with the first game, kept for later ones - EDT only */
     private DockedDebugWindow debugger;
     /** the Roundabout memory debugger, while one is open - its own GLFW window on its own thread */
@@ -142,6 +146,7 @@ public final class RomVideoSmokeDemo {
         //non-daemon EDT thread alive, so the JVM would hang on exit instead of surfacing the error
         try {
             SwingUtilities.invokeLater(() -> {
+                app.addFileMenu();
                 app.addDebugMenu();
                 app.openRom(romPath);
             });
@@ -174,6 +179,19 @@ public final class RomVideoSmokeDemo {
         System.out.println("Done.");
     }
 
+    /** EDT only. */
+    private void addFileMenu(){
+        videoOutput.addMenuItem(ROM_MENU, "Browse...", KeyStroke.getKeyStroke(KeyEvent.VK_O, InputEvent.CTRL_DOWN_MASK),
+                this::browseForRom);
+    }
+
+    /** File > Open > ROM > Browse...: pick a ROM, starting in the current one's folder. EDT only. */
+    private void browseForRom(){
+        final Path startIn = switcher.current().map(session -> session.romPath().toAbsolutePath().getParent())
+                .orElse(lastRomDirectory);
+        videoOutput.chooseFileToOpen("Open ROM", startIn, "NES ROMs (*.nes)", "nes").ifPresent(this::openRom);
+    }
+
     /** EDT only: the debug tools, each acting on whichever game is loaded. */
     private void addDebugMenu(){
         debugItems.add(videoOutput.addMenuItem(DEBUG_MENU, "Breakpoints", key(KeyEvent.VK_F7), () -> showDebugPanel("breakpoints")));
@@ -197,6 +215,7 @@ public final class RomVideoSmokeDemo {
 
     /** EDT only: loads {@code rom} in place of the current game, or says why it couldn't. */
     private void openRom(final Path rom){
+        lastRomDirectory = rom.toAbsolutePath().getParent();
         try {
             switcher.open(rom);
         } catch (IOException | IllegalArgumentException | LineUnavailableException e){

@@ -1,6 +1,7 @@
 package com.rox.video;
 
 import javax.swing.JComponent;
+import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
@@ -15,6 +16,7 @@ import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.event.AncestorEvent;
 import javax.swing.event.AncestorListener;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.Font;
@@ -26,6 +28,7 @@ import java.awt.event.KeyListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -231,6 +234,22 @@ public final class SwingVideoOutput implements VideoOutput {
         final int choice = JOptionPane.showConfirmDialog(frame, panel, "Flag issue", JOptionPane.OK_CANCEL_OPTION,
                 JOptionPane.PLAIN_MESSAGE);
         return choice == JOptionPane.OK_OPTION ? Optional.of(description.getText()) : Optional.empty();
+    }
+
+    /**
+     * Asks for a file to open, in a modal chooser starting in {@code startIn} (or the working directory,
+     * for {@code null}) and showing only files with one of {@code extensions}. EDT only.
+     *
+     * @return the chosen file, or empty if cancelled
+     */
+    public Optional<Path> chooseFileToOpen(final String title, final Path startIn, final String description,
+                                           final String... extensions){
+        final JFileChooser chooser = new JFileChooser(startIn == null ? null : startIn.toFile());
+        chooser.setDialogTitle(title);
+        chooser.setFileFilter(new FileNameExtensionFilter(description, extensions));
+        return chooser.showOpenDialog(frame) == JFileChooser.APPROVE_OPTION
+                ? Optional.of(chooser.getSelectedFile().toPath())
+                : Optional.empty();
     }
 
     /** A modal error message. EDT only. */
