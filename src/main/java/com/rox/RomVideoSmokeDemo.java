@@ -85,7 +85,8 @@ public final class RomVideoSmokeDemo {
                     @Override
                     public void closing(final GameSession session){
                         reopenRoundabout = closeRoundabout();
-                        SwingUtilities.invokeLater(() -> {
+                        //now, when switching on the EDT - queued, it would land after the next game starts
+                        onEdt(() -> {
                             debugItems.forEach(item -> item.setEnabled(false));
                             videoOutput.showGame(null);
                         });
@@ -366,6 +367,14 @@ public final class RomVideoSmokeDemo {
         }
         if (interrupted){
             Thread.currentThread().interrupt();
+        }
+    }
+
+    private static void onEdt(final Runnable action){
+        if (SwingUtilities.isEventDispatchThread()){
+            action.run();
+        } else {
+            SwingUtilities.invokeLater(action);
         }
     }
 
