@@ -35,17 +35,18 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 /**
- * Manual visual smoke test: loads a real {@code .nes} ROM file and shows its video output in a real
- * window until the window is closed, or up to a fixed duration if one is given, whichever comes
- * first - not a unit test, run it directly and play.
+ * The game window: plays a real {@code .nes} ROM, opened from File > Open > ROM or given with
+ * {@code --rom}, until the window is closed, or up to a fixed duration if one is given, whichever comes
+ * first. A blank screen until a ROM is opened. See {@link LaunchOptions} for the command line.
  *
- * <pre>./gradlew compileJava &amp;&amp; java -cp build/classes/java/main com.rox.RomVideoSmokeDemo path/to/rom.nes [path/to/controllers.properties] [seconds]</pre>
+ * <pre>./gradlew runRomVideoSmokeDemo --args="--rom path/to/rom.nes --controllers path/to/controllers.properties"</pre>
  */
 public final class RomVideoSmokeDemo {
     private static final int CPU_STATE_REFRESH_MILLIS = 100;
@@ -100,20 +101,16 @@ public final class RomVideoSmokeDemo {
     }
 
     static void main(final String[] args) throws Exception {
-        if (args.length < 1){
-            System.err.println("Usage: RomVideoSmokeDemo <path-to-rom.nes> [path-to-controllers.properties] [seconds, or omit to run until the window is closed]");
+        final LaunchOptions options;
+        try {
+            options = LaunchOptions.parse(args);
+        } catch (IllegalArgumentException e){
+            System.err.println(e.getMessage());
+            System.err.println(LaunchOptions.USAGE);
             System.exit(1);
             return;
         }
-
-        final Path romPath = Path.of(args[0]);
-        final ControllerConfiguration controllers = loadControllers(args.length >= 2 ? args[1] : null);
-        final Integer runSeconds = args.length >= 3 ? Integer.parseInt(args[2]) : null;
-        if (runSeconds != null && runSeconds < 0){
-            System.err.println("Seconds must be non-negative");
-            System.exit(1);
-            return;
-        }
+        final ControllerConfiguration controllers = loadControllers(options.controllers());
 
         final CountDownLatch windowClosed = new CountDownLatch(1);
         //Swing components must only be constructed on the EDT - see PpuDebugViewerDemo's own comment.
@@ -154,14 +151,15 @@ public final class RomVideoSmokeDemo {
             SwingUtilities.invokeLater(() -> {
                 app.addFileMenu();
                 app.addDebugMenu();
-                app.openRom(romPath);
+                options.rom().ifPresent(app::openRom);
             });
-            System.out.println("Showing " + romPath
-                    + (runSeconds != null ? " for up to " + runSeconds + " seconds" : "")
-                    + " (close the window to stop" + (runSeconds != null ? " early" : "") + ")...");
+            final OptionalInt runSeconds = options.seconds();
+            System.out.println(options.rom().map(rom -> "Showing " + rom).orElse("No ROM given - open one from File > Open > ROM")
+                    + (runSeconds.isPresent() ? ", for up to " + runSeconds.getAsInt() + " seconds" : "")
+                    + " (close the window to stop" + (runSeconds.isPresent() ? " early" : "") + ")...");
             try {
-                if (runSeconds != null){
-                    windowClosed.await(runSeconds, TimeUnit.SECONDS);
+                if (runSeconds.isPresent()){
+                    windowClosed.await(runSeconds.getAsInt(), TimeUnit.SECONDS);
                 } else {
                     windowClosed.await();
                 }
@@ -382,12 +380,12 @@ public final class RomVideoSmokeDemo {
         return KeyStroke.getKeyStroke(keyCode, 0);
     }
 
-    private static ControllerConfiguration loadControllers(final String configPathArg) throws IOException {
-        if (configPathArg == null){
+    private static ControllerConfiguration loadControllers(final Optional<Path> configPath) throws IOException {
+        if (configPath.isEmpty()){
             System.out.println("No controller config given - running with no controller input (see controllers.properties.example)");
             return ControllerConfiguration.NONE;
         }
-        return ControllerConfigLoader.load(Path.of(configPathArg));
+        return ControllerConfigLoader.load(configPath.get());
     }
 
     private static void attachKeyboardControllers(final SwingVideoOutput videoOutput, final ControllerConfiguration controllers){

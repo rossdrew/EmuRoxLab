@@ -1,6 +1,6 @@
 # Copy to controllers.properties (or any path) and pass it as the second argument to
 # RomVideoSmokeDemo, e.g.:
-#   java -cp build/classes/java/main com.rox.RomVideoSmokeDemo path/to/rom.nes controllers.properties
+#   ./gradlew runRomVideoSmokeDemo --args="--rom path/to/rom.nes --controllers controllers.properties"
 #
 # source: "keyboard", "gamepad", or "none" (default if omitted).
 # Key names resolve to java.awt.event.KeyEvent.VK_* constants, e.g. "Z" -> VK_Z, "UP" -> VK_UP.
