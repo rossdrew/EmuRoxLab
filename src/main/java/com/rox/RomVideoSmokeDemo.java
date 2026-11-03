@@ -1,7 +1,6 @@
 package com.rox;
 
 import com.formdev.flatlaf.FlatDarkLaf;
-import com.rox.cartridge.Cartridge;
 import com.rox.cartridge.RomLoader;
 import com.rox.debug.DockedDebugWindow;
 import com.rox.debug.breakpoints.BreakpointsPanel;
@@ -24,18 +23,21 @@ import com.rox.roundabout.debugger.MemoryDebugger;
 import com.rox.video.SwingVideoOutput;
 import io.github.andrewauclair.moderndocking.ext.ui.DockingUI;
 
+import javax.swing.JMenuItem;
 import javax.swing.KeyStroke;
+import javax.sound.sampled.LineUnavailableException;
 import javax.swing.SwingUtilities;
 import java.awt.event.KeyEvent;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 /**
  * Manual visual smoke test: loads a real {@code .nes} ROM file and shows its video output in a real
@@ -51,8 +53,40 @@ public final class RomVideoSmokeDemo {
     /** Frame intervals each Roundabout frame-timing graph keeps: ten seconds at 60 fps. */
     private static final int ROUNDABOUT_FRAME_HISTORY = 600;
     private static final float ROUNDABOUT_FRAME_BUDGET_MS = 1000 / 60f;
+    private static final List<String> DEBUG_MENU = List.of("Debug");
 
-    private RomVideoSmokeDemo(){
+    private final SwingVideoOutput videoOutput;
+    /** frames finished by the emulation and frames drawn by Swing, for Roundabout's frame-timing graphs */
+    private final List<FrameTimes> frameTimings;
+    private final GameSwitcher switcher;
+    /** greyed out while no game is loaded - EDT only */
+    private final List<JMenuItem> debugItems = new ArrayList<>();
+    /** created with the first game, kept for later ones - EDT only */
+    private DockedDebugWindow debugger;
+    /** the Roundabout memory debugger, while one is open - its own GLFW window on its own thread */
+    private final AtomicReference<OpenRoundabout> roundabout = new AtomicReference<>();
+
+    private record OpenRoundabout(MemoryDebugger debugger, Thread thread) {
+    }
+
+    private RomVideoSmokeDemo(final SwingVideoOutput videoOutput, final ControllerConfiguration controllers,
+                              final List<FrameTimes> frameTimings){
+        this.videoOutput = videoOutput;
+        this.frameTimings = frameTimings;
+        this.switcher = new GameSwitcher(RomLoader::load,
+                (rom, cartridge) -> GameSession.start(rom, cartridge, c -> new NES(videoOutput, controllers, c)),
+                new GameSwitcher.Listener(){
+                    @Override
+                    public void closing(final GameSession session){
+                        closeRoundabout();
+                        SwingUtilities.invokeLater(() -> debugItems.forEach(item -> item.setEnabled(false)));
+                    }
+
+                    @Override
+                    public void started(final GameSession session){
+                        gameStarted(session);
+                    }
+                });
     }
 
     static void main(final String[] args) throws Exception {
@@ -70,8 +104,6 @@ public final class RomVideoSmokeDemo {
             System.exit(1);
             return;
         }
-
-        final Cartridge cartridge = RomLoader.load(romPath);
 
         final CountDownLatch windowClosed = new CountDownLatch(1);
         //Swing components must only be constructed on the EDT - see PpuDebugViewerDemo's own comment.
@@ -101,52 +133,21 @@ public final class RomVideoSmokeDemo {
             Thread.currentThread().interrupt();
         }
         attachKeyboardControllers(videoOutput, controllers);
-        //frames finished by the emulation and frames drawn by Swing, for Roundabout's frame-timing graphs
         final List<FrameTimes> frameTimings = List.of(new FrameTimes("emu frames", ROUNDABOUT_FRAME_HISTORY,
                 ROUNDABOUT_FRAME_BUDGET_MS), new FrameTimes("shown frames", ROUNDABOUT_FRAME_HISTORY, ROUNDABOUT_FRAME_BUDGET_MS));
         videoOutput.onFrameTimes(frameTimings.get(0)::record, frameTimings.get(1)::record);
-        //added on the EDT once the NES exists, disposed alongside the video window - a visible JFrame keeps
-        //a non-daemon EDT alive, so leaving one would hang the JVM on exit
-        final List<DockedDebugWindow> debugFrames = new CopyOnWriteArrayList<>();
-        //the Roundabout memory debugger, while one is open - its own GLFW window on its own thread
-        final AtomicReference<MemoryDebugger> roundabout = new AtomicReference<>();
+        final RomVideoSmokeDemo app = new RomVideoSmokeDemo(videoOutput, controllers, frameTimings);
 
-        //outer try/finally so the window is always closed, even if NES construction itself throws
-        //(e.g. no audio line available) - a visible, undisposed JFrame keeps a non-daemon EDT thread
-        //alive, so skipping close() here would hang the JVM on exit instead of surfacing the error
-        GameSession session = null;
+        //always close the window, even if something here throws - a visible, undisposed JFrame keeps a
+        //non-daemon EDT thread alive, so the JVM would hang on exit instead of surfacing the error
         try {
-            session = GameSession.start(romPath, cartridge, c -> new NES(videoOutput, controllers, c));
-            final NES nes = session.nes();
             SwingUtilities.invokeLater(() -> {
-                final CpuStatePanel cpuStatePanel = new CpuStatePanel(new NesCpuDebugSource(nes));
-                final MemoryViewerPanel memoryViewerPanel = new MemoryViewerPanel(new NesMemoryDebugSource(nes));
-                final LabelWatchPanel labelWatchPanel = new LabelWatchPanel(new LabelWatchModel(
-                        new FileLabelStore(SavePaths.labelsFile(romPath)), new NesLabelWatchTarget(nes)));
-                final BreakpointsPanel breakpointsPanel = new BreakpointsPanel(nes.breakpoints(), nes::lastHit,
-                        new FileLabelStore(SavePaths.labelsFile(romPath)));
-                final DockedDebugWindow debugger = new DockedDebugWindow("EmuRoxLab - Debugger", List.of(
-                        new DockedDebugWindow.Panel("cpu", "CPU state", cpuStatePanel, cpuStatePanel::refresh, CPU_STATE_REFRESH_MILLIS),
-                        new DockedDebugWindow.Panel("memory", "Memory", memoryViewerPanel, memoryViewerPanel::refresh, MEMORY_VIEWER_REFRESH_MILLIS),
-                        new DockedDebugWindow.Panel("watch", "Watch", labelWatchPanel, labelWatchPanel::refresh, MEMORY_VIEWER_REFRESH_MILLIS),
-                        new DockedDebugWindow.Panel("breakpoints", "Breakpoints", breakpointsPanel, breakpointsPanel::refresh,
-                                CPU_STATE_REFRESH_MILLIS)));
-                debugFrames.add(debugger);
-                final List<String> debug = List.of("Debug");
-                videoOutput.addMenuItem(debug, "Breakpoints", key(KeyEvent.VK_F7), () -> debugger.showPanel("breakpoints"));
-                videoOutput.addMenuItem(debug, "Roundabout", key(KeyEvent.VK_F8), () -> openRoundabout(nes, romPath, frameTimings, roundabout));
-                videoOutput.addMenuItem(debug, "Watch", key(KeyEvent.VK_F9), () -> debugger.showPanel("watch"));
-                videoOutput.addMenuItem(debug, "Memory", key(KeyEvent.VK_F10), () -> debugger.showPanel("memory"));
-                videoOutput.addMenuItem(debug, "CPU state", key(KeyEvent.VK_F11), () -> debugger.showPanel("cpu"));
-                videoOutput.addMenuItem(debug, "Flag issue", key(KeyEvent.VK_F12), () -> flagIssue(nes, videoOutput, romPath));
+                app.addDebugMenu();
+                app.openRom(romPath);
             });
-
             System.out.println("Showing " + romPath
                     + (runSeconds != null ? " for up to " + runSeconds + " seconds" : "")
                     + " (close the window to stop" + (runSeconds != null ? " early" : "") + ")...");
-            if (Boolean.getBoolean("roundabout.open")){
-                openRoundabout(nes, romPath, frameTimings, roundabout);
-            }
             try {
                 if (runSeconds != null){
                     windowClosed.await(runSeconds, TimeUnit.SECONDS);
@@ -158,25 +159,83 @@ public final class RomVideoSmokeDemo {
             }
         } finally {
             try {
-                if (session != null){
-                    session.close();
-                }
+                app.switcher.close();
             } finally {
-                SwingUtilities.invokeLater(() -> debugFrames.forEach(DockedDebugWindow::dispose));
-                final MemoryDebugger openRoundabout = roundabout.get();
-                if (openRoundabout != null){
-                    openRoundabout.close();
-                }
+                SwingUtilities.invokeLater(() -> {
+                    if (app.debugger != null){
+                        app.debugger.dispose();
+                    }
+                });
                 videoOutput.close();
-                //only once the session has ended all gamepad polling
+                //only once the game has ended all gamepad polling
                 ControllerConfigLoader.closeConnectedGamepads();
             }
         }
         System.out.println("Done.");
     }
 
+    /** EDT only: the debug tools, each acting on whichever game is loaded. */
+    private void addDebugMenu(){
+        debugItems.add(videoOutput.addMenuItem(DEBUG_MENU, "Breakpoints", key(KeyEvent.VK_F7), () -> showDebugPanel("breakpoints")));
+        debugItems.add(videoOutput.addMenuItem(DEBUG_MENU, "Roundabout", key(KeyEvent.VK_F8), () -> withGame(this::openRoundabout)));
+        debugItems.add(videoOutput.addMenuItem(DEBUG_MENU, "Watch", key(KeyEvent.VK_F9), () -> showDebugPanel("watch")));
+        debugItems.add(videoOutput.addMenuItem(DEBUG_MENU, "Memory", key(KeyEvent.VK_F10), () -> showDebugPanel("memory")));
+        debugItems.add(videoOutput.addMenuItem(DEBUG_MENU, "CPU state", key(KeyEvent.VK_F11), () -> showDebugPanel("cpu")));
+        debugItems.add(videoOutput.addMenuItem(DEBUG_MENU, "Flag issue", key(KeyEvent.VK_F12),
+                () -> withGame(session -> flagIssue(session.nes(), videoOutput, session.romPath()))));
+        debugItems.forEach(item -> item.setEnabled(false));
+    }
+
+    /** A menu item's accelerator still fires while it's greyed out, so each action checks too. */
+    private void withGame(final Consumer<GameSession> action){
+        switcher.current().ifPresent(action);
+    }
+
+    private void showDebugPanel(final String id){
+        withGame(session -> debugger.showPanel(id));
+    }
+
+    /** EDT only: loads {@code rom} in place of the current game, or says why it couldn't. */
+    private void openRom(final Path rom){
+        try {
+            switcher.open(rom);
+        } catch (IOException | IllegalArgumentException | LineUnavailableException e){
+            System.err.println("Couldn't open " + rom + ": " + e.getMessage());
+            videoOutput.showError("Couldn't open ROM", "Couldn't open " + rom.getFileName() + ":\n" + e.getMessage());
+        }
+    }
+
+    /** EDT (via {@link #openRom}): hooks the debug tools up to the new game. */
+    private void gameStarted(final GameSession session){
+        final List<DockedDebugWindow.Panel> panels = debuggerPanels(session);
+        if (debugger == null){
+            debugger = new DockedDebugWindow("EmuRoxLab - Debugger", panels);
+        }
+        debugItems.forEach(item -> item.setEnabled(true));
+        if (Boolean.getBoolean("roundabout.open")){
+            openRoundabout(session);
+        }
+    }
+
+    private static List<DockedDebugWindow.Panel> debuggerPanels(final GameSession session){
+        final NES nes = session.nes();
+        final Path romPath = session.romPath();
+        final CpuStatePanel cpuStatePanel = new CpuStatePanel(new NesCpuDebugSource(nes));
+        final MemoryViewerPanel memoryViewerPanel = new MemoryViewerPanel(new NesMemoryDebugSource(nes));
+        final LabelWatchPanel labelWatchPanel = new LabelWatchPanel(new LabelWatchModel(
+                new FileLabelStore(SavePaths.labelsFile(romPath)), new NesLabelWatchTarget(nes)));
+        final BreakpointsPanel breakpointsPanel = new BreakpointsPanel(nes.breakpoints(), nes::lastHit,
+                new FileLabelStore(SavePaths.labelsFile(romPath)));
+        return List.of(
+                new DockedDebugWindow.Panel("cpu", "CPU state", cpuStatePanel, cpuStatePanel::refresh, CPU_STATE_REFRESH_MILLIS),
+                new DockedDebugWindow.Panel("memory", "Memory", memoryViewerPanel, memoryViewerPanel::refresh, MEMORY_VIEWER_REFRESH_MILLIS),
+                new DockedDebugWindow.Panel("watch", "Watch", labelWatchPanel, labelWatchPanel::refresh, MEMORY_VIEWER_REFRESH_MILLIS),
+                new DockedDebugWindow.Panel("breakpoints", "Breakpoints", breakpointsPanel, breakpointsPanel::refresh,
+                        CPU_STATE_REFRESH_MILLIS));
+    }
+
     /**
-     * The "Flag issue" button/F12 (runs on the EDT): freeze the game, capture everything, ask what went
+     * Debug > Flag issue (runs on the EDT): freeze the game, capture everything, ask what went
      * wrong, then unfreeze - and, unless cancelled, write it all to a {@code debug-snapshot-<timestamp>}
      * folder beside the ROM's saves.
      */
@@ -222,11 +281,12 @@ public final class RomVideoSmokeDemo {
     }
 
     /**
-     * The "Roundabout" button/F8: opens the Roundabout memory debugger, watching the ROM's saved labels - at most one at a
-     * time. A daemon thread, so an open debugger never keeps the JVM alive once the game window has closed.
+     * Debug > Roundabout: opens the Roundabout memory debugger on {@code session}'s game, watching its saved
+     * labels - at most one at a time. A daemon thread, so an open debugger never keeps the JVM alive once
+     * the game window has closed.
      */
-    private static void openRoundabout(final NES nes, final Path romPath, final List<FrameTimes> frameTimings,
-                                  final AtomicReference<MemoryDebugger> open){
+    private void openRoundabout(final GameSession session){
+        final Path romPath = session.romPath();
         List<MemoryLabel> labels;
         try {
             labels = new FileLabelStore(SavePaths.labelsFile(romPath)).load();
@@ -234,20 +294,51 @@ public final class RomVideoSmokeDemo {
             System.err.println("Roundabout: not watching saved labels - " + e.getMessage());
             labels = List.of();
         }
-        final MemoryDebugger debugger = new MemoryDebugger(new NesRoundaboutTarget(nes, labels, frameTimings),
+        final MemoryDebugger debugger = new MemoryDebugger(new NesRoundaboutTarget(session.nes(), labels, frameTimings),
                 "EmuRoxLab - Roundabout - " + romPath.getFileName());
-        if (!open.compareAndSet(null, debugger)){
+        final Thread thread = new Thread(debugger::run, "roundabout");
+        thread.setDaemon(true);
+        final OpenRoundabout open = new OpenRoundabout(debugger, thread);
+        if (!roundabout.compareAndSet(null, open)){
             return;
         }
-        final Thread thread = new Thread(() -> {
-            try {
-                debugger.run();
-            } finally {
-                open.compareAndSet(debugger, null);
-            }
-        }, "roundabout");
-        thread.setDaemon(true);
         thread.start();
+        //closed from its own window: free the slot for the next one
+        final Thread watcher = new Thread(() -> {
+            joinUninterruptibly(thread);
+            roundabout.compareAndSet(open, null);
+        }, "roundabout-watcher");
+        watcher.setDaemon(true);
+        watcher.start();
+    }
+
+    /**
+     * Closes Roundabout, if open, and waits for its window to go - each one starts and ends GLFW itself.
+     *
+     * @return whether one was open
+     */
+    private boolean closeRoundabout(){
+        final OpenRoundabout open = roundabout.getAndSet(null);
+        if (open == null){
+            return false;
+        }
+        open.debugger().close();
+        joinUninterruptibly(open.thread());
+        return true;
+    }
+
+    private static void joinUninterruptibly(final Thread thread){
+        boolean interrupted = false;
+        while (thread.isAlive()){
+            try {
+                thread.join();
+            } catch (InterruptedException e){
+                interrupted = true;
+            }
+        }
+        if (interrupted){
+            Thread.currentThread().interrupt();
+        }
     }
 
     private static KeyStroke key(final int keyCode){

@@ -22,26 +22,10 @@ class GameSessionTest {
         return directory.resolve("game.nes");
     }
 
-    /** A {@link NES} whose {@code powerOn} blocks, on the calling thread, until {@code powerOff}. */
-    private static NES blockingNes(final AtomicReference<Thread> poweredOnBy){
-        final NES nes = mock(NES.class);
-        final CountDownLatch poweredOff = new CountDownLatch(1);
-        doAnswer(invocation -> {
-            poweredOnBy.set(Thread.currentThread());
-            poweredOff.await();
-            return null;
-        }).when(nes).powerOn();
-        doAnswer(invocation -> {
-            poweredOff.countDown();
-            return null;
-        }).when(nes).powerOff();
-        return nes;
-    }
-
     @Test
     void startPowersTheNesOnOnItsOwnThreadAndCloseWaitsForItToEnd() throws Exception {
         final AtomicReference<Thread> poweredOnBy = new AtomicReference<>();
-        final NES nes = blockingNes(poweredOnBy);
+        final NES nes = BlockingNes.create(poweredOnBy);
 
         final GameSession session = GameSession.start(rom(), TestRoms.nrom().cartridge(), cartridge -> nes);
 
@@ -63,7 +47,7 @@ class GameSessionTest {
 
         GameSession.start(rom(), cartridge, c -> {
             builtFrom.set(c);
-            return blockingNes(new AtomicReference<>());
+            return BlockingNes.create();
         }).close();
 
         assertSame(cartridge, builtFrom.get());
@@ -72,7 +56,7 @@ class GameSessionTest {
     @Test
     void closingFlushesTheBatterySave() throws Exception {
         final Cartridge cartridge = TestRoms.nrom().battery().cartridge();
-        final GameSession session = GameSession.start(rom(), cartridge, c -> blockingNes(new AtomicReference<>()));
+        final GameSession session = GameSession.start(rom(), cartridge, c -> BlockingNes.create());
         cartridge.write(0x6000, 0x42);
 
         session.close();
@@ -83,12 +67,12 @@ class GameSessionTest {
     @Test
     void startLoadsAnExistingBatterySave() throws Exception {
         final Cartridge first = TestRoms.nrom().battery().cartridge();
-        final GameSession session = GameSession.start(rom(), first, c -> blockingNes(new AtomicReference<>()));
+        final GameSession session = GameSession.start(rom(), first, c -> BlockingNes.create());
         first.write(0x6000, 0x42);
         session.close();
         final Cartridge second = TestRoms.nrom().battery().cartridge();
 
-        GameSession.start(rom(), second, c -> blockingNes(new AtomicReference<>())).close();
+        GameSession.start(rom(), second, c -> BlockingNes.create()).close();
 
         assertEquals(0x42, second.read(0x6000));
     }
@@ -96,7 +80,7 @@ class GameSessionTest {
     @Test
     void aCartridgeWithoutABatteryWritesNoSave() throws Exception {
         final Cartridge cartridge = TestRoms.nrom().cartridge();
-        final GameSession session = GameSession.start(rom(), cartridge, c -> blockingNes(new AtomicReference<>()));
+        final GameSession session = GameSession.start(rom(), cartridge, c -> BlockingNes.create());
         cartridge.write(0x6000, 0x42);
 
         session.close();
