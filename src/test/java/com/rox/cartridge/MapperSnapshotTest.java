@@ -171,7 +171,7 @@ public class MapperSnapshotTest {
             mapper.write(0x8001, 2 * register + 2);
         }
         mapper.write(0x8000, 0xC5);
-        mapper.write(0xA000, 1); //vertical - a fresh board here starts horizontal
+        mapper.write(0xA000, 0); //vertical - a fresh board here starts horizontal
         return mapper;
     }
 

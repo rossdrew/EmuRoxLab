@@ -143,7 +143,8 @@ public final class Mmc3Mapper implements Mapper {
             }
         } else if (address < IRQ_LATCH_REGISTER_START){
             if (even){
-                horizontalMirroring = (value & 1) == 0;
+                //nesdev: "0: horizontal (A10); 1: vertical (A11)" - that's the arrangement, so 1 = horizontal mirroring
+                horizontalMirroring = (value & 1) == 1;
             }
             //odd ($A001): PRG-RAM write-protect - deliberately not modeled, see class doc
         } else if (address < IRQ_ENABLE_REGISTER_START){
