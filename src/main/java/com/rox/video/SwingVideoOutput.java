@@ -1,5 +1,6 @@
 package com.rox.video;
 
+import javax.imageio.ImageIO;
 import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -18,16 +19,20 @@ import javax.swing.event.AncestorEvent;
 import javax.swing.event.AncestorListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Image;
 import java.awt.RenderingHints;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -61,14 +66,22 @@ public final class SwingVideoOutput implements VideoOutput {
     private static final int JITTER_REFRESH_MILLIS = 1000;
     /** {@code -Dframejitter.log=true} also prints the readout to stdout once a second, to compare runs. */
     private static final boolean LOG_JITTER = Boolean.getBoolean("framejitter.log");
+    /** Shown small, on black, while no game is loaded - {@code null} if it can't be read. */
+    private static final BufferedImage IDLE_IMAGE = readImage("scavenged_nes.png");
+    /** {@link #IDLE_IMAGE} fits within this fraction of the window's width and height. */
+    private static final int IDLE_IMAGE_FRACTION = 3;
 
     private final BufferedImage image = new BufferedImage(WIDTH_PX, HEIGHT_PX, BufferedImage.TYPE_INT_RGB);
     private final JPanel canvas = new JPanel(){
         @Override
         protected void paintComponent(final Graphics g){
             super.paintComponent(g);
-            final int[] rect = CenteredScale.fit(WIDTH_PX, HEIGHT_PX, getWidth(), getHeight());
             final Graphics2D g2 = (Graphics2D) g;
+            if (gameName == null){
+                paintIdle(g2);
+                return;
+            }
+            final int[] rect = CenteredScale.fit(WIDTH_PX, HEIGHT_PX, getWidth(), getHeight());
             g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
             g2.drawImage(image, rect[0], rect[1], rect[2], rect[3], null);
             //a frame counts as shown once it's painted - Swing may delay or merge repaints, and repaints
@@ -96,9 +109,11 @@ public final class SwingVideoOutput implements VideoOutput {
     private final Object frameHandoff = new Object();
     /** EDT only, like every other Swing interaction here. */
     private final JMenuBar menuBar = new JMenuBar();
-    /** shown in the title after {@link #TITLE} - EDT only */
+    /** shown in the title after {@link #TITLE}; {@code null} shows {@link #IDLE_IMAGE} instead of the game - EDT only */
     private String gameName;
     private String status;
+    /** see {@link #scaledIdleImage} */
+    private BufferedImage scaledIdleImage;
     //frame-jitter readout: gaps between frames the emulation produced (clock thread) and between frames
     //actually drawn (EDT), plus frames replaced by a newer one before the EDT got to them
     private final FrameJitter produced = new FrameJitter();
@@ -266,11 +281,62 @@ public final class SwingVideoOutput implements VideoOutput {
         updateTitle();
     }
 
-    /** Names the game being played in the window title ({@code null} for none), clearing any status. EDT only. */
+    /**
+     * Names the game being played in the window title, clearing any status - or, for {@code null}, shows
+     * that none is: the idle image, with the last game's frame cleared so the next doesn't flash it. EDT only.
+     */
     public void showGame(final String gameName){
         this.gameName = gameName;
         this.status = null;
         updateTitle();
+        if (gameName == null){
+            final Graphics2D g = image.createGraphics();
+            g.setColor(Color.BLACK);
+            g.fillRect(0, 0, WIDTH_PX, HEIGHT_PX);
+            g.dispose();
+        }
+        canvas.repaint();
+    }
+
+    /** Black, with {@link #IDLE_IMAGE} small in the middle. EDT only. */
+    private void paintIdle(final Graphics2D g){
+        final int width = canvas.getWidth();
+        final int height = canvas.getHeight();
+        g.setColor(Color.BLACK);
+        g.fillRect(0, 0, width, height);
+        if (IDLE_IMAGE == null){
+            return;
+        }
+        final int areaWidth = width / IDLE_IMAGE_FRACTION;
+        final int areaHeight = height / IDLE_IMAGE_FRACTION;
+        final int[] rect = CenteredScale.fit(IDLE_IMAGE.getWidth(), IDLE_IMAGE.getHeight(), areaWidth, areaHeight);
+        if (rect[2] <= 0 || rect[3] <= 0){
+            return;
+        }
+        g.drawImage(scaledIdleImage(rect[2], rect[3]), (width - areaWidth) / 2 + rect[0], (height - areaHeight) / 2 + rect[1], null);
+    }
+
+    /**
+     * {@link #IDLE_IMAGE} at this size, area-averaged - a one-step bicubic shrink to a fraction of its size
+     * drops detail, leaving the text jagged. Cached until the window is resized. EDT only.
+     */
+    private BufferedImage scaledIdleImage(final int width, final int height){
+        if (scaledIdleImage == null || scaledIdleImage.getWidth() != width || scaledIdleImage.getHeight() != height){
+            scaledIdleImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+            final Graphics2D g = scaledIdleImage.createGraphics();
+            g.drawImage(IDLE_IMAGE.getScaledInstance(width, height, Image.SCALE_AREA_AVERAGING), 0, 0, null);
+            g.dispose();
+        }
+        return scaledIdleImage;
+    }
+
+    private static BufferedImage readImage(final String resource){
+        try (InputStream in = SwingVideoOutput.class.getResourceAsStream(resource)){
+            return in == null ? null : ImageIO.read(in);
+        } catch (IOException e){
+            System.err.println("Couldn't read " + resource + ": " + e.getMessage());
+            return null;
+        }
     }
 
     private void updateTitle(){
