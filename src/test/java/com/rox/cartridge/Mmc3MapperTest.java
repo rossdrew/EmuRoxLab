@@ -252,21 +252,21 @@ public class Mmc3MapperTest {
     }
 
     @Test
-    public void mirroringBitZeroMeansHorizontal(){
+    public void mirroringBitZeroMeansVertical(){
         final Mmc3Mapper mapper = new Mmc3Mapper(romWithBanks(4));
 
         mapper.write(0xA000, 0);
 
-        assertEquals(Mirroring.HORIZONTAL, mapper.nametableMirroring());
+        assertEquals(Mirroring.VERTICAL, mapper.nametableMirroring(), "nesdev: 0 = horizontal arrangement = vertical mirroring");
     }
 
     @Test
-    public void mirroringBitOneMeansVertical(){
+    public void mirroringBitOneMeansHorizontal(){
         final Mmc3Mapper mapper = new Mmc3Mapper(romWithBanks(4));
 
         mapper.write(0xA000, 1);
 
-        assertEquals(Mirroring.VERTICAL, mapper.nametableMirroring());
+        assertEquals(Mirroring.HORIZONTAL, mapper.nametableMirroring(), "nesdev: 1 = vertical arrangement = horizontal mirroring");
     }
 
     // --- IRQ: register plumbing ---
