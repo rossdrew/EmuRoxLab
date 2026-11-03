@@ -2,6 +2,7 @@ package com.rox;
 
 import com.rox.audio.AudioOutput;
 import com.rox.cartridge.Cartridge;
+import com.rox.cartridge.Mirroring;
 import com.rox.clock.Clock;
 import com.rox.debug.report.DebugReport;
 import com.rox.debug.report.DebugReportWriter;
@@ -33,7 +34,7 @@ public class DebugCaptureTest {
 
     /** NROM, reset vector -> $9000: INX; STX $10; JMP $9000. PRG byte at $8000 (and its $C000 mirror) is $42. */
     private static Cartridge cartridge(){
-        return TestRoms.nrom().prg(0, 0x42).at(0x9000, 0xE8, 0x86, 0x10, 0x4C, 0x00, 0x90).resetVector(0x9000).cartridge();
+        return TestRoms.nrom().verticalMirroring(true).prg(0, 0x42).at(0x9000, 0xE8, 0x86, 0x10, 0x4C, 0x00, 0x90).resetVector(0x9000).cartridge();
     }
 
     @Test
@@ -64,6 +65,7 @@ public class DebugCaptureTest {
         assertSame(lastFrame, report.screenshotRgb());
         assertArrayEquals(nes.ppu().rgbFramebuffer(), report.partialFrameRgb());
         assertRecordsEqual(nes.captureSnapshot(), report.snapshot());
+        assertEquals(Mirroring.VERTICAL, report.mirroring());
         assertTrue(report.mapperState().isEmpty(), "NROM has no bank registers");
     }
 

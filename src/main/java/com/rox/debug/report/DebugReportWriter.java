@@ -27,7 +27,7 @@ import java.util.Map;
  *     <li>{@code screenshot.png} - the last complete frame (absent if none had been shown yet)</li>
  *     <li>{@code framebuffer-partial.png} - the PPU's part-drawn frame at the moment of capture</li>
  *     <li>{@code description.txt} - what the person flagging the issue saw</li>
- *     <li>{@code state.txt} - CPU registers/flags, the next instructions, PPU and mapper state</li>
+ *     <li>{@code state.txt} - CPU registers/flags, the next instructions, PPU and mapper state (mirroring included)</li>
  *     <li>{@code ram.bin}/{@code ram.hex.txt} - the 2KB of CPU RAM ({@code $0000-$07FF}, mirrored through {@code $1FFF})</li>
  *     <li>{@code oam.bin}, {@code nametables.bin}, {@code palette.bin}, {@code prg-ram.bin}, and
  *     {@code chr-ram.bin} (CHR-RAM boards only) - raw dumps</li>
@@ -104,6 +104,7 @@ public final class DebugReportWriter {
                 .append("  Sprite 0 hit: ").append(yesNo(ppu.sprites().spriteZeroHitFlag())).append("\n\n");
 
         out.append("--- Mapper ---\n");
+        out.append("Mirroring: ").append(report.mirroring()).append('\n');
         if (report.mapperState().isEmpty()){
             out.append("(fixed mapping, no bank registers)\n");
         }

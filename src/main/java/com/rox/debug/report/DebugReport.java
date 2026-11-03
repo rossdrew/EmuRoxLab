@@ -1,5 +1,6 @@
 package com.rox.debug.report;
 
+import com.rox.cartridge.Mirroring;
 import com.rox.cpu.mos6502.assembler.DisassembledInstruction;
 import com.rox.save.SystemSnapshot;
 
@@ -16,14 +17,16 @@ import java.util.Map;
  * @param screenshotRgb the last complete frame shown (packed {@code 0xRRGGBB}, 256x240), or
  * {@code null} if none had been shown yet
  * @param partialFrameRgb the PPU's framebuffer at the moment of capture - usually part-drawn
+ * @param mirroring the mapper's current nametable mirroring, not the header's
  * @param upcomingInstructions disassembly forward from the CPU's PC
  */
 public record DebugReport(LocalDateTime capturedAt, String romName, String description, int[] screenshotRgb,
-                          int[] partialFrameRgb, SystemSnapshot snapshot, Map<String, String> mapperState,
+                          int[] partialFrameRgb, SystemSnapshot snapshot, Mirroring mirroring,
+                          Map<String, String> mapperState,
                           List<DisassembledInstruction> upcomingInstructions) {
 
     public DebugReport withDescription(final String newDescription){
         return new DebugReport(capturedAt, romName, newDescription, screenshotRgb, partialFrameRgb, snapshot,
-                mapperState, upcomingInstructions);
+                mirroring, mapperState, upcomingInstructions);
     }
 }

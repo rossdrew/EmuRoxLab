@@ -37,7 +37,7 @@ final class DebugCapture {
         final SystemSnapshot snapshot = nes.captureSnapshot();
         final IntUnaryOperator peek = sideEffectFreePeek(snapshot.ram(), nes.cartridge());
         return new DebugReport(capturedAt, romName, "", lastFrame, nes.ppu().rgbFramebuffer(), snapshot,
-                nes.cartridge().debugState(),
+                nes.cartridge().nametableMirroring(), nes.cartridge().debugState(),
                 Disassembler.disassembleForward(peek, snapshot.cpu().pc(), UPCOMING_INSTRUCTION_COUNT));
     }
 
