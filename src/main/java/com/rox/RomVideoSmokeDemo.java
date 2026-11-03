@@ -25,6 +25,7 @@ import com.rox.roundabout.debugger.MemoryDebugger;
 import com.rox.video.SwingVideoOutput;
 import io.github.andrewauclair.moderndocking.ext.ui.DockingUI;
 
+import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import java.awt.event.KeyEvent;
 import java.io.IOException;
@@ -142,12 +143,13 @@ public final class RomVideoSmokeDemo {
                         new DockedDebugWindow.Panel("breakpoints", "Breakpoints", breakpointsPanel, breakpointsPanel::refresh,
                                 CPU_STATE_REFRESH_MILLIS)));
                 debugFrames.add(debugger);
-                videoOutput.addToolButton("Breakpoints (F7)", KeyEvent.VK_F7, () -> debugger.showPanel("breakpoints"));
-                videoOutput.addToolButton("Roundabout (F8)", KeyEvent.VK_F8, () -> openRoundabout(nes, romPath, frameTimings, roundabout));
-                videoOutput.addToolButton("Watch (F9)", KeyEvent.VK_F9, () -> debugger.showPanel("watch"));
-                videoOutput.addToolButton("Memory (F10)", KeyEvent.VK_F10, () -> debugger.showPanel("memory"));
-                videoOutput.addToolButton("CPU state (F11)", KeyEvent.VK_F11, () -> debugger.showPanel("cpu"));
-                videoOutput.addToolButton("Flag issue (F12)", KeyEvent.VK_F12, () -> flagIssue(nes, videoOutput, romPath));
+                final List<String> debug = List.of("Debug");
+                videoOutput.addMenuItem(debug, "Breakpoints", key(KeyEvent.VK_F7), () -> debugger.showPanel("breakpoints"));
+                videoOutput.addMenuItem(debug, "Roundabout", key(KeyEvent.VK_F8), () -> openRoundabout(nes, romPath, frameTimings, roundabout));
+                videoOutput.addMenuItem(debug, "Watch", key(KeyEvent.VK_F9), () -> debugger.showPanel("watch"));
+                videoOutput.addMenuItem(debug, "Memory", key(KeyEvent.VK_F10), () -> debugger.showPanel("memory"));
+                videoOutput.addMenuItem(debug, "CPU state", key(KeyEvent.VK_F11), () -> debugger.showPanel("cpu"));
+                videoOutput.addMenuItem(debug, "Flag issue", key(KeyEvent.VK_F12), () -> flagIssue(nes, videoOutput, romPath));
             });
 
             System.out.println("Showing " + romPath
@@ -277,6 +279,10 @@ public final class RomVideoSmokeDemo {
         }, "roundabout");
         thread.setDaemon(true);
         thread.start();
+    }
+
+    private static KeyStroke key(final int keyCode){
+        return KeyStroke.getKeyStroke(keyCode, 0);
     }
 
     private static ControllerConfiguration loadControllers(final String configPathArg) throws IOException {

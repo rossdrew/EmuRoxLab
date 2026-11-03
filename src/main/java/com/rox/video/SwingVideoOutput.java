@@ -1,8 +1,12 @@
 package com.rox.video;
 
-import javax.swing.JButton;
+import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
+import javax.swing.KeyStroke;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -13,19 +17,16 @@ import javax.swing.event.AncestorEvent;
 import javax.swing.event.AncestorListener;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
-import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
-import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -52,7 +53,7 @@ public final class SwingVideoOutput implements VideoOutput {
     private static final int DESCRIPTION_COLUMNS = 50;
     //a large explicit size, like the debug panels': Swing's default font is unreadably small on a
     //high-DPI display here
-    private static final float TOOL_BUTTON_FONT_SIZE = 24f;
+    private static final float MENU_FONT_SIZE = 24f;
     private static final float JITTER_FONT_SIZE = 18f;
     private static final int JITTER_REFRESH_MILLIS = 1000;
     /** {@code -Dframejitter.log=true} also prints the readout to stdout once a second, to compare runs. */
@@ -90,9 +91,8 @@ public final class SwingVideoOutput implements VideoOutput {
     //atomic with each other - otherwise a frame presented between a render clearing pending and reading
     //the frame is taken by that render and also schedules a second, redundant one
     private final Object frameHandoff = new Object();
-    //tool buttons and their hotkeys - EDT-only, like every other Swing interaction here
-    private final JPanel toolBar = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-    private final Map<Integer, Runnable> hotkeys = new HashMap<>();
+    /** EDT only, like every other Swing interaction here. */
+    private final JMenuBar menuBar = new JMenuBar();
     //frame-jitter readout: gaps between frames the emulation produced (clock thread) and between frames
     //actually drawn (EDT), plus frames replaced by a newer one before the EDT got to them
     private final FrameJitter produced = new FrameJitter();
@@ -118,22 +118,11 @@ public final class SwingVideoOutput implements VideoOutput {
         canvas.setPreferredSize(new Dimension(WIDTH_PX * SCALE, HEIGHT_PX * SCALE));
         frame.getContentPane().add(canvas, BorderLayout.CENTER);
         jitterLabel.setFont(new Font(Font.MONOSPACED, Font.PLAIN, Math.round(JITTER_FONT_SIZE)));
-        final JPanel bottom = new JPanel(new BorderLayout());
-        bottom.add(jitterLabel, BorderLayout.WEST);
-        bottom.add(toolBar, BorderLayout.CENTER);
-        frame.getContentPane().add(bottom, BorderLayout.SOUTH);
+        frame.getContentPane().add(jitterLabel, BorderLayout.SOUTH);
         jitterTimer.start();
-        //hotkeys via a plain frame KeyListener - the same path controller input already takes, so they
-        //work whenever the game itself is receiving keys
-        frame.addKeyListener(new KeyAdapter(){
-            @Override
-            public void keyPressed(final KeyEvent e){
-                final Runnable action = hotkeys.get(e.getKeyCode());
-                if (action != null){
-                    action.run();
-                }
-            }
-        });
+        //F10 would otherwise open the menu bar, swallowing it as a menu item's shortcut
+        menuBar.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_F10, 0), "none");
+        frame.setJMenuBar(menuBar);
         frame.pack();
         //DO_NOTHING_ON_CLOSE + the listener below (rather than the confusing default of HIDE_ON_CLOSE,
         //which would hide the window without disposing it) - onClose is the caller's decision, not this
@@ -158,19 +147,58 @@ public final class SwingVideoOutput implements VideoOutput {
     }
 
     /**
-     * Adds a button to the bar under the game, also triggered by {@code hotkey} (a {@link KeyEvent}
-     * {@code VK_} code). Buttons never take keyboard focus away from the frame, whose key listeners
-     * are the game's controllers. EDT only, and {@code action} runs on the EDT too, so it can show
-     * dialogs directly.
+     * Adds {@code label} to the menu at {@code menuPath} (e.g. {@code File, Open, ROM}), creating menus as
+     * needed. {@code accelerator} (or {@code null}) is shown beside it and triggers it while the window
+     * has focus. EDT only, and {@code action} runs on the EDT too, so it can show dialogs directly.
+     *
+     * @return the item, e.g. to disable it
      */
-    public void addToolButton(final String label, final int hotkey, final Runnable action){
-        final JButton button = new JButton(label);
-        button.setFont(button.getFont().deriveFont(TOOL_BUTTON_FONT_SIZE));
-        button.setFocusable(false);
-        button.addActionListener(e -> action.run());
-        toolBar.add(button);
-        hotkeys.put(hotkey, action);
-        frame.pack(); //make room for the bar - buttons are added at startup, before anyone resizes the window
+    public JMenuItem addMenuItem(final List<String> menuPath, final String label, final KeyStroke accelerator,
+                                 final Runnable action){
+        final JMenuItem item = new JMenuItem(label);
+        item.setFont(item.getFont().deriveFont(MENU_FONT_SIZE));
+        item.setAccelerator(accelerator);
+        item.addActionListener(e -> action.run());
+        menu(menuPath).add(item);
+        return item;
+    }
+
+    /** The menu at {@code path} under the menu bar, created (empty, at the end) if missing. */
+    private JMenu menu(final List<String> path){
+        JMenu menu = null;
+        for (final String name : path){
+            menu = menu == null ? topLevelMenu(name) : childMenu(menu, name);
+        }
+        return menu;
+    }
+
+    private JMenu topLevelMenu(final String name){
+        for (int i = 0; i < menuBar.getMenuCount(); i++){
+            if (menuBar.getMenu(i).getText().equals(name)){
+                return menuBar.getMenu(i);
+            }
+        }
+        final JMenu menu = newMenu(name);
+        menuBar.add(menu);
+        menuBar.revalidate();
+        return menu;
+    }
+
+    private JMenu childMenu(final JMenu parent, final String name){
+        for (int i = 0; i < parent.getItemCount(); i++){
+            if (parent.getItem(i) instanceof JMenu child && child.getText().equals(name)){
+                return child;
+            }
+        }
+        final JMenu menu = newMenu(name);
+        parent.add(menu);
+        return menu;
+    }
+
+    private static JMenu newMenu(final String name){
+        final JMenu menu = new JMenu(name);
+        menu.setFont(menu.getFont().deriveFont(MENU_FONT_SIZE));
+        return menu;
     }
 
     /**
