@@ -13,6 +13,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.Properties;
 import java.util.function.Function;
 import java.util.logging.Handler;
@@ -448,5 +450,12 @@ public class ControllerConfigLoaderTest {
         public void close(){
             closeCount++;
         }
+    }
+
+    @Test
+    public void input4jOnlyLogsWarningsAndWorse() throws Exception {
+        Class.forName(ControllerConfigLoader.class.getName()); //runs its static initializer
+
+        assertEquals(Level.WARNING, Logger.getLogger("de.gurkenlabs.input4j").getLevel());
     }
 }
