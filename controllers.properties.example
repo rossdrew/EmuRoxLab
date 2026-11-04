@@ -1,4 +1,4 @@
-# Copy to controllers.properties (or any path) and pass it as the second argument to
+# Copy to controllers.properties (or any path) and pass it with --controllers to
 # RomVideoSmokeDemo, e.g.:
 #   ./gradlew runRomVideoSmokeDemo --args="--rom path/to/rom.nes --controllers controllers.properties"
 #
