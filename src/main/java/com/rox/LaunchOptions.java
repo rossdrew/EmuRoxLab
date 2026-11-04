@@ -32,9 +32,9 @@ record LaunchOptions(Optional<Path> rom, Optional<Path> controllers, OptionalInt
                 seconds == null ? OptionalInt.empty() : OptionalInt.of(seconds));
     }
 
-    /** The value after the flag at {@code args[i]}. */
+    /** The value after the flag at {@code args[i]} - not another flag, so a missing value can't swallow one. */
     private static String value(final String[] args, final int i){
-        if (i + 1 >= args.length){
+        if (i + 1 >= args.length || args[i + 1].startsWith("--")){
             throw new IllegalArgumentException(args[i] + " needs a value");
         }
         return args[i + 1];

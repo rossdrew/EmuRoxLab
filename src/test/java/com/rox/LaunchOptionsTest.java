@@ -40,6 +40,8 @@ class LaunchOptionsTest {
             "loz.nes                          | Unknown option: loz.nes",
             "--rom                            | --rom needs a value",
             "--rom a.nes --seconds            | --seconds needs a value",
+            "--rom --seconds 5                | --rom needs a value",
+            "--controllers --rom a.nes        | --controllers needs a value",
             "--rom a.nes --rom b.nes          | --rom given more than once",
             "--controllers a --controllers b  | --controllers given more than once",
             "--seconds 1 --seconds 2          | --seconds given more than once",
