@@ -146,6 +146,7 @@ public final class SwingVideoOutput implements VideoOutput {
         //F10 would otherwise open the menu bar, swallowing it as a menu item's shortcut
         menuBar.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_F10, 0), "none");
         frame.setJMenuBar(menuBar);
+        AppIcon.applyTo(frame);
         frame.pack();
         //DO_NOTHING_ON_CLOSE + the listener below (rather than the confusing default of HIDE_ON_CLOSE,
         //which would hide the window without disposing it) - onClose is the caller's decision, not this

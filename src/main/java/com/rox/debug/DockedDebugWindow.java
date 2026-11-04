@@ -1,5 +1,6 @@
 package com.rox.debug;
 
+import com.rox.video.AppIcon;
 import io.github.andrewauclair.moderndocking.Dockable;
 import io.github.andrewauclair.moderndocking.DockingRegion;
 import io.github.andrewauclair.moderndocking.app.Docking;
@@ -36,6 +37,7 @@ public final class DockedDebugWindow extends JFrame {
     /** @param panels docked as: first on the left, second on the right, any more as tabs with the second */
     public DockedDebugWindow(final String title, final List<Panel> panels){
         super(title);
+        AppIcon.applyTo(this);
         setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
         setAutoRequestFocus(false);
         Docking.initialize(this);
