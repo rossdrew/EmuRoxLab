@@ -82,6 +82,12 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
+//lets AppName call windows "EmuRoxLab" on X11 rather than after the main class - every JavaExec, so an
+//IDE's own generated run-main task gets it too
+tasks.withType<JavaExec>().configureEach {
+    jvmArgs("--add-opens=java.desktop/sun.awt.X11=ALL-UNNAMED")
+}
+
 tasks.register<JavaExec>("runRomVideoSmokeDemo") {
     description = "Runs RomVideoSmokeDemo with the toolchain JDK and the full runtime classpath " +
             "(including input4j) resolved automatically - no manual -cp/jar path needed. " +
