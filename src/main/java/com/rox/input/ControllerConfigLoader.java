@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.function.Supplier;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -34,6 +35,16 @@ public final class ControllerConfigLoader {
     private static final int PLAYER_COUNT = 4;
     private static final float DEFAULT_AXIS_THRESHOLD = 0.5f;
     private static final Logger log = Logger.getLogger(ControllerConfigLoader.class.getName());
+    /**
+     * Held so its level sticks (the JDK keeps loggers weakly): input4j logs an INFO line for every input
+     * device it can't open while looking for gamepads - every keyboard and mouse, unless in the
+     * {@code input} group.
+     */
+    private static final Logger INPUT4J_LOG = Logger.getLogger("de.gurkenlabs.input4j");
+
+    static {
+        INPUT4J_LOG.setLevel(Level.WARNING);
+    }
 
     //input4j's own InputComponent.ID.get(String) only finds IDs whose owning component class has
     //already been loaded by the JVM (each class registers its constants as a static-initializer side
