@@ -107,6 +107,30 @@ tasks.register<JavaExec>("runRomVideoSmokeDemo") {
     }
 }
 
+tasks.register("installDesktopEntry") {
+    description = "Adds EmuRoxLab to the desktop's app list (~/.local/share/applications): GNOME takes a " +
+            "window's icon and name from the entry whose StartupWMClass matches it, not from the window itself"
+    group = "application"
+    val projectDir = layout.projectDirectory.asFile.absolutePath
+    val entry = File(System.getProperty("user.home"), ".local/share/applications/emuroxlab.desktop")
+    outputs.file(entry)
+    doLast {
+        entry.parentFile.mkdirs()
+        entry.writeText("""
+            |[Desktop Entry]
+            |Type=Application
+            |Name=EmuRoxLab
+            |Comment=NES emulator
+            |Exec=sh -c "cd '$projectDir' && ./gradlew runRomVideoSmokeDemo"
+            |Icon=$projectDir/src/main/resources/com/rox/video/emuroxlab_icon.png
+            |StartupWMClass=EmuRoxLab
+            |Terminal=false
+            |Categories=Game;Emulator;
+            |""".trimMargin())
+        println("Wrote $entry")
+    }
+}
+
 tasks.register<JavaExec>("runEmulationBenchmark") {
     description = "Times the emulation thread per frame - headless, silent, unpaced. " +
             "e.g. ./gradlew runEmulationBenchmark --args=\"resource/rom/loz.nes [snapshot.sav] [frames] [trials]\""
