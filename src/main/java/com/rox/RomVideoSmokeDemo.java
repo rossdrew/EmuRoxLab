@@ -149,6 +149,7 @@ public final class RomVideoSmokeDemo {
         //non-daemon EDT thread alive, so the JVM would hang on exit instead of surfacing the error
         try {
             SwingUtilities.invokeLater(() -> {
+                videoOutput.showGame(null);
                 app.addFileMenu();
                 app.addDebugMenu();
                 options.rom().ifPresent(app::openRom);

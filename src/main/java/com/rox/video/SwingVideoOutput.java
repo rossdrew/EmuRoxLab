@@ -77,7 +77,7 @@ public final class SwingVideoOutput implements VideoOutput {
         protected void paintComponent(final Graphics g){
             super.paintComponent(g);
             final Graphics2D g2 = (Graphics2D) g;
-            if (gameName == null){
+            if (idle){
                 paintIdle(g2);
                 return;
             }
@@ -109,8 +109,10 @@ public final class SwingVideoOutput implements VideoOutput {
     private final Object frameHandoff = new Object();
     /** EDT only, like every other Swing interaction here. */
     private final JMenuBar menuBar = new JMenuBar();
-    /** shown in the title after {@link #TITLE}; {@code null} shows {@link #IDLE_IMAGE} instead of the game - EDT only */
+    /** shown in the title after {@link #TITLE} - EDT only */
     private String gameName;
+    /** {@link #IDLE_IMAGE} instead of frames, once {@link #showGame} says no game is loaded - EDT only */
+    private boolean idle;
     private String status;
     /** see {@link #scaledIdleImage} */
     private BufferedImage scaledIdleImage;
@@ -288,8 +290,9 @@ public final class SwingVideoOutput implements VideoOutput {
     public void showGame(final String gameName){
         this.gameName = gameName;
         this.status = null;
+        idle = gameName == null;
         updateTitle();
-        if (gameName == null){
+        if (idle){
             final Graphics2D g = image.createGraphics();
             g.setColor(Color.BLACK);
             g.fillRect(0, 0, WIDTH_PX, HEIGHT_PX);
