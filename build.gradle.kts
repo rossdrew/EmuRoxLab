@@ -113,6 +113,7 @@ tasks.register("installDesktopEntry") {
     group = "application"
     val projectDir = layout.projectDirectory.asFile.absolutePath
     val entry = File(System.getProperty("user.home"), ".local/share/applications/emuroxlab.desktop")
+    inputs.property("projectDir", projectDir)
     outputs.file(entry)
     doLast {
         entry.parentFile.mkdirs()
