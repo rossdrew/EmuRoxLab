@@ -52,7 +52,9 @@ pitest {
             "com.rox.cartridge.debug.RomInfoPanel",
             "com.rox.debug.cpu.CpuStatePanel*", "com.rox.debug.RefreshingDebugFrame*",
             "com.rox.debug.memory.MemoryViewerPanel*", "com.rox.debug.labels.LabelWatchPanel*",
-            "com.rox.debug.DockedDebugWindow*", "com.rox.debug.breakpoints.BreakpointsPanel*"
+            "com.rox.debug.DockedDebugWindow*", "com.rox.debug.breakpoints.BreakpointsPanel*",
+        //the real desktop's dock and toolkit - absent when tests run headless
+            "com.rox.video.DesktopPlatform"
     ))
     threads.set(Runtime.getRuntime().availableProcessors())
     outputFormats.set(listOf("HTML", "XML"))
@@ -82,6 +84,12 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
+//lets AppName call windows "EmuRoxLab" on X11 rather than after the main class - every JavaExec, so an
+//IDE's own generated run-main task gets it too
+tasks.withType<JavaExec>().configureEach {
+    jvmArgs("--add-opens=java.desktop/sun.awt.X11=ALL-UNNAMED")
+}
+
 tasks.register<JavaExec>("runRomVideoSmokeDemo") {
     description = "Runs RomVideoSmokeDemo with the toolchain JDK and the full runtime classpath " +
             "(including input4j) resolved automatically - no manual -cp/jar path needed. " +
@@ -96,6 +104,32 @@ tasks.register<JavaExec>("runRomVideoSmokeDemo") {
     jvmArgs("--enable-native-access=ALL-UNNAMED")
     listOf("roundabout.open", "roundabout.screenshot", "roundabout.screenshot.frame", "framejitter.log").forEach { key ->
         System.getProperty(key)?.let { systemProperty(key, it) }
+    }
+}
+
+tasks.register("installDesktopEntry") {
+    description = "Adds EmuRoxLab to the desktop's app list (~/.local/share/applications): GNOME takes a " +
+            "window's icon and name from the entry whose StartupWMClass matches it, not from the window itself"
+    group = "application"
+    val projectDir = layout.projectDirectory.asFile.absolutePath
+    val entry = File(System.getProperty("user.home"), ".local/share/applications/emuroxlab.desktop")
+    inputs.property("projectDir", projectDir)
+    outputs.file(entry)
+    doLast {
+        entry.parentFile.mkdirs()
+        entry.writeText("""
+            |[Desktop Entry]
+            |Type=Application
+            |Name=EmuRoxLab
+            |Comment=NES emulator
+            |Path=$projectDir
+            |Exec=sh -c "./gradlew runRomVideoSmokeDemo"
+            |Icon=$projectDir/src/main/resources/com/rox/video/emuroxlab_icon.png
+            |StartupWMClass=EmuRoxLab
+            |Terminal=false
+            |Categories=Game;Emulator;
+            |""".trimMargin())
+        println("Wrote $entry")
     }
 }
 
@@ -134,7 +168,8 @@ tasks.jacocoTestReport {
                         "com/rox/cartridge/debug/RomInfoPanel.class",
                         "com/rox/debug/cpu/CpuStatePanel*.class", "com/rox/debug/RefreshingDebugFrame*.class",
                         "com/rox/debug/memory/MemoryViewerPanel*.class", "com/rox/debug/labels/LabelWatchPanel*.class",
-                        "com/rox/debug/DockedDebugWindow*.class", "com/rox/debug/breakpoints/BreakpointsPanel*.class"
+                        "com/rox/debug/DockedDebugWindow*.class", "com/rox/debug/breakpoints/BreakpointsPanel*.class",
+                        "com/rox/video/DesktopPlatform.class"
                 )
             }
         })

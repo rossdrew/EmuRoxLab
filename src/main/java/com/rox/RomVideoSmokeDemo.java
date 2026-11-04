@@ -20,6 +20,7 @@ import com.rox.input.KeyboardController;
 import com.rox.save.SavePaths;
 import com.rox.roundabout.timing.FrameTimes;
 import com.rox.roundabout.debugger.MemoryDebugger;
+import com.rox.video.AppName;
 import com.rox.video.SwingVideoOutput;
 import io.github.andrewauclair.moderndocking.ext.ui.DockingUI;
 
@@ -111,6 +112,7 @@ public final class RomVideoSmokeDemo {
             return;
         }
         final ControllerConfiguration controllers = loadControllers(options.controllers());
+        AppName.set("EmuRoxLab");
 
         final CountDownLatch windowClosed = new CountDownLatch(1);
         //Swing components must only be constructed on the EDT - see PpuDebugViewerDemo's own comment.
