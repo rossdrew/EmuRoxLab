@@ -122,7 +122,8 @@ tasks.register("installDesktopEntry") {
             |Type=Application
             |Name=EmuRoxLab
             |Comment=NES emulator
-            |Exec=sh -c "cd '$projectDir' && ./gradlew runRomVideoSmokeDemo"
+            |Path=$projectDir
+            |Exec=sh -c "./gradlew runRomVideoSmokeDemo"
             |Icon=$projectDir/src/main/resources/com/rox/video/emuroxlab_icon.png
             |StartupWMClass=EmuRoxLab
             |Terminal=false
