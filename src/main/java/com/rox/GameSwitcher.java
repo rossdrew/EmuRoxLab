@@ -33,6 +33,8 @@ final class GameSwitcher {
     private final SessionStarter starter;
     private final Listener listener;
     private GameSession current;
+    /** set by {@link #shutDown} - no game opens after it */
+    private boolean shutDown;
 
     GameSwitcher(final RomReader reader, final SessionStarter starter, final Listener listener){
         this.reader = reader;
@@ -46,16 +48,25 @@ final class GameSwitcher {
 
     /**
      * Reads {@code rom} first, so one that can't be loaded leaves the current game running; then closes
-     * the current game and starts {@code rom}'s.
+     * the current game and starts {@code rom}'s. Does nothing once {@link #shutDown}.
      *
      * @throws IOException or {@link IllegalArgumentException} if {@code rom} can't be read - nothing changes
      * @throws LineUnavailableException if the new game can't start - no game is left loaded
      */
     synchronized void open(final Path rom) throws IOException, LineUnavailableException {
+        if (shutDown){
+            return;
+        }
         final Cartridge cartridge = reader.read(rom);
         close();
         current = starter.start(rom, cartridge);
         listener.started(current);
+    }
+
+    /** Closes the current game, if any, for good: later {@link #open}s do nothing. */
+    synchronized void shutDown(){
+        shutDown = true;
+        close();
     }
 
     /** Closes the current game, if any. */

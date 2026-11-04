@@ -169,9 +169,8 @@ public final class RomVideoSmokeDemo {
             }
         } finally {
             try {
-                //an --rom still queued to open would otherwise start a game after the switcher has closed
-                drainEdt();
-                app.switcher.close();
+                //also stops a ROM opened from here on - an --rom still queued, or picked in a chooser left open
+                app.switcher.shutDown();
             } finally {
                 SwingUtilities.invokeLater(() -> {
                     if (app.debugger != null){
@@ -362,24 +361,6 @@ public final class RomVideoSmokeDemo {
         while (thread.isAlive()){
             try {
                 thread.join();
-            } catch (InterruptedException e){
-                interrupted = true;
-            }
-        }
-        if (interrupted){
-            Thread.currentThread().interrupt();
-        }
-    }
-
-    /** Waits for the work already queued on the EDT to finish, keeping any interrupt for afterwards. */
-    private static void drainEdt(){
-        final CountDownLatch drained = new CountDownLatch(1);
-        SwingUtilities.invokeLater(drained::countDown);
-        boolean interrupted = Thread.interrupted();
-        while (true){
-            try {
-                drained.await();
-                break;
             } catch (InterruptedException e){
                 interrupted = true;
             }

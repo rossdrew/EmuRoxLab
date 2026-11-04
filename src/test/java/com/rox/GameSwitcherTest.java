@@ -184,4 +184,30 @@ class GameSwitcherTest {
 
         verify(built.get(0)).powerOff();
     }
+
+    @Test
+    void shutDownClosesTheCurrentGameAndNoneOpensAfter() throws Exception {
+        final GameSwitcher switcher = switcher();
+        switcher.open(directory.resolve("a.nes"));
+
+        switcher.shutDown();
+        switcher.open(directory.resolve("b.nes"));
+
+        assertEquals(Optional.empty(), switcher.current());
+        assertEquals(1, built.size());
+        verify(built.get(0)).powerOff();
+        assertEquals(List.of("started a.nes", "closing a.nes"), events);
+    }
+
+    @Test
+    void shutDownWithNothingLoadedStillStopsLaterOpens() throws Exception {
+        final GameSwitcher switcher = switcher(rom -> {
+            throw new AssertionError("read after shut down");
+        });
+
+        switcher.shutDown();
+        switcher.open(directory.resolve("a.nes"));
+
+        assertEquals(Optional.empty(), switcher.current());
+    }
 }
