@@ -85,7 +85,8 @@ dependencies {
 tasks.register<JavaExec>("runRomVideoSmokeDemo") {
     description = "Runs RomVideoSmokeDemo with the toolchain JDK and the full runtime classpath " +
             "(including input4j) resolved automatically - no manual -cp/jar path needed. " +
-            "e.g. ./gradlew runRomVideoSmokeDemo --args=\"resource/rom/loz.nes controllers.properties\""
+            "e.g. ./gradlew runRomVideoSmokeDemo --args=\"--rom resource/rom/loz.nes --controllers controllers.properties\"" +
+            " (every flag optional - no --rom opens a blank window)"
     group = "application"
     classpath = sourceSets.main.get().runtimeClasspath
     mainClass.set("com.rox.RomVideoSmokeDemo")
