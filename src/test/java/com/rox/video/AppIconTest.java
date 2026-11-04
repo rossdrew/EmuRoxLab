@@ -22,6 +22,11 @@ class AppIconTest {
     }
 
     @Test
+    void anUnreadableIconIsNoIcon(){
+        assertNull(AppIcon.readIcon("broken.png"));
+    }
+
+    @Test
     void aMissingResourceIsNoIcon(){
         assertNull(AppIcon.readIcon("no-such-icon.png"));
         assertEquals(List.of(), AppIcon.images(null));

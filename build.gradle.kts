@@ -52,7 +52,9 @@ pitest {
             "com.rox.cartridge.debug.RomInfoPanel",
             "com.rox.debug.cpu.CpuStatePanel*", "com.rox.debug.RefreshingDebugFrame*",
             "com.rox.debug.memory.MemoryViewerPanel*", "com.rox.debug.labels.LabelWatchPanel*",
-            "com.rox.debug.DockedDebugWindow*", "com.rox.debug.breakpoints.BreakpointsPanel*"
+            "com.rox.debug.DockedDebugWindow*", "com.rox.debug.breakpoints.BreakpointsPanel*",
+        //the real desktop's dock and toolkit - absent when tests run headless
+            "com.rox.video.DesktopPlatform"
     ))
     threads.set(Runtime.getRuntime().availableProcessors())
     outputFormats.set(listOf("HTML", "XML"))
@@ -140,7 +142,8 @@ tasks.jacocoTestReport {
                         "com/rox/cartridge/debug/RomInfoPanel.class",
                         "com/rox/debug/cpu/CpuStatePanel*.class", "com/rox/debug/RefreshingDebugFrame*.class",
                         "com/rox/debug/memory/MemoryViewerPanel*.class", "com/rox/debug/labels/LabelWatchPanel*.class",
-                        "com/rox/debug/DockedDebugWindow*.class", "com/rox/debug/breakpoints/BreakpointsPanel*.class"
+                        "com/rox/debug/DockedDebugWindow*.class", "com/rox/debug/breakpoints/BreakpointsPanel*.class",
+                        "com/rox/video/DesktopPlatform.class"
                 )
             }
         })

@@ -3,7 +3,6 @@ package com.rox.video;
 import javax.imageio.ImageIO;
 import java.awt.Graphics2D;
 import java.awt.Image;
-import java.awt.Taskbar;
 import java.awt.Window;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
@@ -22,7 +21,7 @@ public final class AppIcon {
 
     /** Gives {@code window} the icon - and the dock too, where the platform has one (macOS). */
     public static void applyTo(final Window window){
-        applyTo(window, IMAGES, dockIcon());
+        applyTo(window, IMAGES, DesktopPlatform.dockIcon());
     }
 
     /** @param dockIcon sets the dock's icon, or {@code null} where there's no dock to set */
@@ -34,12 +33,6 @@ public final class AppIcon {
         if (dockIcon != null){
             dockIcon.accept(images.get(images.size() - 1));
         }
-    }
-
-    private static Consumer<Image> dockIcon(){
-        return Taskbar.isTaskbarSupported() && Taskbar.getTaskbar().isSupported(Taskbar.Feature.ICON_IMAGE)
-                ? Taskbar.getTaskbar()::setIconImage
-                : null;
     }
 
     /** {@code source} at each of {@link #SIZES}, area-averaged; none for {@code null}. */
