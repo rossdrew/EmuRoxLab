@@ -101,6 +101,14 @@ class GameSessionTest {
     }
 
     @Test
+    void aNesThatCannotBeBuiltForACartridgeWithoutABatteryIsRethrown(){
+        final IllegalStateException broken = new IllegalStateException("broken");
+
+        assertSame(broken, assertThrows(IllegalStateException.class,
+                () -> GameSession.start(rom(), TestRoms.nrom().cartridge(), c -> { throw broken; })));
+    }
+
+    @Test
     void closeKeepsWaitingThroughAnInterruptThenRestoresIt() throws Exception {
         final AtomicReference<Thread> poweredOnBy = new AtomicReference<>();
         final NES nes = mock(NES.class);

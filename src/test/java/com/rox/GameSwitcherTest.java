@@ -173,4 +173,15 @@ class GameSwitcherTest {
 
         assertEquals(List.of(), events);
     }
+
+    @Test
+    void aListenerNeedNotHandleEitherEvent() throws Exception {
+        final GameSwitcher switcher = new GameSwitcher(rom -> TestRoms.nrom().cartridge(), this::start, new GameSwitcher.Listener(){
+        });
+
+        switcher.open(directory.resolve("a.nes"));
+        switcher.close();
+
+        verify(built.get(0)).powerOff();
+    }
 }
