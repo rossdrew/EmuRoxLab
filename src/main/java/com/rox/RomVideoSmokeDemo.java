@@ -21,6 +21,7 @@ import com.rox.save.SavePaths;
 import com.rox.roundabout.timing.FrameTimes;
 import com.rox.roundabout.debugger.MemoryDebugger;
 import com.rox.video.AppName;
+import com.rox.video.MenuEntry;
 import com.rox.video.SwingVideoOutput;
 import io.github.andrewauclair.moderndocking.ext.ui.DockingUI;
 
@@ -31,6 +32,7 @@ import javax.swing.SwingUtilities;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -41,6 +43,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.prefs.Preferences;
 
 /**
  * The game window: plays a real {@code .nes} ROM, opened from File > Open > ROM or given with
@@ -65,6 +68,9 @@ public final class RomVideoSmokeDemo {
     private final GameSwitcher switcher;
     /** greyed out while no game is loaded - EDT only */
     private final List<JMenuItem> debugItems = new ArrayList<>();
+    /** File > Open > ROM's list, kept between runs - EDT only */
+    private final RecentRoms recentRoms = new RecentRoms(RecentRoms.in(
+            Preferences.userNodeForPackage(RomVideoSmokeDemo.class).node("recentRoms")));
     /** where Browse starts when no game is loaded: the last folder a ROM was opened from - EDT only */
     private Path lastRomDirectory;
     /** created with the first game, kept for later ones - EDT only */
@@ -191,6 +197,31 @@ public final class RomVideoSmokeDemo {
     private void addFileMenu(){
         videoOutput.addMenuItem(ROM_MENU, "Browse...", KeyStroke.getKeyStroke(KeyEvent.VK_O, InputEvent.CTRL_DOWN_MASK),
                 this::browseForRom);
+        videoOutput.fillMenuOnOpen(ROM_MENU, this::recentRomEntries);
+        videoOutput.onFilesDropped(files -> DroppedRom.of(files).ifPresent(this::openRom));
+    }
+
+    /** File > Open > ROM's recent ROMs, newest first, then a way to clear them. EDT only. */
+    private List<MenuEntry> recentRomEntries(){
+        final List<Path> roms = recentRoms.list();
+        if (roms.isEmpty()){
+            return List.of(MenuEntry.disabled("No recent ROMs"));
+        }
+        final List<MenuEntry> entries = new ArrayList<>();
+        roms.forEach(rom -> entries.add(new MenuEntry(recentRoms.label(rom), () -> openRecentRom(rom))));
+        entries.add(MenuEntry.SEPARATOR);
+        entries.add(new MenuEntry("Clear recent", recentRoms::clear));
+        return entries;
+    }
+
+    /** A recent ROM that's since gone is taken off the list, rather than left to fail again. EDT only. */
+    private void openRecentRom(final Path rom){
+        if (!Files.isRegularFile(rom)){
+            recentRoms.remove(rom);
+            videoOutput.showError("ROM not found", rom + " isn't there any more - taken off the recent list.");
+            return;
+        }
+        openRom(rom);
     }
 
     /** File > Open > ROM > Browse...: pick a ROM, starting in the current one's folder. EDT only. */
@@ -226,6 +257,7 @@ public final class RomVideoSmokeDemo {
         lastRomDirectory = rom.toAbsolutePath().getParent();
         try {
             switcher.open(rom);
+            recentRoms.add(rom);
         } catch (IOException | IllegalArgumentException | LineUnavailableException e){
             System.err.println("Couldn't open " + rom + ": " + e.getMessage());
             videoOutput.showError("Couldn't open ROM", "Couldn't open " + rom.getFileName() + ":\n" + e.getMessage());
