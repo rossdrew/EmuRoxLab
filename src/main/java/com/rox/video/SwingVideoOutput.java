@@ -17,6 +17,8 @@ import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.event.AncestorEvent;
 import javax.swing.event.AncestorListener;
+import javax.swing.event.MenuEvent;
+import javax.swing.event.MenuListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -40,6 +42,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongConsumer;
+import java.util.function.Supplier;
 
 /**
  * The actual "screen" a player would watch, as opposed to the {@code com.rox.ppu.debug} package's
@@ -185,6 +188,51 @@ public final class SwingVideoOutput implements VideoOutput {
         item.addActionListener(e -> action.run());
         menu(menuPath).add(item);
         return item;
+    }
+
+    /**
+     * Below whatever the menu at {@code menuPath} holds now, shows {@code entries} as they are each time
+     * it opens - e.g. a list that changes. EDT only, like the entries' actions.
+     */
+    public void fillMenuOnOpen(final List<String> menuPath, final Supplier<List<MenuEntry>> entries){
+        final JMenu menu = menu(menuPath);
+        final int fixedItems = menu.getMenuComponentCount();
+        menu.addMenuListener(new MenuListener(){
+            @Override
+            public void menuSelected(final MenuEvent e){
+                while (menu.getMenuComponentCount() > fixedItems){
+                    menu.remove(fixedItems);
+                }
+                final List<MenuEntry> filled = entries.get();
+                if (!filled.isEmpty() && fixedItems > 0){
+                    menu.addSeparator();
+                }
+                filled.forEach(entry -> addEntry(menu, entry));
+            }
+
+            @Override
+            public void menuDeselected(final MenuEvent e){
+            }
+
+            @Override
+            public void menuCanceled(final MenuEvent e){
+            }
+        });
+    }
+
+    private static void addEntry(final JMenu menu, final MenuEntry entry){
+        if (entry == MenuEntry.SEPARATOR){
+            menu.addSeparator();
+            return;
+        }
+        final JMenuItem item = new JMenuItem(entry.label());
+        item.setFont(item.getFont().deriveFont(MENU_FONT_SIZE));
+        if (entry.action() == null){
+            item.setEnabled(false);
+        } else {
+            item.addActionListener(e -> entry.action().run());
+        }
+        menu.add(item);
     }
 
     /** The menu at {@code path} under the menu bar, created (empty, at the end) if missing. */
