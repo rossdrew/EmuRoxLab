@@ -198,6 +198,7 @@ public final class RomVideoSmokeDemo {
         videoOutput.addMenuItem(ROM_MENU, "Browse...", KeyStroke.getKeyStroke(KeyEvent.VK_O, InputEvent.CTRL_DOWN_MASK),
                 this::browseForRom);
         videoOutput.fillMenuOnOpen(ROM_MENU, this::recentRomEntries);
+        videoOutput.onFilesDropped(files -> DroppedRom.of(files).ifPresent(this::openRom));
     }
 
     /** File > Open > ROM's recent ROMs, newest first, then a way to clear them. EDT only. */

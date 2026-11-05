@@ -15,6 +15,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
+import javax.swing.TransferHandler;
 import javax.swing.event.AncestorEvent;
 import javax.swing.event.AncestorListener;
 import javax.swing.event.MenuEvent;
@@ -28,11 +29,14 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Image;
 import java.awt.RenderingHints;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
@@ -41,6 +45,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.function.LongConsumer;
 import java.util.function.Supplier;
 
@@ -319,6 +324,34 @@ public final class SwingVideoOutput implements VideoOutput {
         return chooser.showOpenDialog(frame) == JFileChooser.APPROVE_OPTION
                 ? Optional.of(chooser.getSelectedFile().toPath())
                 : Optional.empty();
+    }
+
+    /**
+     * Hands files dragged onto the window to {@code onDrop}, on the EDT. Any files are taken; deciding
+     * which to use is the caller's.
+     */
+    public void onFilesDropped(final Consumer<List<Path>> onDrop){
+        frame.setTransferHandler(new TransferHandler(){
+            @Override
+            public boolean canImport(final TransferSupport support){
+                return support.isDataFlavorSupported(DataFlavor.javaFileListFlavor);
+            }
+
+            @Override
+            public boolean importData(final TransferSupport support){
+                if (!canImport(support)){
+                    return false;
+                }
+                try {
+                    final List<?> files = (List<?>) support.getTransferable().getTransferData(DataFlavor.javaFileListFlavor);
+                    onDrop.accept(files.stream().map(file -> ((File) file).toPath()).toList());
+                    return true;
+                } catch (UnsupportedFlavorException | IOException e){
+                    System.err.println("Couldn't read what was dropped: " + e.getMessage());
+                    return false;
+                }
+            }
+        });
     }
 
     /** A modal error message. EDT only. */
