@@ -115,6 +115,35 @@ public class MapperSnapshotTest {
         assertThrows(IllegalArgumentException.class, () -> nrom.restore(mmc1.snapshot()));
         assertThrows(IllegalArgumentException.class, () -> mmc1.restore(mmc3.snapshot()));
         assertThrows(IllegalArgumentException.class, () -> mmc3.restore(nrom.snapshot()));
+        final AxromMapper axrom = new AxromMapper(rom(7, 2, 0));
+        assertThrows(IllegalArgumentException.class, () -> axrom.restore(nrom.snapshot()));
+        assertThrows(IllegalArgumentException.class, () -> nrom.restore(axrom.snapshot()));
+    }
+
+    // --- AxROM ---
+
+    @Test
+    public void axromRoundTripsItsRegisterAndChrRam(){
+        final AxromMapper original = new AxromMapper(rom(7, 8, 0));
+        original.write(0x8000, 0x13); //bank 3, upper nametable page
+        original.writeChr(0x0123, 0x45);
+        final AxromMapper restored = new AxromMapper(rom(7, 8, 0));
+
+        restored.restore(original.snapshot());
+
+        assertRecordsEqual(original.snapshot(), restored.snapshot());
+        assertEquals(original.read(0x8000), restored.read(0x8000));
+        assertEquals(Mirroring.SINGLE_SCREEN_UPPER, restored.nametableMirroring());
+        assertEquals(0x45, restored.readChr(0x0123));
+    }
+
+    @Test
+    public void axromRejectsASnapshotClaimingPrgRam(){
+        final AxromMapper mapper = new AxromMapper(rom(7, 2, 0));
+        final AxromMapperSnapshot snapshot = (AxromMapperSnapshot) mapper.snapshot();
+
+        assertThrows(IllegalArgumentException.class,
+                () -> mapper.restore(new AxromMapperSnapshot(new int[0x2000], snapshot.chrRam(), 0)));
     }
 
     // --- MMC1 ---
@@ -241,6 +270,7 @@ public class MapperSnapshotTest {
             case Mmc1MapperSnapshot ignored -> new Mmc1MapperSnapshot(prgRam, chrRam, 1, 2, 3, 4, 5, 6);
             case Mmc3MapperSnapshot ignored -> new Mmc3MapperSnapshot(prgRam, chrRam,
                     which.equals("bankRegisters") ? new int[7] : new int[8], 1, true, 2, 3, true, true, true, true);
+            case AxromMapperSnapshot ignored -> new AxromMapperSnapshot(prgRam, chrRam, 0x17);
         };
     }
 
@@ -249,11 +279,13 @@ public class MapperSnapshotTest {
      * including PRG-RAM, copied first - is overwritten.
      */
     @ParameterizedTest
-    @CsvSource({"nrom,prgRam", "nrom,chrRam", "mmc1,prgRam", "mmc1,chrRam", "mmc3,prgRam", "mmc3,chrRam", "mmc3,bankRegisters"})
+    @CsvSource({"nrom,prgRam", "nrom,chrRam", "mmc1,prgRam", "mmc1,chrRam", "mmc3,prgRam", "mmc3,chrRam", "mmc3,bankRegisters",
+            "axrom,chrRam"})
     public void rejectedRestoreChangesNothingWhicheverArrayIsWrong(final String board, final String which){
         final Mapper mapper = switch (board){
             case "nrom" -> new NromMapper(rom(0, 1, 0));
             case "mmc1" -> new Mmc1Mapper(rom(1, 2, 0));
+            case "axrom" -> new AxromMapper(rom(7, 2, 0));
             default -> new Mmc3Mapper(rom(4, 2, 0));
         };
         mapper.write(0x6000, 0x12);
@@ -265,11 +297,13 @@ public class MapperSnapshotTest {
 
     /** checkRestorable() alone must catch it too - it's called before anything else in the system is restored. */
     @ParameterizedTest
-    @CsvSource({"nrom,prgRam", "nrom,chrRam", "mmc1,prgRam", "mmc1,chrRam", "mmc3,prgRam", "mmc3,chrRam", "mmc3,bankRegisters"})
+    @CsvSource({"nrom,prgRam", "nrom,chrRam", "mmc1,prgRam", "mmc1,chrRam", "mmc3,prgRam", "mmc3,chrRam", "mmc3,bankRegisters",
+            "axrom,chrRam"})
     public void checkRestorableRejectsWhicheverArrayIsWrong(final String board, final String which){
         final Mapper mapper = switch (board){
             case "nrom" -> new NromMapper(rom(0, 1, 0));
             case "mmc1" -> new Mmc1Mapper(rom(1, 2, 0));
+            case "axrom" -> new AxromMapper(rom(7, 2, 0));
             default -> new Mmc3Mapper(rom(4, 2, 0));
         };
 
@@ -278,7 +312,8 @@ public class MapperSnapshotTest {
 
     @Test
     public void checkRestorableAcceptsAMatchingSnapshotAndRejectsAMismatchedOneWithoutChangingAnything(){
-        for (final Mapper mapper : new Mapper[]{new NromMapper(rom(0, 1, 0)), new Mmc1Mapper(rom(1, 2, 0)), new Mmc3Mapper(rom(4, 2, 0))}){
+        for (final Mapper mapper : new Mapper[]{new NromMapper(rom(0, 1, 0)), new Mmc1Mapper(rom(1, 2, 0)), new Mmc3Mapper(rom(4, 2, 0)),
+                new AxromMapper(rom(7, 2, 0))}){
             mapper.write(0x6000, 0x34);
             final MapperSnapshot before = mapper.snapshot();
 
