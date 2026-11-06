@@ -22,6 +22,11 @@ public class MapperNamesTest {
     }
 
     @Test
+    public void namesMapperSevenAxrom(){
+        assertEquals("AxROM", MapperNames.nameOf(7));
+    }
+
+    @Test
     public void fallsBackToUnknownForAnUnsupportedMapperNumber(){
         assertEquals("Unknown", MapperNames.nameOf(99));
     }

@@ -7,7 +7,8 @@ public final class MapperNames {
     private static final Map<Integer, String> NAMES = Map.of(
             0, "NROM",
             1, "MMC1",
-            4, "MMC3"
+            4, "MMC3",
+            7, "AxROM"
     );
 
     private MapperNames(){
