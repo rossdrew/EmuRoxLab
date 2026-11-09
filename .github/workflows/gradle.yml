@@ -140,6 +140,54 @@ jobs:
       - name: Timing test ROMs
         run: ./gradlew testRoms
 
+      - name: Test ROM progress chart
+        run: ./gradlew testRomsReport
+
+      - name: Upload test ROM progress chart
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-roms-chart
+          path: build/reports/test-roms/test-roms.svg
+
+  # main only: puts the chart on the badges branch, where the README shows it. A job of its own, so the
+  # token that can push never meets the build - same as badge
+  test-roms-chart:
+    runs-on: ubuntu-latest
+    needs: test-roms
+    continue-on-error: true
+    if: github.ref == 'refs/heads/main'
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download test ROM progress chart
+        uses: actions/download-artifact@v4
+        with:
+          name: test-roms-chart
+
+      - name: Checkout badges branch
+        uses: actions/checkout@v5
+        with:
+          ref: badges
+          path: badges
+
+      - name: Publish chart
+        run: |
+          cp test-roms.svg badges/test-roms.svg
+          cd badges
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add test-roms.svg
+          git diff --cached --quiet && exit 0
+          git commit -m "Test ROM progress for ${GITHUB_SHA::7}"
+          #the badge job pushes to this branch too
+          for attempt in 1 2 3; do
+            git push && exit 0
+            git pull --rebase
+          done
+          exit 1
+
   # main only: the badge (badges branch) and the report site for Pages. A job of its own, so the
   # token that can push never meets the build or its dependencies
   badge:

@@ -151,6 +151,17 @@ tasks.test {
     finalizedBy(tasks.jacocoTestReport)
 }
 
+tasks.register<JavaExec>("testRomsReport") {
+    description = "Runs every test ROM under src/test/resources/roms and draws build/reports/test-roms/test-roms.svg - " +
+            "published to the badges branch by CI"
+    group = "verification"
+    dependsOn(tasks.testClasses)
+    classpath = sourceSets.test.get().runtimeClasspath
+    mainClass.set("com.rox.TestRomScoreboard")
+    args("build/reports/test-roms/test-roms.svg")
+    javaLauncher.set(javaToolchains.launcherFor(java.toolchain))
+}
+
 tasks.register<Test>("testRoms") {
     description = "Runs blargg's CPU/PPU timing test ROMs (tagged testRom), pinning today's results - run by +fullBuild"
     group = "verification"
