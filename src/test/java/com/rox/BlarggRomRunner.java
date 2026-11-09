@@ -11,6 +11,7 @@ import java.net.URL;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -80,6 +81,14 @@ final class BlarggRomRunner {
             assertTrue(result.text().contains(expectedTextSubstring),
                     romResourcePath + " expected text to contain \"" + expectedTextSubstring + "\" but was: " + result.text());
         }
+    }
+
+    /** Asserts the ROM starts the protocol but is still running after {@code tickBudget} - e.g. stuck waiting on something unemulated. */
+    static void assertStillRunningAfter(final String romResourcePath, final long tickBudget) throws IOException {
+        final Result result = run(romResourcePath, tickBudget);
+
+        assertTrue(result.sawSignature(), romResourcePath + " never wrote the blargg status signature within " + tickBudget + " ticks");
+        assertFalse(result.finished(), romResourcePath + " finished, reporting: " + result.text());
     }
 
     private static Path romPath(final String romResourcePath){

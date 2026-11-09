@@ -60,6 +60,7 @@ pitest {
     outputFormats.set(listOf("HTML", "XML"))
     timestampedReports.set(false)
     mutationThreshold.set(90)
+    excludedGroups.set(listOf("testRom"))
     coverageThreshold.set(90)
     failWhenNoMutations.set(true)
 }
@@ -143,8 +144,21 @@ tasks.register<JavaExec>("runEmulationBenchmark") {
 }
 
 tasks.test {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        //blargg's timing test ROMs take a while - see testRoms
+        excludeTags("testRom")
+    }
     finalizedBy(tasks.jacocoTestReport)
+}
+
+tasks.register<Test>("testRoms") {
+    description = "Runs blargg's CPU/PPU timing test ROMs (tagged testRom), pinning today's results - run by +fullBuild"
+    group = "verification"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform {
+        includeTags("testRom")
+    }
 }
 
 tasks.jacocoTestReport {
