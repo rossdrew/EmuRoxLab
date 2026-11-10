@@ -40,6 +40,10 @@ We have a fully functioning emulator for certain mappers and lots of bugs. I'm p
 
 ![Current State](resource/current_state_20261014.png)
 
+Currently looking at supporting the games we have mappers for, which means getting timing accurate
+
+[![Test ROM progress](https://raw.githubusercontent.com/rossdrew/EmuRoxLab/badges/test-roms.svg)](https://github.com/rossdrew/EmuRoxLab/tree/main/src/test/resources/roms)
+
 ## Next up
 1. More advanced debugging screens
 2. More mapper support (UxROM, CNROM, ...)
