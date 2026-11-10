@@ -42,8 +42,8 @@ public interface Clock {
     }
 
     /**
-     * {@link #pause()} without waiting: a running {@link #run()} loop parks after the tick in progress. Safe from a
-     * {@link ClockWatcher}, on {@code run()}'s own thread.
+     * {@link #pause()} without waiting: a running {@link #run()} loop parks after the tick in progress - or, once
+     * prepared to run, before its first. Safe from a {@link ClockWatcher}, on {@code run()}'s own thread.
      */
     default void requestPause(){
     }

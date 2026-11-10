@@ -67,7 +67,7 @@ class GameSwitcherTest {
         switcher.open(directory.resolve("a.nes"));
 
         assertEquals(directory.resolve("a.nes"), switcher.current().orElseThrow().romPath());
-        verify(built.get(0), timeout(5000)).powerOn();
+        verify(built.get(0), timeout(5000)).powerOn(false);
         assertEquals(List.of("started a.nes"), events);
     }
 

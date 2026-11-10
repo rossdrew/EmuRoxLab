@@ -233,6 +233,14 @@ public class NES {
     }
 
     public void powerOn(){
+        powerOn(false);
+    }
+
+    /**
+     * As {@link #powerOn()}, optionally paused before the first instruction - e.g. to set breakpoints, then
+     * {@link #resume()}.
+     */
+    public void powerOn(final boolean startPaused){
         //signalled once the clock thread is executing, so a slow thread start can't eat into the warm-up
         final CountDownLatch clockStarted = new CountDownLatch(1);
         final Thread clockThread = new Thread(() -> {
@@ -246,6 +254,10 @@ public class NES {
             this.clockThread = clockThread;
             tickingThread = clockThread;
             clock.prepareToRun(); //a stop() from here on ends the run, even one landing before run() starts
+            if (startPaused){
+                clock.requestPause(); //sticks once prepared: run() parks before its first tick
+                markPaused();
+            }
             clockThread.start();
         }
 

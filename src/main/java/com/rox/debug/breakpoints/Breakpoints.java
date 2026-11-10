@@ -53,6 +53,8 @@ public final class Breakpoints {
     }
 
     private volatile State state = State.EMPTY;
+    /** Told after every edit, still holding this object's lock - e.g. to save them. */
+    private volatile Runnable onChange = () -> { };
     /** Where the instruction now running started - what a watchpoint hit reports. Ticking thread only. */
     private int instructionStart;
     /** A watchpoint hit, held until its instruction finishes. Ticking thread only. */
@@ -63,12 +65,14 @@ public final class Breakpoints {
         final SortedSet<Integer> breakpoints = new TreeSet<>(state.breakpoints());
         breakpoints.add(canonical(address));
         state = State.of(breakpoints, new TreeMap<>(state.watches()));
+        onChange.run();
     }
 
     public synchronized void removeBreakpoint(final int address){
         final SortedSet<Integer> breakpoints = new TreeSet<>(state.breakpoints());
         breakpoints.remove(canonical(address));
         state = State.of(breakpoints, new TreeMap<>(state.watches()));
+        onChange.run();
     }
 
     /** Adds a watchpoint, or changes the kind of the one already at {@code address}. */
@@ -76,12 +80,19 @@ public final class Breakpoints {
         final SortedMap<Integer, WatchKind> watches = new TreeMap<>(state.watches());
         watches.put(canonical(address), kind);
         state = State.of(new TreeSet<>(state.breakpoints()), watches);
+        onChange.run();
     }
 
     public synchronized void removeWatch(final int address){
         final SortedMap<Integer, WatchKind> watches = new TreeMap<>(state.watches());
         watches.remove(canonical(address));
         state = State.of(new TreeSet<>(state.breakpoints()), watches);
+        onChange.run();
+    }
+
+    /** Runs {@code onChange} after every edit from now on - replacing any earlier one. */
+    public void onChange(final Runnable onChange){
+        this.onChange = onChange;
     }
 
     /** Breakpoint addresses, ascending, each by its lowest mirror. */

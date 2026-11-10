@@ -205,4 +205,17 @@ class BreakpointsTest {
         assertThrows(IllegalArgumentException.class, () -> breakpoints.addBreakpoint(address));
         assertThrows(IllegalArgumentException.class, () -> breakpoints.addWatch(address, WatchKind.READ));
     }
+
+    @Test
+    void everyEditIsAnnounced(){
+        final List<String> seen = new java.util.ArrayList<>();
+        breakpoints.onChange(() -> seen.add(breakpoints.breakpoints() + " " + breakpoints.watches()));
+
+        breakpoints.addBreakpoint(0xC000);
+        breakpoints.addWatch(0x0042, WatchKind.READ);
+        breakpoints.removeWatch(0x0042);
+        breakpoints.removeBreakpoint(0xC000);
+
+        assertEquals(List.of("[49152] {}", "[49152] {66=READ}", "[49152] {}", "[] {}"), seen);
+    }
 }

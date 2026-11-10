@@ -59,6 +59,7 @@ public final class RomVideoSmokeDemo {
     /** Frame intervals each Roundabout frame-timing graph keeps: ten seconds at 60 fps. */
     private static final int ROUNDABOUT_FRAME_HISTORY = 600;
     private static final float ROUNDABOUT_FRAME_BUDGET_MS = 1000 / 60f;
+    private static final List<String> FILE_MENU = List.of("File");
     private static final List<String> ROM_MENU = List.of("File", "Open", "ROM");
     private static final List<String> DEBUG_MENU = List.of("Debug");
 
@@ -67,10 +68,14 @@ public final class RomVideoSmokeDemo {
     private final List<FrameTimes> frameTimings;
     private final GameSwitcher switcher;
     /** greyed out while no game is loaded - EDT only */
-    private final List<JMenuItem> debugItems = new ArrayList<>();
+    private final List<JMenuItem> gameItems = new ArrayList<>();
+    /** Settings kept between runs, in the user's Java preferences. */
+    private static final Preferences PREFERENCES = Preferences.userNodeForPackage(RomVideoSmokeDemo.class);
+    private static final String START_PAUSED_KEY = "startPaused";
     /** File > Open > ROM's list, kept between runs - EDT only */
-    private final RecentRoms recentRoms = new RecentRoms(RecentRoms.in(
-            Preferences.userNodeForPackage(RomVideoSmokeDemo.class).node("recentRoms")));
+    private final RecentRoms recentRoms = new RecentRoms(RecentRoms.in(PREFERENCES.node("recentRoms")));
+    /** Debug > Start paused: a newly loaded game waits before its first instruction - kept between runs */
+    private volatile boolean startPaused = PREFERENCES.getBoolean(START_PAUSED_KEY, false);
     /** where Browse starts when no game is loaded: the last folder a ROM was opened from - EDT only */
     private Path lastRomDirectory;
     /** created with the first game, kept for later ones - EDT only */
@@ -88,14 +93,14 @@ public final class RomVideoSmokeDemo {
         this.videoOutput = videoOutput;
         this.frameTimings = frameTimings;
         this.switcher = new GameSwitcher(RomLoader::load,
-                (rom, cartridge) -> GameSession.start(rom, cartridge, c -> new NES(videoOutput, controllers, c)),
+                (rom, cartridge) -> GameSession.start(rom, cartridge, c -> new NES(videoOutput, controllers, c), startPaused),
                 new GameSwitcher.Listener(){
                     @Override
                     public void closing(final GameSession session){
                         reopenRoundabout = closeRoundabout();
                         //now, when switching on the EDT - queued, it would land after the next game starts
                         onEdt(() -> {
-                            debugItems.forEach(item -> item.setEnabled(false));
+                            gameItems.forEach(item -> item.setEnabled(false));
                             videoOutput.showGame(null);
                         });
                     }
@@ -198,6 +203,8 @@ public final class RomVideoSmokeDemo {
         videoOutput.addMenuItem(ROM_MENU, "Browse...", KeyStroke.getKeyStroke(KeyEvent.VK_O, InputEvent.CTRL_DOWN_MASK),
                 this::browseForRom);
         videoOutput.fillMenuOnOpen(ROM_MENU, this::recentRomEntries);
+        gameItems.add(videoOutput.addMenuItem(FILE_MENU, "Reload ROM", KeyStroke.getKeyStroke(KeyEvent.VK_R, InputEvent.CTRL_DOWN_MASK),
+                () -> withGame(session -> openRom(session.romPath()))));
         videoOutput.onFilesDropped(files -> DroppedRom.of(files).ifPresent(this::openRom));
     }
 
@@ -233,14 +240,18 @@ public final class RomVideoSmokeDemo {
 
     /** EDT only: the debug tools, each acting on whichever game is loaded. */
     private void addDebugMenu(){
-        debugItems.add(videoOutput.addMenuItem(DEBUG_MENU, "Breakpoints", key(KeyEvent.VK_F7), () -> showDebugPanel("breakpoints")));
-        debugItems.add(videoOutput.addMenuItem(DEBUG_MENU, "Roundabout", key(KeyEvent.VK_F8), () -> withGame(this::openRoundabout)));
-        debugItems.add(videoOutput.addMenuItem(DEBUG_MENU, "Watch", key(KeyEvent.VK_F9), () -> showDebugPanel("watch")));
-        debugItems.add(videoOutput.addMenuItem(DEBUG_MENU, "Memory", key(KeyEvent.VK_F10), () -> showDebugPanel("memory")));
-        debugItems.add(videoOutput.addMenuItem(DEBUG_MENU, "CPU state", key(KeyEvent.VK_F11), () -> showDebugPanel("cpu")));
-        debugItems.add(videoOutput.addMenuItem(DEBUG_MENU, "Flag issue", key(KeyEvent.VK_F12),
+        gameItems.add(videoOutput.addMenuItem(DEBUG_MENU, "Breakpoints", key(KeyEvent.VK_F7), () -> showDebugPanel("breakpoints")));
+        gameItems.add(videoOutput.addMenuItem(DEBUG_MENU, "Roundabout", key(KeyEvent.VK_F8), () -> withGame(this::openRoundabout)));
+        gameItems.add(videoOutput.addMenuItem(DEBUG_MENU, "Watch", key(KeyEvent.VK_F9), () -> showDebugPanel("watch")));
+        gameItems.add(videoOutput.addMenuItem(DEBUG_MENU, "Memory", key(KeyEvent.VK_F10), () -> showDebugPanel("memory")));
+        gameItems.add(videoOutput.addMenuItem(DEBUG_MENU, "CPU state", key(KeyEvent.VK_F11), () -> showDebugPanel("cpu")));
+        gameItems.add(videoOutput.addMenuItem(DEBUG_MENU, "Flag issue", key(KeyEvent.VK_F12),
                 () -> withGame(session -> flagIssue(session.nes(), videoOutput, session.romPath()))));
-        debugItems.forEach(item -> item.setEnabled(false));
+        gameItems.forEach(item -> item.setEnabled(false));
+        videoOutput.addCheckBoxMenuItem(DEBUG_MENU, "Start paused", startPaused, selected -> {
+            startPaused = selected;
+            PREFERENCES.putBoolean(START_PAUSED_KEY, selected);
+        });
     }
 
     /** A menu item's accelerator still fires while it's greyed out, so each action checks too. */
@@ -273,8 +284,11 @@ public final class RomVideoSmokeDemo {
         } else {
             debugger.replacePanels(panels);
         }
-        debugItems.forEach(item -> item.setEnabled(true));
+        gameItems.forEach(item -> item.setEnabled(true));
         videoOutput.showGame(session.romPath().getFileName().toString());
+        if (startPaused){
+            videoOutput.showStatus("paused at power on - resume from Debug > CPU state");
+        }
         if (reopenRoundabout || firstGame && Boolean.getBoolean("roundabout.open")){
             openRoundabout(session);
         }
