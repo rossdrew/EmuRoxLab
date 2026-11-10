@@ -68,9 +68,13 @@ public final class RomVideoSmokeDemo {
     private final GameSwitcher switcher;
     /** greyed out while no game is loaded - EDT only */
     private final List<JMenuItem> debugItems = new ArrayList<>();
+    /** Settings kept between runs, in the user's Java preferences. */
+    private static final Preferences PREFERENCES = Preferences.userNodeForPackage(RomVideoSmokeDemo.class);
+    private static final String START_PAUSED_KEY = "startPaused";
     /** File > Open > ROM's list, kept between runs - EDT only */
-    private final RecentRoms recentRoms = new RecentRoms(RecentRoms.in(
-            Preferences.userNodeForPackage(RomVideoSmokeDemo.class).node("recentRoms")));
+    private final RecentRoms recentRoms = new RecentRoms(RecentRoms.in(PREFERENCES.node("recentRoms")));
+    /** Debug > Start paused: a newly loaded game waits before its first instruction - kept between runs */
+    private volatile boolean startPaused = PREFERENCES.getBoolean(START_PAUSED_KEY, false);
     /** where Browse starts when no game is loaded: the last folder a ROM was opened from - EDT only */
     private Path lastRomDirectory;
     /** created with the first game, kept for later ones - EDT only */
@@ -88,7 +92,7 @@ public final class RomVideoSmokeDemo {
         this.videoOutput = videoOutput;
         this.frameTimings = frameTimings;
         this.switcher = new GameSwitcher(RomLoader::load,
-                (rom, cartridge) -> GameSession.start(rom, cartridge, c -> new NES(videoOutput, controllers, c)),
+                (rom, cartridge) -> GameSession.start(rom, cartridge, c -> new NES(videoOutput, controllers, c), startPaused),
                 new GameSwitcher.Listener(){
                     @Override
                     public void closing(final GameSession session){
@@ -241,6 +245,10 @@ public final class RomVideoSmokeDemo {
         debugItems.add(videoOutput.addMenuItem(DEBUG_MENU, "Flag issue", key(KeyEvent.VK_F12),
                 () -> withGame(session -> flagIssue(session.nes(), videoOutput, session.romPath()))));
         debugItems.forEach(item -> item.setEnabled(false));
+        videoOutput.addCheckBoxMenuItem(DEBUG_MENU, "Start paused", startPaused, selected -> {
+            startPaused = selected;
+            PREFERENCES.putBoolean(START_PAUSED_KEY, selected);
+        });
     }
 
     /** A menu item's accelerator still fires while it's greyed out, so each action checks too. */
@@ -275,6 +283,9 @@ public final class RomVideoSmokeDemo {
         }
         debugItems.forEach(item -> item.setEnabled(true));
         videoOutput.showGame(session.romPath().getFileName().toString());
+        if (startPaused){
+            videoOutput.showStatus("paused at power on - resume from Debug > CPU state");
+        }
         if (reopenRoundabout || firstGame && Boolean.getBoolean("roundabout.open")){
             openRoundabout(session);
         }

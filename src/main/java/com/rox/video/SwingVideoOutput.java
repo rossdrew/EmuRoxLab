@@ -1,6 +1,7 @@
 package com.rox.video;
 
 import javax.imageio.ImageIO;
+import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -193,6 +194,18 @@ public final class SwingVideoOutput implements VideoOutput {
         item.addActionListener(e -> action.run());
         menu(menuPath).add(item);
         return item;
+    }
+
+    /**
+     * Adds a tick-box item to the menu at {@code menuPath}, starting {@code selected}; {@code onToggle} gets each
+     * new state. EDT only, like {@code onToggle}.
+     */
+    public void addCheckBoxMenuItem(final List<String> menuPath, final String label, final boolean selected,
+                                    final Consumer<Boolean> onToggle){
+        final JCheckBoxMenuItem item = new JCheckBoxMenuItem(label, selected);
+        item.setFont(item.getFont().deriveFont(MENU_FONT_SIZE));
+        item.addActionListener(e -> onToggle.accept(item.isSelected()));
+        menu(menuPath).add(item);
     }
 
     /**

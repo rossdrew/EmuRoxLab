@@ -42,6 +42,12 @@ final class GameSession {
      */
     static GameSession start(final Path romPath, final Cartridge cartridge, final NesFactory nesFactory)
             throws LineUnavailableException {
+        return start(romPath, cartridge, nesFactory, false);
+    }
+
+    /** @param startPaused powers on paused before the first instruction - see {@link NES#powerOn(boolean)} */
+    static GameSession start(final Path romPath, final Cartridge cartridge, final NesFactory nesFactory,
+                             final boolean startPaused) throws LineUnavailableException {
         //like inserting a cartridge whose battery was already charged - silent, no prompt
         final BatterySaveManager batterySaver;
         if (cartridge.rom().hasBattery()){
@@ -62,7 +68,7 @@ final class GameSession {
             throw e;
         }
         keepBreakpoints(nes.breakpoints(), SavePaths.breakpointsFile(romPath));
-        final Thread nesThread = new Thread(nes::powerOn, "nes-" + romPath.getFileName());
+        final Thread nesThread = new Thread(() -> nes.powerOn(startPaused), "nes-" + romPath.getFileName());
         nesThread.start();
         return new GameSession(romPath, nes, nesThread, batterySaver);
     }

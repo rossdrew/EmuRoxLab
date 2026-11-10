@@ -5,6 +5,7 @@ import com.rox.debug.breakpoints.Breakpoints;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -27,7 +28,7 @@ final class BlockingNes {
             poweredOnBy.set(Thread.currentThread());
             poweredOff.await();
             return null;
-        }).when(nes).powerOn();
+        }).when(nes).powerOn(anyBoolean());
         doAnswer(invocation -> {
             poweredOff.countDown();
             return null;

@@ -34,7 +34,7 @@ class GameSessionTest {
 
         final GameSession session = GameSession.start(rom(), TestRoms.nrom().cartridge(), cartridge -> nes);
 
-        verify(nes, timeout(5000)).powerOn();
+        verify(nes, timeout(5000)).powerOn(false);
         assertNotSame(Thread.currentThread(), poweredOnBy.get());
         assertSame(nes, session.nes());
         assertEquals(rom(), session.romPath());
@@ -152,6 +152,15 @@ class GameSessionTest {
     }
 
     @Test
+    void aSessionCanPowerOnPaused() throws Exception {
+        final NES nes = BlockingNes.create();
+
+        GameSession.start(rom(), TestRoms.nrom().cartridge(), c -> nes, true).close();
+
+        verify(nes).powerOn(true);
+    }
+
+    @Test
     void closeKeepsWaitingThroughAnInterruptThenRestoresIt() throws Exception {
         final AtomicReference<Thread> poweredOnBy = new AtomicReference<>();
         final NES nes = mock(NES.class);
@@ -161,9 +170,9 @@ class GameSessionTest {
             poweredOnBy.set(Thread.currentThread());
             release.await();
             return null;
-        }).when(nes).powerOn();
+        }).when(nes).powerOn(anyBoolean());
         final GameSession session = GameSession.start(rom(), TestRoms.nrom().cartridge(), c -> nes);
-        verify(nes, timeout(5000)).powerOn();
+        verify(nes, timeout(5000)).powerOn(false);
         //powerOff doesn't end powerOn here - only this, once close is blocked joining after the interrupt
         final Thread closer = Thread.currentThread();
         final Thread releaser = new Thread(() -> {
