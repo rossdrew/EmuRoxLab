@@ -1,13 +1,18 @@
 package com.rox;
 
 import com.rox.cartridge.Cartridge;
+import com.rox.debug.breakpoints.Breakpoints;
+import com.rox.debug.breakpoints.WatchKind;
 import com.rox.save.SaveFileFormat;
 import com.rox.save.SavePaths;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import javax.sound.sampled.LineUnavailableException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -109,9 +114,48 @@ class GameSessionTest {
     }
 
     @Test
+    void breakpointsSetForARomAreBackWhenItsLoadedAgain() throws Exception {
+        final NES first = BlockingNes.create();
+        GameSession.start(rom(), TestRoms.nrom().cartridge(), c -> first).close();
+        first.breakpoints().addBreakpoint(0xC123);
+        first.breakpoints().addWatch(0x2000, WatchKind.WRITE);
+        final NES second = BlockingNes.create();
+
+        GameSession.start(rom(), TestRoms.nrom().cartridge(), c -> second).close();
+
+        assertEquals(List.of(0xC123), List.copyOf(second.breakpoints().breakpoints()));
+        assertEquals(Map.of(0x2000, WatchKind.WRITE), second.breakpoints().watches());
+    }
+
+    @Test
+    void anotherRomStartsWithItsOwnBreakpoints() throws Exception {
+        final NES first = BlockingNes.create();
+        GameSession.start(rom(), TestRoms.nrom().cartridge(), c -> first).close();
+        first.breakpoints().addBreakpoint(0xC123);
+        final NES other = BlockingNes.create();
+
+        GameSession.start(directory.resolve("other.nes"), TestRoms.nrom().cartridge(), c -> other).close();
+
+        assertTrue(other.breakpoints().breakpoints().isEmpty());
+    }
+
+    @Test
+    void anUnreadableBreakpointsFileStillStartsTheGame() throws Exception {
+        final Path file = SavePaths.breakpointsFile(rom());
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, "break $C123\nnonsense\n");
+        final NES nes = BlockingNes.create();
+
+        GameSession.start(rom(), TestRoms.nrom().cartridge(), c -> nes).close();
+
+        assertEquals(List.of(0xC123), List.copyOf(nes.breakpoints().breakpoints()));
+    }
+
+    @Test
     void closeKeepsWaitingThroughAnInterruptThenRestoresIt() throws Exception {
         final AtomicReference<Thread> poweredOnBy = new AtomicReference<>();
         final NES nes = mock(NES.class);
+        when(nes.breakpoints()).thenReturn(new Breakpoints());
         final CountDownLatch release = new CountDownLatch(1);
         doAnswer(invocation -> {
             poweredOnBy.set(Thread.currentThread());

@@ -1,10 +1,13 @@
 package com.rox;
 
+import com.rox.debug.breakpoints.Breakpoints;
+
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /** Mock {@link NES}es whose {@code powerOn} blocks, like a real one, until {@code powerOff}. */
 final class BlockingNes {
@@ -18,6 +21,7 @@ final class BlockingNes {
     /** @param poweredOnBy set to the thread that calls {@code powerOn} */
     static NES create(final AtomicReference<Thread> poweredOnBy){
         final NES nes = mock(NES.class);
+        when(nes.breakpoints()).thenReturn(new Breakpoints());
         final CountDownLatch poweredOff = new CountDownLatch(1);
         doAnswer(invocation -> {
             poweredOnBy.set(Thread.currentThread());
