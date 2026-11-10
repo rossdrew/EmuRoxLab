@@ -55,6 +55,18 @@ public class RomLoaderTest {
     }
 
     @Test
+    public void mapperSevenDispatchesToAWorkingAxromMapper(){
+        final Cartridge cartridge = TestRoms.mapper(7).prgSize(2 * 0x8000)
+                .prg(0x8000, 0x77) //first byte of 32KB PRG bank 1
+                .cartridge();
+
+        cartridge.write(0x8000, 0x11); //bank 1, upper nametable page
+
+        assertEquals(0x77, cartridge.read(0x8000));
+        assertEquals(Mirroring.SINGLE_SCREEN_UPPER, cartridge.nametableMirroring());
+    }
+
+    @Test
     public void unsupportedMapperNumberThrowsWithTheNumberInTheMessage(){
         final IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
                 () -> RomLoader.fromBytes(mapperRom(99)));

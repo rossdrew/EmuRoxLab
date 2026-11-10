@@ -21,6 +21,7 @@ public final class RomLoader {
             case 0 -> new NromMapper(rom);
             case 1 -> new Mmc1Mapper(rom);
             case 4 -> new Mmc3Mapper(rom);
+            case 7 -> new AxromMapper(rom);
             default -> throw new IllegalArgumentException("Unsupported mapper: " + rom.mapperNumber());
         };
         return new Cartridge(rom, mapper);

@@ -13,11 +13,13 @@ and implements `MemoryBus`, so `NESMemoryBus` can route straight to it.
 | 0 | NROM | 16KB or 32KB, fixed | None. A 16KB image mirrors into both halves of `$8000-$FFFF`. |
 | 1 | MMC1 | up to 256KB | 5-bit serial shift register, one bit per write to `$8000-$FFFF`. PRG in 16KB or 32KB banks; CHR in 4KB or 8KB banks. |
 | 4 | MMC3 | up to 512KB | Bank select/data at `$8000`/`$8001`. PRG in four 8KB windows (two switchable); CHR in two 2KB + four 1KB windows. Scanline IRQ counter clocked by the PPU's A12 line. |
+| 7 | AxROM | up to 256KB | One register anywhere in `$8000-$FFFF`: a 32KB PRG bank, and which 1KB nametable page all four nametables use (single-screen mirroring). 8KB CHR-RAM, no PRG-RAM. |
 
-All three:
-- back `$6000-$7FFF` with 8KB of PRG-RAM, saved to disk for battery-backed ROMs (see `com.rox.save`)
+All of them:
 - use 8KB of CHR-RAM when the ROM has no CHR-ROM
-- support full `snapshot()`/`restore()`; MMC1 and MMC3 also report their registers via `debugState()`
+- support full `snapshot()`/`restore()`; MMC1, MMC3 and AxROM also report their registers via `debugState()`
+
+NROM, MMC1 and MMC3 back `$6000-$7FFF` with 8KB of PRG-RAM, saved to disk for battery-backed ROMs (see `com.rox.save`); AxROM has none.
 
 Any other mapper number is rejected by `RomLoader` with an "unsupported mapper" error. NES 2.0 headers are also rejected rather than misread as iNES 1.0.
 
