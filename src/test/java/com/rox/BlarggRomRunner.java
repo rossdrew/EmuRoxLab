@@ -92,7 +92,10 @@ final class BlarggRomRunner {
                 : new Result(false, false, -1, screenText(nes));
     }
 
-    /** In a JMP to itself with interrupts disabled and NMI off - nothing can ever get it out. */
+    /**
+     * In a JMP to itself with interrupts disabled, NMI off and no NMI already latched - nothing can ever get
+     * it out (the interrupt-disable flag doesn't stop an NMI the CPU has already latched).
+     */
     private static boolean parkedForGood(final NES nes){
         if (!nes.cpu().isAtInstructionBoundary()){
             return false;
@@ -104,7 +107,8 @@ final class BlarggRomRunner {
             return false;
         }
         final SystemSnapshot snapshot = nes.captureSnapshot();
-        return snapshot.cpu().interruptDisable() && (snapshot.ppu().registers().control() & NMI_ENABLE_BIT) == 0;
+        return snapshot.cpu().interruptDisable() && !snapshot.cpu().nmiPending()
+                && (snapshot.ppu().registers().control() & NMI_ENABLE_BIT) == 0;
     }
 
     /** The first nametable's tiles as ASCII, one line per row, trailing blanks dropped. */
