@@ -1,29 +1,15 @@
 package com.rox;
 
-import com.rox.audio.AudioOutput;
-import com.rox.cartridge.BlarggTestStatus;
-import com.rox.cartridge.Cartridge;
-import com.rox.cartridge.RomLoader;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import java.io.IOException;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
 
 /**
  * Runs blargg's apu_test {@code rom_singles} ROMs
- * (https://github.com/christopherpow/nes-test-roms/tree/master/apu_test) end to end through a real
- * {@link Cartridge} + {@link NES}, headlessly (mocked {@link AudioOutput}, no real-time pacing -
- * {@code nes.clock().tick()} driven directly, same approach as
- * {@link NESTest#dmcExhaustionIrqReachesTheCpusRealIrqLine()}). Each ROM reports its own pass/fail
- * through the {@code $6000} protocol - see {@link BlarggTestStatus}.
+ * (https://github.com/christopherpow/nes-test-roms/tree/master/apu_test) end to end - see
+ * {@link BlarggRomRunner}.
  *
  * Not all 8 currently pass. The failures are real signal about the current APU's timing fidelity
  * (frame-IRQ/length-counter/DMC-rate edge cases) rather than anything to do with ROM loading -
@@ -31,7 +17,6 @@ import static org.mockito.Mockito.mock;
  * rather than asserting an aspirational "all green."
  */
 public class ApuTestRomIntegrationTest {
-    private static final String ROM_RESOURCE_DIR = "roms/apu_test/";
     private static final long TICK_BUDGET = 5_000_000;
     //the combined ROM runs all 8 rom_singles sub-tests (plus its own menu/sequencing overhead) in one
     //pass, so it needs a proportionally larger budget than any single sub-test
@@ -67,49 +52,6 @@ public class ApuTestRomIntegrationTest {
 
     private void assertRomReportsStatus(final String romResourcePath, final int expectedStatus, final long tickBudget,
                                          final String expectedTextSubstring) throws IOException {
-        final Cartridge cartridge = RomLoader.load(romPath(romResourcePath));
-        final NES nes = new NES(mock(AudioOutput.class), cartridge);
-        nes.cpu().reset();
-
-        long ticks = 0;
-        boolean sawSignature = false;
-        boolean finished = false;
-        while (ticks < tickBudget){
-            nes.clock().tick();
-            ticks++;
-            if (!sawSignature && BlarggTestStatus.isSignaturePresent(cartridge)){
-                sawSignature = true;
-            }
-            if (sawSignature && BlarggTestStatus.needsReset(cartridge)){
-                nes.cpu().reset();
-                continue;
-            }
-            if (sawSignature && !BlarggTestStatus.isRunning(cartridge)){
-                finished = true;
-                break;
-            }
-        }
-
-        assertTrue(sawSignature, romResourcePath + " never wrote the blargg status signature within " + tickBudget + " ticks");
-        assertTrue(finished, romResourcePath + " did not finish within " + tickBudget + " ticks (status stuck at $80/$81)");
-        assertEquals(expectedStatus, BlarggTestStatus.statusByte(cartridge),
-                romResourcePath + " reported: " + BlarggTestStatus.text(cartridge));
-        if (expectedTextSubstring != null){
-            assertTrue(BlarggTestStatus.text(cartridge).contains(expectedTextSubstring),
-                    romResourcePath + " expected text to contain \"" + expectedTextSubstring + "\" but was: "
-                            + BlarggTestStatus.text(cartridge));
-        }
-    }
-
-    private static Path romPath(final String romResourcePath){
-        final URL url = ApuTestRomIntegrationTest.class.getClassLoader().getResource(ROM_RESOURCE_DIR + romResourcePath);
-        if (url == null){
-            throw new IllegalStateException("Test fixture not found on classpath: " + ROM_RESOURCE_DIR + romResourcePath);
-        }
-        try {
-            return Path.of(url.toURI());
-        } catch (URISyntaxException e){
-            throw new IllegalStateException(e);
-        }
+        BlarggRomRunner.assertReports("apu_test/" + romResourcePath, expectedStatus, expectedTextSubstring, tickBudget);
     }
 }
