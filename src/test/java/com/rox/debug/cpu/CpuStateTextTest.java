@@ -1,5 +1,6 @@
 package com.rox.debug.cpu;
 
+import com.rox.debug.BeamPosition;
 import com.rox.cpu.mos6502.MOS6502Snapshot;
 import com.rox.cpu.mos6502.assembler.DisassembledInstruction;
 import com.rox.debug.breakpoints.BreakHit;
@@ -56,6 +57,7 @@ public class CpuStateTextTest {
     private static CpuDebugSource source(final boolean paused, final Breakpoints breakpoints, final BreakHit hit){
         return new CpuDebugSource(){
             @Override public MOS6502Snapshot state(){ return SOME_SET; }
+            @Override public BeamPosition beam(){ return new BeamPosition(241, 6); }
             @Override public java.util.List<DisassembledInstruction> upcomingInstructions(final int count){
                 return java.util.stream.IntStream.range(0, count)
                         .mapToObj(i -> new DisassembledInstruction(0x8123 + i, 1, "NOP", new int[0], "NOP")).toList();
@@ -94,6 +96,7 @@ public class CpuStateTextTest {
                 PC: $8123  A: $01  X: $02  Y: $03  SP: $FD
                 Flags: Nv-BdIzC  (NV-BDIZC)
                 IRQ line: clear  NMI pending: yes
+                Scanline: 241  Dot: 6
 
                 --- Next (furthest ahead at top) ---
                   $8125  NOP
@@ -117,6 +120,7 @@ public class CpuStateTextTest {
                 PC: $8123  A: $01  X: $02  Y: $03  SP: $FD
                 Flags: Nv-BdIzC  (NV-BDIZC)
                 IRQ line: clear  NMI pending: yes
+                Scanline: 241  Dot: 6
 
                 --- Next (furthest ahead at top) ---
                   $8125  NOP
@@ -141,6 +145,20 @@ public class CpuStateTextTest {
         assertEquals("Breakpoint at $C123", CpuStateText.hit(new BreakHit(BreakHit.Cause.BREAKPOINT, 0xC123, 0, 0xC123)));
         assertEquals("Read $0042 = $05 by $C0F1", CpuStateText.hit(new BreakHit(BreakHit.Cause.READ, 0x42, 5, 0xC0F1)));
         assertEquals("Write $2006 = $20 by $C0F1", CpuStateText.hit(new BreakHit(BreakHit.Cause.WRITE, 0x2006, 0x20, 0xC0F1)));
+    }
+
+    @Test
+    public void hitSaysWhereTheBeamWasWhenKnown(){
+        assertEquals("Write $2001 = $18 by $C0F1 (scanline 33, dot 120)",
+                CpuStateText.hit(new BreakHit(BreakHit.Cause.WRITE, 0x2001, 0x18, 0xC0F1, new BeamPosition(33, 120))));
+        assertEquals("Breakpoint at $C123 (scanline 241, dot 22)",
+                CpuStateText.hit(new BreakHit(BreakHit.Cause.BREAKPOINT, 0xC123, 0, 0xC123, new BeamPosition(241, 22))));
+    }
+
+    @Test
+    public void beamIsWhereThePpuIsDrawing(){
+        assertEquals("Scanline: 0  Dot: 0", CpuStateText.beam(new BeamPosition(0, 0)));
+        assertEquals("Scanline: 261  Dot: 340", CpuStateText.beam(new BeamPosition(261, 340)));
     }
 
     @Test
@@ -190,6 +208,7 @@ public class CpuStateTextTest {
     public void theCurrentInstructionHasNoStateBeforeAnythingHasBeenRecorded(){
         final CpuDebugSource fresh = new CpuDebugSource(){
             @Override public MOS6502Snapshot state(){ return SOME_SET; }
+            @Override public BeamPosition beam(){ return new BeamPosition(241, 6); }
             @Override public java.util.List<DisassembledInstruction> upcomingInstructions(final int count){
                 return java.util.List.of(new DisassembledInstruction(0x8000, 1, "NOP", new int[0], "NOP"));
             }

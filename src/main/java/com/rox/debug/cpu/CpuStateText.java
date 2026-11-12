@@ -1,5 +1,6 @@
 package com.rox.debug.cpu;
 
+import com.rox.debug.BeamPosition;
 import com.rox.cpu.mos6502.MOS6502Snapshot;
 import com.rox.cpu.mos6502.assembler.DisassembledInstruction;
 import com.rox.debug.breakpoints.BreakHit;
@@ -72,13 +73,24 @@ public final class CpuStateText {
         return (atPc ? "> " : "  ") + String.format("$%04X  %s", instruction.address(), instruction.formatted());
     }
 
-    /** {@code Breakpoint at $C123}, {@code Read $0042 = $05 by $C0F1} or {@code Write $0042 = $05 by $C0F1}. */
+    /**
+     * {@code Breakpoint at $C123}, {@code Read $0042 = $05 by $C0F1} or {@code Write $0042 = $05 by $C0F1} - each
+     * followed by {@code  (scanline 241, dot 6)} when the beam position is known.
+     */
     public static String hit(final BreakHit hit){
-        return switch (hit.cause()){
+        final String what = switch (hit.cause()){
             case BREAKPOINT -> String.format("Breakpoint at $%04X", hit.address());
             case READ -> String.format("Read $%04X = $%02X by $%04X", hit.address(), hit.value(), hit.pc());
             case WRITE -> String.format("Write $%04X = $%02X by $%04X", hit.address(), hit.value(), hit.pc());
         };
+        return hit.beam().isKnown()
+                ? what + String.format(" (scanline %d, dot %d)", hit.beam().scanline(), hit.beam().dot())
+                : what;
+    }
+
+    /** {@code Scanline: 241  Dot: 6} - where the PPU is drawing, as a flagged issue's {@code state.txt} puts it. */
+    public static String beam(final BeamPosition beam){
+        return String.format("Scanline: %d  Dot: %d", beam.scanline(), beam.dot());
     }
 
     /** The address of the instruction on a {@link #panel} line, if it's an instruction line. */
@@ -116,7 +128,8 @@ public final class CpuStateText {
         final Set<Integer> breakpoints = source.breakpoints().breakpoints();
         out.append(registers(cpu)).append('\n');
         out.append("Flags: ").append(flags(cpu)).append("  (NV-BDIZC)\n");
-        out.append(interruptLines(cpu)).append("\n\n");
+        out.append(interruptLines(cpu)).append('\n');
+        out.append(beam(source.beam())).append("\n\n");
         out.append("--- Next (furthest ahead at top) ---\n");
         final List<DisassembledInstruction> upcoming = source.upcomingInstructions(upcomingCount);
         final Optional<MOS6502Snapshot> currentState = source.currentInstructionState();

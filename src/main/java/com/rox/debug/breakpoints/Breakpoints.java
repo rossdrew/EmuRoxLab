@@ -1,5 +1,7 @@
 package com.rox.debug.breakpoints;
 
+import com.rox.debug.BeamPosition;
+
 import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
@@ -7,6 +9,7 @@ import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.function.Supplier;
 
 /**
  * Breakpoints (stop when the PC reaches an address) and watchpoints (stop after an instruction reads or writes
@@ -53,6 +56,8 @@ public final class Breakpoints {
     }
 
     private volatile State state = State.EMPTY;
+    /** Where the PPU is drawing - asked only when something hits. */
+    private volatile Supplier<BeamPosition> beam = () -> BeamPosition.UNKNOWN;
     /** Where the instruction now running started - what a watchpoint hit reports. Ticking thread only. */
     private int instructionStart;
     /** A watchpoint hit, held until its instruction finishes. Ticking thread only. */
@@ -84,6 +89,11 @@ public final class Breakpoints {
         state = State.of(new TreeSet<>(state.breakpoints()), watches);
     }
 
+    /** Where hits record the PPU as drawing - e.g. the NES's own PPU. Unset, hits carry {@link BeamPosition#UNKNOWN}. */
+    public void beam(final Supplier<BeamPosition> beam){
+        this.beam = beam;
+    }
+
     /** Breakpoint addresses, ascending, each by its lowest mirror. */
     public SortedSet<Integer> breakpoints(){
         return state.breakpoints();
@@ -103,7 +113,7 @@ public final class Breakpoints {
         final WatchKind kind = watchAt[canonical(address)];
         if (kind != null && kind.catches(write)){
             pendingWatchHit = new BreakHit(write ? BreakHit.Cause.WRITE : BreakHit.Cause.READ, canonical(address), value,
-                    instructionStart);
+                    instructionStart, beam.get());
         }
     }
 
@@ -129,7 +139,7 @@ public final class Breakpoints {
             return Optional.of(hit);
         }
         if (current.breakpointAt() != null && current.breakpointAt()[pc]){
-            return Optional.of(new BreakHit(BreakHit.Cause.BREAKPOINT, pc, 0, pc));
+            return Optional.of(new BreakHit(BreakHit.Cause.BREAKPOINT, pc, 0, pc, beam.get()));
         }
         return Optional.empty();
     }
