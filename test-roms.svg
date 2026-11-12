@@ -1,0 +1,429 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="928" viewBox="0 0 1320 928" font-family="Helvetica, Arial, sans-serif">
+<rect width="100%" height="100%" fill="#000000"/>
+<text x="20" y="40" font-size="30" fill="#ffffff" font-weight="bold" text-anchor="start">Test ROM Progress</text>
+<text x="20" y="66" font-size="16" fill="#bbbbbb" font-weight="normal" text-anchor="start">blargg's test ROMs (src/test/resources/roms) as EmuRoxLab runs them today</text>
+<text x="1300" y="40" font-size="22" fill="#ffffff" font-weight="bold" text-anchor="end">20 / 47 passing</text>
+<rect x="20" y="80" width="1280" height="18" rx="4" fill="#333333"/>
+<rect x="20" y="80" width="545" height="18" rx="4" fill="#1f7a1f"/>
+<text x="660" y="94" font-size="13" fill="#ffffff" font-weight="bold" text-anchor="middle">43%</text>
+<text x="20" y="148" font-size="16" fill="#ffffff" font-weight="bold" text-anchor="start">apu_test</text>
+<g><title>apu_test/1-len_ctr: 1-len_ctr
+
+Passed</title><rect x="230" y="120" width="170" height="44" rx="4" fill="#1f7a1f"/><text x="315" y="138" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">1-len_ctr</text>
+<text x="315" y="155" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Passed</text>
+</g>
+<g><title>apu_test/2-len_table: 2-len_table
+
+Passed</title><rect x="406" y="120" width="170" height="44" rx="4" fill="#1f7a1f"/><text x="491" y="138" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">2-len_table</text>
+<text x="491" y="155" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Passed</text>
+</g>
+<g><title>apu_test/3-irq_flag: 3-irq_flag
+
+Passed</title><rect x="582" y="120" width="170" height="44" rx="4" fill="#1f7a1f"/><text x="667" y="138" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">3-irq_flag</text>
+<text x="667" y="155" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Passed</text>
+</g>
+<g><title>apu_test/4-jitter: Frame irq is set too soon
+
+4-jitter
+
+Failed #2</title><rect x="758" y="120" width="170" height="44" rx="4" fill="#8b1e1e"/><text x="843" y="138" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">4-jitter</text>
+<text x="843" y="155" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Failed #2</text>
+</g>
+<g><title>apu_test/5-len_timing: Channel: 0
+
+First length of mode 0 is too soon
+
+5-len_timing
+
+Failed #2</title><rect x="934" y="120" width="170" height="44" rx="4" fill="#8b1e1e"/><text x="1019" y="138" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">5-len_timing</text>
+<text x="1019" y="155" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Failed #2</text>
+</g>
+<g><title>apu_test/6-irq_flag_timing: Flag first set too soon
+
+6-irq_flag_timing
+
+Failed #2</title><rect x="1110" y="120" width="170" height="44" rx="4" fill="#8b1e1e"/><text x="1195" y="138" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">6-irq_flag_timing</text>
+<text x="1195" y="155" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Failed #2</text>
+</g>
+<g><title>apu_test/7-dmc_basics: Channel: 0
+
+DMC isn't working well enough to test further
+
+7-dmc_basics
+
+Failed #2</title><rect x="230" y="170" width="170" height="44" rx="4" fill="#8b1e1e"/><text x="315" y="188" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">7-dmc_basics</text>
+<text x="315" y="205" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Failed #2</text>
+</g>
+<g><title>apu_test/8-dmc_rates: Rate 0's period is too long
+
+8-dmc_rates
+
+Failed #3</title><rect x="406" y="170" width="170" height="44" rx="4" fill="#8b1e1e"/><text x="491" y="188" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">8-dmc_rates</text>
+<text x="491" y="205" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Failed #3</text>
+</g>
+<text x="20" y="260" font-size="16" fill="#ffffff" font-weight="bold" text-anchor="start">cpu_interrupts_v2</text>
+<g><title>cpu_interrupts_v2/1-cli_latency: Exactly one instruction after CLI should execute before IRQ is taken
+
+1-cli_latency
+
+Failed #4</title><rect x="230" y="232" width="170" height="44" rx="4" fill="#8b1e1e"/><text x="315" y="250" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">1-cli_latency</text>
+<text x="315" y="267" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Failed #4</text>
+</g>
+<g><title>cpu_interrupts_v2/2-nmi_and_brk: NMI BRK 00
+27  36  00 
+27  36  00 
+27  36  00 
+26  36  00 
+26  36  00 
+26  36  00 
+26  36  00 
+26  36  00 
+26  36  00 
+26  36  00 
+
+24A85CA6
+2-nmi_and_brk
+
+Failed</title><rect x="406" y="232" width="170" height="44" rx="4" fill="#8b1e1e"/><text x="491" y="250" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">2-nmi_and_brk</text>
+<text x="491" y="267" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Failed</text>
+</g>
+<g><title>cpu_interrupts_v2/3-nmi_and_irq: NMI BRK
+23  00 
+23  00 
+27  23 
+27  23 
+27  23 
+27  23 
+27  23 
+27  23 
+27  23 
+27  23 
+27  23 
+27  23 
+
+55FEA461
+3-nmi_and_irq
+
+Failed</title><rect x="582" y="232" width="170" height="44" rx="4" fill="#8b1e1e"/><text x="667" y="250" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">3-nmi_and_irq</text>
+<text x="667" y="267" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Failed</text>
+</g>
+<g><title>cpu_interrupts_v2/4-irq_and_dma: 0 +0
+0 +1
+0 +2
+0 +3
+0 +4
+1 +5
+1 +6
+2 +7
+2 +8
+4 +9
+4 +10
+7 +11
+7 +12
+7 +13
+...
+7 +524
+7 +525
+7 +526
+7 +527
+
+EB48410A
+4-irq_and_dma
+
+Failed</title><rect x="758" y="232" width="170" height="44" rx="4" fill="#8b1e1e"/><text x="843" y="250" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">4-irq_and_dma</text>
+<text x="843" y="267" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Failed</text>
+</g>
+<g><title>cpu_interrupts_v2/5-branch_delays_irq: test_jmp
+T+ CK PC
+00 05 03 
+01 04 03 
+02 04 03 
+03 03 03 
+04 04 04 
+05 03 04 
+06 04 07 
+07 04 07 
+08 03 07 
+09 04 08 
+
+
+C794ECB0
+5-branch_delays_irq
+
+Failed</title><rect x="934" y="232" width="170" height="44" rx="4" fill="#8b1e1e"/><text x="1019" y="250" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">5-branch_delays_irq</text>
+<text x="1019" y="267" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Failed</text>
+</g>
+<text x="20" y="322" font-size="16" fill="#ffffff" font-weight="bold" text-anchor="start">cpu_timing_test6</text>
+<g><title>cpu_timing_test6/cpu_timing_test: 6502 TIMING TEST (16 SECONDS)
+
+  OFFICIAL INSTRUCTIONS ONLY
+
+  PASSED</title><rect x="230" y="294" width="170" height="44" rx="4" fill="#1f7a1f"/><text x="315" y="312" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">cpu_timing_test</text>
+<text x="315" y="329" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Passed</text>
+</g>
+<text x="20" y="384" font-size="16" fill="#ffffff" font-weight="bold" text-anchor="start">instr_timing</text>
+<g><title>instr_timing/1-instr_timing: java.lang.IllegalArgumentException: Unknown opcode: 0x04</title><rect x="230" y="356" width="170" height="44" rx="4" fill="#555555"/><text x="315" y="374" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">1-instr_timing</text>
+<text x="315" y="391" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Crashed</text>
+</g>
+<g><title>instr_timing/2-branch_timing: 2-branch_timing
+
+Passed</title><rect x="406" y="356" width="170" height="44" rx="4" fill="#1f7a1f"/><text x="491" y="374" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">2-branch_timing</text>
+<text x="491" y="391" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Passed</text>
+</g>
+<text x="20" y="446" font-size="16" fill="#ffffff" font-weight="bold" text-anchor="start">oam_read</text>
+<g><title>oam_read/oam_read: ----------------
+----------------
+----------------
+----------------
+----------------
+----------------
+----------------
+----------------
+----------------
+----------------
+----------------
+----------------
+----------------
+----------------
+----------------
+----------------
+
+oam_read
+
+Passed</title><rect x="230" y="418" width="170" height="44" rx="4" fill="#1f7a1f"/><text x="315" y="436" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">oam_read</text>
+<text x="315" y="453" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Passed</text>
+</g>
+<text x="20" y="508" font-size="16" fill="#ffffff" font-weight="bold" text-anchor="start">ppu_vbl_nmi</text>
+<g><title>ppu_vbl_nmi/01-vbl_basics: 01-vbl_basics
+
+Passed</title><rect x="230" y="480" width="170" height="44" rx="4" fill="#1f7a1f"/><text x="315" y="498" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">01-vbl_basics</text>
+<text x="315" y="515" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Passed</text>
+</g>
+<g><title>ppu_vbl_nmi/02-vbl_set_time: T+ 1 2
+00 - V
+01 - V
+02 - V
+03 - V
+04 - V
+05 V -
+06 V -
+07 V -
+08 V -
+
+4103C340
+02-vbl_set_time
+
+Failed</title><rect x="406" y="480" width="170" height="44" rx="4" fill="#8b1e1e"/><text x="491" y="498" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">02-vbl_set_time</text>
+<text x="491" y="515" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Failed</text>
+</g>
+<g><title>ppu_vbl_nmi/03-vbl_clear_time: 00 V
+01 V
+02 V
+03 V
+04 V
+05 V
+06 -
+07 -
+08 -
+
+03-vbl_clear_time
+
+Passed</title><rect x="582" y="480" width="170" height="44" rx="4" fill="#1f7a1f"/><text x="667" y="498" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">03-vbl_clear_time</text>
+<text x="667" y="515" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Passed</text>
+</g>
+<g><title>ppu_vbl_nmi/04-nmi_control: Immediate occurence should be after NEXT instruction
+
+04-nmi_control
+
+Failed #11</title><rect x="758" y="480" width="170" height="44" rx="4" fill="#8b1e1e"/><text x="843" y="498" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">04-nmi_control</text>
+<text x="843" y="515" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Failed #11</text>
+</g>
+<g><title>ppu_vbl_nmi/05-nmi_timing: 00 3
+01 3
+02 3
+03 3
+04 2
+05 2
+06 2
+07 2
+08 2
+09 2
+
+1B41CAA0
+05-nmi_timing
+
+Failed</title><rect x="934" y="480" width="170" height="44" rx="4" fill="#8b1e1e"/><text x="1019" y="498" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">05-nmi_timing</text>
+<text x="1019" y="515" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Failed</text>
+</g>
+<g><title>ppu_vbl_nmi/06-suppression: 00 - N
+01 - N
+02 - N
+03 - N
+04 - N
+05 V N
+06 V N
+07 V N
+08 V N
+09 V N
+
+3FE15516
+06-suppression
+
+Failed</title><rect x="1110" y="480" width="170" height="44" rx="4" fill="#8b1e1e"/><text x="1195" y="498" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">06-suppression</text>
+<text x="1195" y="515" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Failed</text>
+</g>
+<g><title>ppu_vbl_nmi/07-nmi_on_timing: 00 N
+01 N
+02 N
+03 N
+04 N
+05 N
+06 -
+07 -
+08 -
+
+2B1F5269
+07-nmi_on_timing
+
+Failed</title><rect x="230" y="530" width="170" height="44" rx="4" fill="#8b1e1e"/><text x="315" y="548" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">07-nmi_on_timing</text>
+<text x="315" y="565" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Failed</text>
+</g>
+<g><title>ppu_vbl_nmi/08-nmi_off_timing: 03 -
+04 N
+05 N
+06 N
+07 N
+08 N
+09 N
+0A N
+0B N
+0C N
+
+6CB785AD
+08-nmi_off_timing
+
+Failed</title><rect x="406" y="530" width="170" height="44" rx="4" fill="#8b1e1e"/><text x="491" y="548" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">08-nmi_off_timing</text>
+<text x="491" y="565" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Failed</text>
+</g>
+<g><title>ppu_vbl_nmi/09-even_odd_frames: 00 00 
+Pattern ---BB should skip 1 clock
+
+09-even_odd_frames
+
+Failed #3</title><rect x="582" y="530" width="170" height="44" rx="4" fill="#8b1e1e"/><text x="667" y="548" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">09-even_odd_frames</text>
+<text x="667" y="565" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Failed #3</text>
+</g>
+<g><title>ppu_vbl_nmi/10-even_odd_timing: 09 
+Clock is skipped too soon, relative to enabling BG
+
+10-even_odd_timing
+
+Failed #2</title><rect x="758" y="530" width="170" height="44" rx="4" fill="#8b1e1e"/><text x="843" y="548" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">10-even_odd_timing</text>
+<text x="843" y="565" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Failed #2</text>
+</g>
+<text x="20" y="620" font-size="16" fill="#ffffff" font-weight="bold" text-anchor="start">sprdma_and_dmc_dma</text>
+<g><title>sprdma_and_dmc_dma/sprdma_and_dmc_dma: T+ Clocks (decimal)
+00</title><rect x="230" y="592" width="170" height="44" rx="4" fill="#a86a00"/><text x="315" y="610" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">sprdma_and_dmc_dma</text>
+<text x="315" y="627" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Never finishes</text>
+</g>
+<g><title>sprdma_and_dmc_dma/sprdma_and_dmc_dma_512: T+ Clocks (decimal)
+00</title><rect x="406" y="592" width="170" height="44" rx="4" fill="#a86a00"/><text x="491" y="610" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">sprdma_and_dmc_dma_512</text>
+<text x="491" y="627" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Never finishes</text>
+</g>
+<text x="20" y="682" font-size="16" fill="#ffffff" font-weight="bold" text-anchor="start">sprite_hit_tests</text>
+<g><title>sprite_hit_tests/01.basics: SPRITE HIT BASICS
+
+  PASSED</title><rect x="230" y="654" width="170" height="44" rx="4" fill="#1f7a1f"/><text x="315" y="672" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">01.basics</text>
+<text x="315" y="689" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Passed</text>
+</g>
+<g><title>sprite_hit_tests/02.alignment: SPRITE HIT ALIGNMENT
+
+  PASSED</title><rect x="406" y="654" width="170" height="44" rx="4" fill="#1f7a1f"/><text x="491" y="672" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">02.alignment</text>
+<text x="491" y="689" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Passed</text>
+</g>
+<g><title>sprite_hit_tests/03.corners: SPRITE HIT CORNERS
+
+  PASSED</title><rect x="582" y="654" width="170" height="44" rx="4" fill="#1f7a1f"/><text x="667" y="672" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">03.corners</text>
+<text x="667" y="689" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Passed</text>
+</g>
+<g><title>sprite_hit_tests/04.flip: SPRITE HIT FLIPPING
+
+  PASSED</title><rect x="758" y="654" width="170" height="44" rx="4" fill="#1f7a1f"/><text x="843" y="672" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">04.flip</text>
+<text x="843" y="689" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Passed</text>
+</g>
+<g><title>sprite_hit_tests/05.left_clip: SPRITE HIT LEFT CLIPPING
+
+  PASSED</title><rect x="934" y="654" width="170" height="44" rx="4" fill="#1f7a1f"/><text x="1019" y="672" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">05.left_clip</text>
+<text x="1019" y="689" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Passed</text>
+</g>
+<g><title>sprite_hit_tests/06.right_edge: SPRITE HIT RIGHT EDGE
+
+  PASSED</title><rect x="1110" y="654" width="170" height="44" rx="4" fill="#1f7a1f"/><text x="1195" y="672" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">06.right_edge</text>
+<text x="1195" y="689" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Passed</text>
+</g>
+<g><title>sprite_hit_tests/07.screen_bottom: SPRITE HIT SCREEN BOTTOM
+
+  PASSED</title><rect x="230" y="704" width="170" height="44" rx="4" fill="#1f7a1f"/><text x="315" y="722" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">07.screen_bottom</text>
+<text x="315" y="739" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Passed</text>
+</g>
+<g><title>sprite_hit_tests/08.double_height: SPRITE HIT DOUBLE HEIGHT
+
+  PASSED</title><rect x="406" y="704" width="170" height="44" rx="4" fill="#1f7a1f"/><text x="491" y="722" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">08.double_height</text>
+<text x="491" y="739" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Passed</text>
+</g>
+<g><title>sprite_hit_tests/09.timing_basics: SPRITE HIT TIMING
+
+  PASSED</title><rect x="582" y="704" width="170" height="44" rx="4" fill="#1f7a1f"/><text x="667" y="722" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">09.timing_basics</text>
+<text x="667" y="739" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Passed</text>
+</g>
+<g><title>sprite_hit_tests/10.timing_order: SPRITE HIT ORDER
+
+  PASSED</title><rect x="758" y="704" width="170" height="44" rx="4" fill="#1f7a1f"/><text x="843" y="722" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">10.timing_order</text>
+<text x="843" y="739" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Passed</text>
+</g>
+<g><title>sprite_hit_tests/11.edge_timing: SPRITE HIT EDGE TIMING
+
+  PASSED</title><rect x="934" y="704" width="170" height="44" rx="4" fill="#1f7a1f"/><text x="1019" y="722" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">11.edge_timing</text>
+<text x="1019" y="739" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Passed</text>
+</g>
+<text x="20" y="794" font-size="16" fill="#ffffff" font-weight="bold" text-anchor="start">vbl_nmi_timing</text>
+<g><title>vbl_nmi_timing/1.frame_basics: PPU FRAME BASICS
+
+  FAILED: # 4</title><rect x="230" y="766" width="170" height="44" rx="4" fill="#8b1e1e"/><text x="315" y="784" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">1.frame_basics</text>
+<text x="315" y="801" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Failed #4</text>
+</g>
+<g><title>vbl_nmi_timing/2.vbl_timing: VBL TIMING
+
+  FAILED #8</title><rect x="406" y="766" width="170" height="44" rx="4" fill="#8b1e1e"/><text x="491" y="784" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">2.vbl_timing</text>
+<text x="491" y="801" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Failed #8</text>
+</g>
+<g><title>vbl_nmi_timing/3.even_odd_frames: EVEN ODD FRAMES
+
+  FAILED #3</title><rect x="582" y="766" width="170" height="44" rx="4" fill="#8b1e1e"/><text x="667" y="784" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">3.even_odd_frames</text>
+<text x="667" y="801" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Failed #3</text>
+</g>
+<g><title>vbl_nmi_timing/4.vbl_clear_timing: VBL CLEAR TIMING
+
+  PASSED</title><rect x="758" y="766" width="170" height="44" rx="4" fill="#1f7a1f"/><text x="843" y="784" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">4.vbl_clear_timing</text>
+<text x="843" y="801" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Passed</text>
+</g>
+<g><title>vbl_nmi_timing/5.nmi_suppression: NMI SUPPRESSION
+
+  FAILED #3</title><rect x="934" y="766" width="170" height="44" rx="4" fill="#8b1e1e"/><text x="1019" y="784" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">5.nmi_suppression</text>
+<text x="1019" y="801" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Failed #3</text>
+</g>
+<g><title>vbl_nmi_timing/6.nmi_disable: NMI DISABLE
+
+  FAILED #2</title><rect x="1110" y="766" width="170" height="44" rx="4" fill="#8b1e1e"/><text x="1195" y="784" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">6.nmi_disable</text>
+<text x="1195" y="801" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Failed #2</text>
+</g>
+<g><title>vbl_nmi_timing/7.nmi_timing: NMI TIMING
+
+  FAILED #2</title><rect x="230" y="816" width="170" height="44" rx="4" fill="#8b1e1e"/><text x="315" y="834" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">7.nmi_timing</text>
+<text x="315" y="851" font-size="11" fill="#eeeeee" font-weight="normal" text-anchor="middle">Failed #2</text>
+</g>
+<rect x="20" y="888" width="18" height="18" rx="3" fill="#1f7a1f"/><text x="46" y="902" font-size="14" fill="#dddddd" font-weight="normal" text-anchor="start">Passed</text>
+<rect x="280" y="888" width="18" height="18" rx="3" fill="#8b1e1e"/><text x="306" y="902" font-size="14" fill="#dddddd" font-weight="normal" text-anchor="start">Failed (#code)</text>
+<rect x="540" y="888" width="18" height="18" rx="3" fill="#a86a00"/><text x="566" y="902" font-size="14" fill="#dddddd" font-weight="normal" text-anchor="start">Never finishes</text>
+<rect x="800" y="888" width="18" height="18" rx="3" fill="#555555"/><text x="826" y="902" font-size="14" fill="#dddddd" font-weight="normal" text-anchor="start">Crashed (emulator error)</text>
+</svg>
