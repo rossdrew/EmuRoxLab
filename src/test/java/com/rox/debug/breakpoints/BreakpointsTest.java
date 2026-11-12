@@ -1,5 +1,6 @@
 package com.rox.debug.breakpoints;
 
+import com.rox.debug.BeamPosition;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -204,5 +205,33 @@ class BreakpointsTest {
     void rejectsAnAddressOutsideTheCpusRange(final int address){
         assertThrows(IllegalArgumentException.class, () -> breakpoints.addBreakpoint(address));
         assertThrows(IllegalArgumentException.class, () -> breakpoints.addWatch(address, WatchKind.READ));
+    }
+
+    @Test
+    void aWatchHitRecordsWhereTheBeamWasAtTheAccess(){
+        final java.util.concurrent.atomic.AtomicReference<BeamPosition> beam = new java.util.concurrent.atomic.AtomicReference<>(new BeamPosition(33, 120));
+        breakpoints.beam(beam::get);
+        breakpoints.addWatch(0x2001, WatchKind.WRITE);
+        breakpoints.check(true, 0xC0F1);
+
+        breakpoints.recordAccess(0x2001, true, 0x18);
+        beam.set(new BeamPosition(33, 129)); //the instruction finishing, later
+
+        assertEquals(new BeamPosition(33, 120), breakpoints.check(true, 0xC0F4).orElseThrow().beam());
+    }
+
+    @Test
+    void aBreakpointHitRecordsWhereTheBeamIs(){
+        breakpoints.beam(() -> new BeamPosition(241, 22));
+        breakpoints.addBreakpoint(0xC123);
+
+        assertEquals(new BeamPosition(241, 22), breakpoints.check(true, 0xC123).orElseThrow().beam());
+    }
+
+    @Test
+    void withoutABeamSourceHitsDontKnowTheBeam(){
+        breakpoints.addBreakpoint(0xC123);
+
+        assertFalse(breakpoints.check(true, 0xC123).orElseThrow().beam().isKnown());
     }
 }
