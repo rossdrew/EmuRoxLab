@@ -294,10 +294,11 @@ public class FPSClock implements Clock, AutoCloseable {
         return paused;
     }
 
+    /** Also sticks once {@link #prepareToRun()} has been called: {@link #run()} then parks before its first tick. */
     @Override
     public void requestPause(){
         synchronized (pauseLock){
-            if (running){
+            if (running || runPrepared){
                 pauseRequested = true;
             }
         }

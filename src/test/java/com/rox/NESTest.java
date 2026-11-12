@@ -819,6 +819,33 @@ public class NESTest {
         assertFalse(thread.isAlive());
     }
 
+    @Test
+    public void poweringOnPausedStopsBeforeTheFirstInstructionUntilResumed() throws InterruptedException {
+        final NES nes = new NES(mock(AudioOutput.class), TestRoms.nrom().at(0x9000, 0xE8, 0x4C, 0x00, 0x90).resetVector(0x9000).cartridge());
+        final AtomicLong ticks = new AtomicLong();
+        nes.clock().addListener(ticks::incrementAndGet);
+        final Thread thread = new Thread(() -> nes.powerOn(true));
+        thread.start();
+        try {
+            awaitPaused(nes);
+            assertTrue(nes.pause(), "the clock is parked");
+            assertEquals(0, ticks.get(), "not one tick ran");
+            assertEquals(0x9000, nes.cpu().programCounter(), "at the reset vector");
+
+            nes.resume();
+            final long deadline = System.currentTimeMillis() + 5000;
+            while (ticks.get() == 0 && System.currentTimeMillis() < deadline){
+                Thread.onSpinWait();
+            }
+            assertTrue(ticks.get() > 0, "running once resumed");
+            assertFalse(nes.isPaused());
+        } finally {
+            nes.powerOff();
+            thread.join(5000);
+        }
+        assertFalse(thread.isAlive());
+    }
+
     private static void awaitPaused(final NES nes){
         final long deadline = System.currentTimeMillis() + 5000;
         while (!nes.isPaused() && System.currentTimeMillis() < deadline){

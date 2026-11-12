@@ -1,6 +1,9 @@
 package com.rox.video;
 
+import com.rox.debug.BeamPosition;
+
 import javax.imageio.ImageIO;
+import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -21,6 +24,7 @@ import javax.swing.event.AncestorListener;
 import javax.swing.event.MenuEvent;
 import javax.swing.event.MenuListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
+import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
@@ -76,6 +80,10 @@ public final class SwingVideoOutput implements VideoOutput {
     private static final boolean LOG_JITTER = Boolean.getBoolean("framejitter.log");
     /** Shown small, on black, while no game is loaded - {@code null} if it can't be read. */
     private static final BufferedImage IDLE_IMAGE = readImage("scavenged_nes.png");
+    private static final Color BEAM_COLOUR = new Color(0xFF, 0x30, 0xFF);
+    private static final Color BEAM_LINE = new Color(0xFF, 0x30, 0xFF, 0x90);
+    private static final Color BEAM_LABEL_BACKGROUND = new Color(0, 0, 0, 0xC0);
+    private static final float BEAM_LABEL_FONT_SIZE = 18f;
     /** {@link #IDLE_IMAGE} fits within this fraction of the window's width and height. */
     private static final int IDLE_IMAGE_FRACTION = 3;
 
@@ -91,6 +99,11 @@ public final class SwingVideoOutput implements VideoOutput {
             }
             final int[] rect = CenteredScale.fit(WIDTH_PX, HEIGHT_PX, getWidth(), getHeight());
             g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+            if (beam != null){
+                g2.drawImage(beamFrame, rect[0], rect[1], rect[2], rect[3], null);
+                paintBeam(g2, rect, beam);
+                return;
+            }
             g2.drawImage(image, rect[0], rect[1], rect[2], rect[3], null);
             //a frame counts as shown once it's painted - Swing may delay or merge repaints, and repaints
             //of an unchanged image (a resize, an expose) aren't new frames
@@ -104,6 +117,9 @@ public final class SwingVideoOutput implements VideoOutput {
     };
     //a new frame is in the image but not yet painted - EDT only
     private boolean imageChanged;
+    /** while paused with the beam shown: where it is, and the frame as far as it's drawn - EDT only */
+    private BeamMarker beam;
+    private final BufferedImage beamFrame = new BufferedImage(WIDTH_PX, HEIGHT_PX, BufferedImage.TYPE_INT_RGB);
     private final JFrame frame = new JFrame(TITLE);
     //present() is called once per emulated frame (~60/sec) from the clock thread, far faster than a
     //loaded EDT can necessarily keep up with - rather than queuing one invokeLater (and one retained
@@ -193,6 +209,18 @@ public final class SwingVideoOutput implements VideoOutput {
         item.addActionListener(e -> action.run());
         menu(menuPath).add(item);
         return item;
+    }
+
+    /**
+     * Adds a tick-box item to the menu at {@code menuPath}, starting {@code selected}; {@code onToggle} gets each
+     * new state. EDT only, like {@code onToggle}.
+     */
+    public void addCheckBoxMenuItem(final List<String> menuPath, final String label, final boolean selected,
+                                    final Consumer<Boolean> onToggle){
+        final JCheckBoxMenuItem item = new JCheckBoxMenuItem(label, selected);
+        item.setFont(item.getFont().deriveFont(MENU_FONT_SIZE));
+        item.addActionListener(e -> onToggle.accept(item.isSelected()));
+        menu(menuPath).add(item);
     }
 
     /**
@@ -381,6 +409,89 @@ public final class SwingVideoOutput implements VideoOutput {
             g.dispose();
         }
         canvas.repaint();
+    }
+
+    /**
+     * Shows {@code partFrame} - the frame as far as the PPU has drawn it - with the beam marked: a crosshair on its
+     * pixel, or a labelled marker on the edge it's past. Until {@link #hideBeam()}; meant for while paused. EDT only.
+     */
+    public void showBeam(final BeamPosition position, final int[] partFrame){
+        beam = BeamMarker.of(position);
+        beamFrame.setRGB(0, 0, WIDTH_PX, HEIGHT_PX, partFrame, 0, WIDTH_PX);
+        canvas.repaint();
+    }
+
+    /** Back to the last finished frame. EDT only. */
+    public void hideBeam(){
+        if (beam != null){
+            beam = null;
+            canvas.repaint();
+        }
+    }
+
+    /** {@code rect}: where the 256x240 picture is drawn - x, y, width, height. */
+    private static void paintBeam(final Graphics2D g, final int[] rect, final BeamMarker marker){
+        final double scaleX = rect[2] / (double) WIDTH_PX;
+        final double scaleY = rect[3] / (double) HEIGHT_PX;
+        final int pixelLeft = rect[0] + (int) Math.round(marker.x() * scaleX);
+        final int pixelTop = rect[1] + (int) Math.round(marker.y() * scaleY);
+        final int pixelWidth = Math.max(1, (int) Math.round(scaleX));
+        final int pixelHeight = Math.max(1, (int) Math.round(scaleY));
+        final int centreX = pixelLeft + pixelWidth / 2;
+        final int centreY = pixelTop + pixelHeight / 2;
+        final Graphics2D overlay = (Graphics2D) g.create();
+        try {
+            overlay.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            overlay.setColor(BEAM_LINE);
+            if (marker.edge() != BeamMarker.Edge.RIGHT){
+                overlay.drawLine(centreX, rect[1], centreX, rect[1] + rect[3] - 1);
+            }
+            if (marker.edge() != BeamMarker.Edge.TOP && marker.edge() != BeamMarker.Edge.BOTTOM){
+                overlay.drawLine(rect[0], centreY, rect[0] + rect[2] - 1, centreY);
+            }
+            overlay.setColor(BEAM_COLOUR);
+            if (marker.onPicture()){
+                overlay.setStroke(new BasicStroke(2f));
+                overlay.drawRect(pixelLeft - 2, pixelTop - 2, pixelWidth + 3, pixelHeight + 3);
+                return;
+            }
+            final int size = 12;
+            final int[] xs;
+            final int[] ys;
+            switch (marker.edge()){
+                case RIGHT -> {
+                    final int edgeX = rect[0] + rect[2];
+                    xs = new int[]{edgeX, edgeX - size, edgeX - size};
+                    ys = new int[]{centreY, centreY - size / 2, centreY + size / 2};
+                }
+                case BOTTOM -> {
+                    final int edgeY = rect[1] + rect[3];
+                    xs = new int[]{centreX, centreX - size / 2, centreX + size / 2};
+                    ys = new int[]{edgeY, edgeY - size, edgeY - size};
+                }
+                default -> {
+                    xs = new int[]{centreX, centreX - size / 2, centreX + size / 2};
+                    ys = new int[]{rect[1], rect[1] + size, rect[1] + size};
+                }
+            }
+            overlay.fillPolygon(xs, ys, 3);
+            overlay.setFont(overlay.getFont().deriveFont(Font.BOLD, BEAM_LABEL_FONT_SIZE));
+            final int textWidth = overlay.getFontMetrics().stringWidth(marker.label());
+            final int textHeight = overlay.getFontMetrics().getAscent();
+            final int labelX = Math.clamp(centreX - textWidth / 2L, rect[0] + 4, rect[0] + rect[2] - textWidth - 4);
+            final int labelY = switch (marker.edge()){
+                case RIGHT -> Math.clamp(centreY - size, rect[1] + textHeight + 4, rect[1] + rect[3] - 4);
+                case BOTTOM -> rect[1] + rect[3] - size - 6;
+                default -> rect[1] + size + textHeight + 6;
+            };
+            final int x = marker.edge() == BeamMarker.Edge.RIGHT ? rect[0] + rect[2] - size - textWidth - 10 : labelX;
+            overlay.setColor(BEAM_LABEL_BACKGROUND);
+            overlay.fillRect(x - 4, labelY - textHeight - 2, textWidth + 8, textHeight + 6);
+            overlay.setColor(BEAM_COLOUR);
+            overlay.drawString(marker.label(), x, labelY);
+        } finally {
+            overlay.dispose();
+        }
     }
 
     /** Black, with {@link #IDLE_IMAGE} small in the middle. EDT only. */
