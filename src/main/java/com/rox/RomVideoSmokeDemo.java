@@ -2,6 +2,7 @@ package com.rox;
 
 import com.formdev.flatlaf.FlatDarkLaf;
 import com.rox.cartridge.RomLoader;
+import com.rox.debug.BeamPosition;
 import com.rox.debug.DockedDebugWindow;
 import com.rox.debug.breakpoints.BreakpointsPanel;
 import com.rox.debug.cpu.CpuStatePanel;
@@ -29,6 +30,7 @@ import javax.swing.JMenuItem;
 import javax.swing.KeyStroke;
 import javax.sound.sampled.LineUnavailableException;
 import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.io.IOException;
@@ -62,6 +64,8 @@ public final class RomVideoSmokeDemo {
     private static final List<String> FILE_MENU = List.of("File");
     private static final List<String> ROM_MENU = List.of("File", "Open", "ROM");
     private static final List<String> DEBUG_MENU = List.of("Debug");
+    private static final int BEAM_REFRESH_MILLIS = 100;
+    private static final String SHOW_BEAM_KEY = "showBeam";
 
     private final SwingVideoOutput videoOutput;
     /** frames finished by the emulation and frames drawn by Swing, for Roundabout's frame-timing graphs */
@@ -76,6 +80,10 @@ public final class RomVideoSmokeDemo {
     private final RecentRoms recentRoms = new RecentRoms(RecentRoms.in(PREFERENCES.node("recentRoms")));
     /** Debug > Start paused: a newly loaded game waits before its first instruction - kept between runs */
     private volatile boolean startPaused = PREFERENCES.getBoolean(START_PAUSED_KEY, false);
+    /** Debug > Show beam: while paused, mark where the PPU is drawing - kept between runs, EDT only */
+    private boolean showBeam = PREFERENCES.getBoolean(SHOW_BEAM_KEY, false);
+    /** keeps the beam marker in step with pauses, steps and breakpoints - EDT only */
+    private final Timer beamTimer = new Timer(BEAM_REFRESH_MILLIS, e -> refreshBeam());
     /** where Browse starts when no game is loaded: the last folder a ROM was opened from - EDT only */
     private Path lastRomDirectory;
     /** created with the first game, kept for later ones - EDT only */
@@ -186,6 +194,8 @@ public final class RomVideoSmokeDemo {
                 app.switcher.shutDown();
             } finally {
                 SwingUtilities.invokeLater(() -> {
+                    //a running Timer keeps posting to the EDT, which would keep the JVM from exiting
+                    app.beamTimer.stop();
                     if (app.debugger != null){
                         app.debugger.dispose();
                     }
@@ -252,6 +262,26 @@ public final class RomVideoSmokeDemo {
             startPaused = selected;
             PREFERENCES.putBoolean(START_PAUSED_KEY, selected);
         });
+        videoOutput.addCheckBoxMenuItem(DEBUG_MENU, "Show beam (while paused)", showBeam, selected -> {
+            showBeam = selected;
+            PREFERENCES.putBoolean(SHOW_BEAM_KEY, selected);
+            refreshBeam();
+        });
+        beamTimer.start();
+    }
+
+    /**
+     * EDT only: while paused with Show beam on, the frame as far as the PPU has drawn it, with the beam marked - else
+     * the last finished frame.
+     */
+    private void refreshBeam(){
+        final Optional<GameSession> game = switcher.current();
+        if (showBeam && game.isPresent() && game.get().nes().isPaused()){
+            final NES nes = game.get().nes();
+            videoOutput.showBeam(new BeamPosition(nes.ppu().scanline(), nes.ppu().dot()), nes.ppu().rgbFramebuffer());
+        } else {
+            videoOutput.hideBeam();
+        }
     }
 
     /** A menu item's accelerator still fires while it's greyed out, so each action checks too. */
