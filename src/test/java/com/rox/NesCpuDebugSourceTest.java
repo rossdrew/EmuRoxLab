@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import com.rox.debug.BeamPosition;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -34,6 +36,17 @@ public class NesCpuDebugSourceTest {
 
     private static List<String> formatted(final List<DisassembledInstruction> instructions){
         return instructions.stream().map(DisassembledInstruction::formatted).toList();
+    }
+
+    @Test
+    public void beamIsWhereThePpuIsDrawing(){
+        final NES nes = nes();
+        for (int i = 0; i < 1000; i++){
+            nes.clock().tick();
+        }
+
+        assertEquals(new BeamPosition(nes.ppu().scanline(), nes.ppu().dot()), new NesCpuDebugSource(nes).beam());
+        assertEquals(new BeamPosition(8, 272), new NesCpuDebugSource(nes).beam(), "3 dots a cycle: 3000 dots in = 8 lines of 341, then 272");
     }
 
     @Test

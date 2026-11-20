@@ -1,5 +1,6 @@
 package com.rox;
 
+import com.rox.debug.BeamPosition;
 import com.rox.cpu.mos6502.MOS6502Snapshot;
 import com.rox.cpu.mos6502.assembler.DisassembledInstruction;
 import com.rox.cpu.mos6502.assembler.Disassembler;
@@ -26,6 +27,11 @@ final class NesCpuDebugSource implements CpuDebugSource {
     @Override
     public MOS6502Snapshot state(){
         return nes.cpu().liveState();
+    }
+
+    @Override
+    public BeamPosition beam(){
+        return new BeamPosition(nes.ppu().scanline(), nes.ppu().dot());
     }
 
     /**

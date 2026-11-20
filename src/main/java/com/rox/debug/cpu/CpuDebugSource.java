@@ -1,5 +1,6 @@
 package com.rox.debug.cpu;
 
+import com.rox.debug.BeamPosition;
 import com.rox.cpu.mos6502.MOS6502Snapshot;
 import com.rox.cpu.mos6502.assembler.DisassembledInstruction;
 import com.rox.debug.breakpoints.BreakHit;
@@ -25,6 +26,9 @@ public interface CpuDebugSource {
 
     /** The state the current instruction started with, if it's been recorded yet. */
     Optional<MOS6502Snapshot> currentInstructionState();
+
+    /** Where the PPU is drawing right now. */
+    BeamPosition beam();
 
     /** How many instructions have started so far - goes up by one per instruction step. */
     long instructionCount();

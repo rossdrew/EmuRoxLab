@@ -3,6 +3,7 @@ package com.rox;
 import com.rox.apu.APU;
 import com.rox.audio.AudioOutput;
 import com.rox.cartridge.Cartridge;
+import com.rox.debug.BeamPosition;
 import com.rox.debug.breakpoints.BreakHit;
 import com.rox.debug.breakpoints.WatchKind;
 import com.rox.cartridge.NromMapperSnapshot;
@@ -751,7 +752,8 @@ public class NESTest {
 
         assertEquals(0x9001, nes.cpu().programCounter());
         assertTrue(nes.cpu().isAtInstructionBoundary());
-        assertEquals(Optional.of(new BreakHit(BreakHit.Cause.BREAKPOINT, 0x9001, 0, 0x9001)), nes.lastHit());
+        assertEquals(Optional.of(new BreakHit(BreakHit.Cause.BREAKPOINT, 0x9001, 0, 0x9001,
+                new BeamPosition(nes.ppu().scanline(), nes.ppu().dot()))), nes.lastHit(), "stopped where the beam is now");
     }
 
     @Test
@@ -761,7 +763,11 @@ public class NESTest {
 
         nes.stepFrame();
 
-        assertEquals(Optional.of(new BreakHit(BreakHit.Cause.WRITE, 0x0010, 1, 0x9001)), nes.lastHit());
+        final BreakHit hit = nes.lastHit().orElseThrow();
+        assertEquals(new BreakHit(BreakHit.Cause.WRITE, 0x0010, 1, 0x9001, hit.beam()), hit);
+        assertTrue(hit.beam().isKnown());
+        assertTrue(hit.beam().scanline() * 341 + hit.beam().dot() < nes.ppu().scanline() * 341 + nes.ppu().dot(),
+                "the beam at the write itself, before the instruction finished");
         assertEquals(0x9003, nes.cpu().programCounter());
         assertTrue(nes.cpu().isAtInstructionBoundary());
     }

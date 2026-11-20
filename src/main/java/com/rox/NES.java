@@ -9,6 +9,7 @@ import com.rox.clock.Clock;
 import com.rox.clock.FPSClock;
 import com.rox.clock.TickRateMonitor;
 import com.rox.cpu.mos6502.MOS6502;
+import com.rox.debug.BeamPosition;
 import com.rox.debug.breakpoints.BreakHit;
 import com.rox.debug.breakpoints.Breakpoints;
 import com.rox.debug.cpu.InstructionTrace;
@@ -146,6 +147,7 @@ public class NES {
         this.ppu = new PPU(cartridge);
         this.memoryBus = new Latched8BitMemoryBus(new WatchedMemoryBus(new NESMemoryBus(ramBus, apu, cartridge, ppu, controllers),
                 breakpoints::recordAccess));
+        breakpoints.beam(() -> new BeamPosition(ppu.scanline(), ppu.dot()));
         this.cpu = new MOS6502(memoryBus);
         this.tickRateMonitor = new TickRateMonitor(new SystemTimeSource());
         this.memoryEditor = new MemoryEditor(ram::write, cartridge::writePrgRamWithoutSaving);
