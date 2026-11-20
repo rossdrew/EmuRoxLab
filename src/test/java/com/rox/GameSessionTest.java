@@ -152,6 +152,19 @@ class GameSessionTest {
     }
 
     @Test
+    void breakpointsThatCantBeLoadedOrSavedStillWorkForThisRun() throws Exception {
+        Files.createDirectories(SavePaths.breakpointsFile(rom())); //a folder where the file should be
+        final NES nes = BlockingNes.create();
+
+        final GameSession session = GameSession.start(rom(), TestRoms.nrom().cartridge(), c -> nes);
+        nes.breakpoints().addBreakpoint(0xC123);
+        session.close();
+
+        assertEquals(List.of(0xC123), List.copyOf(nes.breakpoints().breakpoints()));
+        assertTrue(Files.isDirectory(SavePaths.breakpointsFile(rom())), "nothing written over it");
+    }
+
+    @Test
     void aSessionCanPowerOnPaused() throws Exception {
         final NES nes = BlockingNes.create();
 
