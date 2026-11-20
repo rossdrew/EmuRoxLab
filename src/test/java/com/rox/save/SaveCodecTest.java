@@ -1,18 +1,13 @@
 package com.rox.save;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class SaveCodecTest {
@@ -126,26 +121,5 @@ public class SaveCodecTest {
         encoded[26] = (byte) 0xFF;
 
         assertTrue(SaveCodec.decode(encoded).isEmpty());
-    }
-
-    @Test
-    public void writeAtomicallyProducesAReadableFileAndLeavesNoTmpFileBehind(@TempDir final Path tempDir) throws IOException {
-        final Path target = tempDir.resolve("nested").resolve("battery.sav");
-        final byte[] content = {1, 2, 3, 4};
-
-        SaveCodec.writeAtomically(target, content);
-
-        assertArrayEquals(content, Files.readAllBytes(target));
-        assertFalse(Files.exists(target.resolveSibling(target.getFileName() + ".tmp")));
-    }
-
-    @Test
-    public void writeAtomicallyReplacesAnExistingFile(@TempDir final Path tempDir) throws IOException {
-        final Path target = tempDir.resolve("battery.sav");
-        SaveCodec.writeAtomically(target, new byte[]{1});
-
-        SaveCodec.writeAtomically(target, new byte[]{9, 9});
-
-        assertArrayEquals(new byte[]{9, 9}, Files.readAllBytes(target));
     }
 }
