@@ -83,6 +83,20 @@ class BreakpointFileTest {
     }
 
     @Test
+    void aFailedSaveLeavesThePreviousFileAsItWas() throws IOException {
+        final Breakpoints breakpoints = new Breakpoints();
+        breakpoints.addBreakpoint(0xC123);
+        BreakpointFile.save(file(), breakpoints);
+        final List<String> before = Files.readAllLines(file());
+        Files.createDirectory(file().resolveSibling("breakpoints.txt.tmp")); //nowhere to write the new content
+        breakpoints.addBreakpoint(0x8000);
+
+        assertThrows(IOException.class, () -> BreakpointFile.save(file(), breakpoints));
+
+        assertEquals(before, Files.readAllLines(file()));
+    }
+
+    @Test
     void savingNothingLeavesJustTheHeader() throws IOException {
         BreakpointFile.save(file(), new Breakpoints());
 

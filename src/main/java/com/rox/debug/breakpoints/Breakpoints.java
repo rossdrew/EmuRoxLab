@@ -56,10 +56,10 @@ public final class Breakpoints {
     }
 
     private volatile State state = State.EMPTY;
-    /** Where the PPU is drawing - asked only when something hits. */
-    private volatile Supplier<BeamPosition> beam = () -> BeamPosition.UNKNOWN;
     /** Told after every edit, still holding this object's lock - e.g. to save them. */
     private volatile Runnable onChange = () -> { };
+    /** Where the PPU is drawing - asked only when something hits. */
+    private volatile Supplier<BeamPosition> beam = () -> BeamPosition.UNKNOWN;
     /** Where the instruction now running started - what a watchpoint hit reports. Ticking thread only. */
     private int instructionStart;
     /** A watchpoint hit, held until its instruction finishes. Ticking thread only. */

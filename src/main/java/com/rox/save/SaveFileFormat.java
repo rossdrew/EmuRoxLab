@@ -23,7 +23,7 @@ public final class SaveFileFormat {
         if (prgRam.length != PRG_RAM_SIZE){
             throw new IllegalArgumentException("Expected " + PRG_RAM_SIZE + " bytes of PRG-RAM, got " + prgRam.length);
         }
-        SaveCodec.writeAtomically(path, SaveCodec.encode(SaveType.BATTERY_PRG_RAM, metadata, ByteUtil.toBytes(prgRam)));
+        AtomicFiles.write(path, SaveCodec.encode(SaveType.BATTERY_PRG_RAM, metadata, ByteUtil.toBytes(prgRam)));
     }
 
     public static Optional<BatterySaveFile> readBatterySave(final Path path){
@@ -36,7 +36,7 @@ public final class SaveFileFormat {
     }
 
     public static void writeLiveSnapshot(final Path path, final SaveMetadata metadata, final SystemSnapshot snapshot) throws IOException {
-        SaveCodec.writeAtomically(path, SaveCodec.encode(SaveType.LIVE_SNAPSHOT, metadata, SnapshotCodec.encode(snapshot)));
+        AtomicFiles.write(path, SaveCodec.encode(SaveType.LIVE_SNAPSHOT, metadata, SnapshotCodec.encode(snapshot)));
     }
 
     public static Optional<LiveSaveFile> readLiveSnapshot(final Path path){

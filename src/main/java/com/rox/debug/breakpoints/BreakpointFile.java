@@ -1,6 +1,9 @@
 package com.rox.debug.breakpoints;
 
+import com.rox.save.AtomicFiles;
+
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -72,7 +75,10 @@ public final class BreakpointFile {
         return Integer.parseInt(text.substring(1), 16);
     }
 
-    /** Writes everything in {@code breakpoints} to {@code path}, creating its folder if need be. */
+    /**
+     * Writes everything in {@code breakpoints} to {@code path}, creating its folder if need be - all at once, so a
+     * failed write leaves the previous file as it was.
+     */
     public static void save(final Path path, final Breakpoints breakpoints) throws IOException {
         final List<String> lines = new ArrayList<>();
         lines.add("# EmuRoxLab breakpoints - one per line: break $ADDR | watch $ADDR READ|WRITE|ACCESS");
@@ -80,10 +86,6 @@ public final class BreakpointFile {
         for (final Map.Entry<Integer, WatchKind> watch : breakpoints.watches().entrySet()){
             lines.add(String.format("%s $%04X %s", WATCH, watch.getKey(), watch.getValue()));
         }
-        final Path parent = path.toAbsolutePath().getParent();
-        if (parent != null){
-            Files.createDirectories(parent);
-        }
-        Files.write(path, lines);
+        AtomicFiles.write(path, (String.join("\n", lines) + "\n").getBytes(StandardCharsets.UTF_8));
     }
 }

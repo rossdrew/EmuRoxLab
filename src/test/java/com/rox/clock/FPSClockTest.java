@@ -702,6 +702,18 @@ public class FPSClockTest {
     }
 
     @Test
+    void aPauseAfterAPreparedRunIsCancelledReturnsFalseRatherThanWaiting(){
+        final FPSClock clock = unthrottledClock();
+        clock.prepareToRun();
+        clock.stop();
+
+        assertFalse(assertTimeoutPreemptively(java.time.Duration.ofSeconds(5), clock::pause), "nothing will ever park");
+
+        clock.run(); //consumes the cancellation without ticking
+        assertFalse(clock.isRunning());
+    }
+
+    @Test
     void pauseBlocksUntilTheTickInProgressHasFinished() throws InterruptedException {
         final FPSClock clock = unthrottledClock();
         final AtomicBoolean pauseReturned = new AtomicBoolean();

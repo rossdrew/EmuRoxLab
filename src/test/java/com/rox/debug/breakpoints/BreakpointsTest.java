@@ -208,6 +208,19 @@ class BreakpointsTest {
     }
 
     @Test
+    void everyEditIsAnnounced(){
+        final List<String> seen = new java.util.ArrayList<>();
+        breakpoints.onChange(() -> seen.add(breakpoints.breakpoints() + " " + breakpoints.watches()));
+
+        breakpoints.addBreakpoint(0xC000);
+        breakpoints.addWatch(0x0042, WatchKind.READ);
+        breakpoints.removeWatch(0x0042);
+        breakpoints.removeBreakpoint(0xC000);
+
+        assertEquals(List.of("[49152] {}", "[49152] {66=READ}", "[49152] {}", "[] {}"), seen);
+    }
+
+    @Test
     void aWatchHitRecordsWhereTheBeamWasAtTheAccess(){
         final java.util.concurrent.atomic.AtomicReference<BeamPosition> beam = new java.util.concurrent.atomic.AtomicReference<>(new BeamPosition(33, 120));
         breakpoints.beam(beam::get);
@@ -233,18 +246,5 @@ class BreakpointsTest {
         breakpoints.addBreakpoint(0xC123);
 
         assertFalse(breakpoints.check(true, 0xC123).orElseThrow().beam().isKnown());
-    }
-
-    @Test
-    void everyEditIsAnnounced(){
-        final List<String> seen = new java.util.ArrayList<>();
-        breakpoints.onChange(() -> seen.add(breakpoints.breakpoints() + " " + breakpoints.watches()));
-
-        breakpoints.addBreakpoint(0xC000);
-        breakpoints.addWatch(0x0042, WatchKind.READ);
-        breakpoints.removeWatch(0x0042);
-        breakpoints.removeBreakpoint(0xC000);
-
-        assertEquals(List.of("[49152] {}", "[49152] {66=READ}", "[49152] {}", "[] {}"), seen);
     }
 }
