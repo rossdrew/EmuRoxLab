@@ -17,6 +17,7 @@ import com.rox.ppu.PpuSnapshot;
 import com.rox.save.SystemSnapshot;
 import com.rox.video.VideoOutput;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
@@ -32,6 +33,7 @@ import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.Mockito.after;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.calls;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockingDetails;
@@ -821,7 +823,8 @@ public class NESTest {
 
     @Test
     public void poweringOnPausedStopsBeforeTheFirstInstructionUntilResumed() throws InterruptedException {
-        final NES nes = new NES(mock(AudioOutput.class), TestRoms.nrom().at(0x9000, 0xE8, 0x4C, 0x00, 0x90).resetVector(0x9000).cartridge());
+        final AudioOutput audio = mock(AudioOutput.class);
+        final NES nes = new NES(audio, TestRoms.nrom().at(0x9000, 0xE8, 0x4C, 0x00, 0x90).resetVector(0x9000).cartridge());
         final AtomicLong ticks = new AtomicLong();
         nes.clock().addListener(ticks::incrementAndGet);
         final Thread thread = new Thread(() -> nes.powerOn(true));
@@ -831,6 +834,10 @@ public class NESTest {
             assertTrue(nes.pause(), "the clock is parked");
             assertEquals(0, ticks.get(), "not one tick ran");
             assertEquals(0x9000, nes.cpu().programCounter(), "at the reset vector");
+            verify(audio, timeout(5000)).start();
+            final InOrder silentStart = inOrder(audio);
+            silentStart.verify(audio, calls(1)).pause(); //at least one pause before it starts (the test's own pause() comes later)
+            silentStart.verify(audio).start(); //after the pause, so the speaker starts silent
 
             nes.resume();
             final long deadline = System.currentTimeMillis() + 5000;
