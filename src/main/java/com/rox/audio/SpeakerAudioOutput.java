@@ -107,6 +107,10 @@ public class SpeakerAudioOutput implements AudioOutput {
     @Override
     public synchronized void stop(){
         if (!running){
+            //never started: a pause() made beforehand mustn't keep a later, unpaused start() silent
+            synchronized (bufferLock){
+                paused = false;
+            }
             return;
         }
         running = false;

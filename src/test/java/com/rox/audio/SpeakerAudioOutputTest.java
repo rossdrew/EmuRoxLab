@@ -213,6 +213,16 @@ public class SpeakerAudioOutputTest {
     }
 
     @Test
+    public void aStopBeforeStartForgetsAPauseMadeBeforeIt(){
+        output.pause();
+        output.stop(); //e.g. a game powered on paused, powered off before its audio started
+
+        output.start();
+
+        verify(line, times(1)).start();
+    }
+
+    @Test
     public void stopAfterStartingPausedStillClosesTheLine(){
         output.pause();
         output.start();
