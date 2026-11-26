@@ -6,10 +6,14 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 class BreakpointFileTest {
     @TempDir
@@ -88,10 +92,17 @@ class BreakpointFileTest {
         breakpoints.addBreakpoint(0xC123);
         BreakpointFile.save(file(), breakpoints);
         final List<String> before = Files.readAllLines(file());
-        Files.createDirectory(file().resolveSibling("breakpoints.txt.tmp")); //nowhere to write the new content
         breakpoints.addBreakpoint(0x8000);
+        final Path folder = file().getParent();
+        final Set<PosixFilePermission> writable = Files.getPosixFilePermissions(folder);
+        Files.setPosixFilePermissions(folder, PosixFilePermissions.fromString("r-x------")); //nowhere to stage the new content
+        try {
+            assumeFalse(Files.isWritable(folder), "running as a user that can write anywhere");
 
-        assertThrows(IOException.class, () -> BreakpointFile.save(file(), breakpoints));
+            assertThrows(IOException.class, () -> BreakpointFile.save(file(), breakpoints));
+        } finally {
+            Files.setPosixFilePermissions(folder, writable);
+        }
 
         assertEquals(before, Files.readAllLines(file()));
     }

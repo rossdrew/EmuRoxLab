@@ -23,18 +23,25 @@ public final class AtomicFiles {
      * from (and far rarer than) the crash/kill/disk-full scenarios this guards against.
      */
     public static void write(final Path target, final byte[] content) throws IOException {
-        Files.createDirectories(target.toAbsolutePath().getParent());
-        final Path tmp = target.resolveSibling(target.getFileName() + ".tmp");
-        try (FileChannel channel = FileChannel.open(tmp, StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)){
-            final ByteBuffer buffer = ByteBuffer.wrap(content);
-            while (buffer.hasRemaining()){
-                channel.write(buffer);
+        final Path folder = target.toAbsolutePath().getParent();
+        Files.createDirectories(folder);
+        //its own staging file, so two writers of the same target (e.g. two windows saving one ROM) can't swap halves
+        final Path tmp = Files.createTempFile(folder, target.getFileName() + ".", ".tmp");
+        try {
+            try (FileChannel channel = FileChannel.open(tmp, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)){
+                final ByteBuffer buffer = ByteBuffer.wrap(content);
+                while (buffer.hasRemaining()){
+                    channel.write(buffer);
+                }
+                //XXX force()'s effect (data genuinely reaching the storage device) isn't observable from a
+                //test without simulating a real power loss - accepted gap, same category as
+                //SpeakerAudioOutput.openDefaultLine()'s own real-hardware sliver
+                channel.force(true);
             }
-            //XXX force()'s effect (data genuinely reaching the storage device) isn't observable from a
-            //test without simulating a real power loss - accepted gap, same category as
-            //SpeakerAudioOutput.openDefaultLine()'s own real-hardware sliver
-            channel.force(true);
+            Files.move(tmp, target.toAbsolutePath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException | RuntimeException e){
+            Files.deleteIfExists(tmp);
+            throw e;
         }
-        Files.move(tmp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
     }
 }
