@@ -6,6 +6,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
@@ -14,6 +15,7 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class AtomicFilesTest {
     @TempDir
@@ -44,6 +46,8 @@ class AtomicFilesTest {
     void aFailedWriteLeavesThePreviousFileAsItWas() throws IOException {
         final Path target = tempDir.resolve("battery.sav");
         AtomicFiles.write(target, new byte[]{1, 2});
+        assumeTrue(Files.getFileStore(tempDir).supportsFileAttributeView(PosixFileAttributeView.class),
+                "file system without POSIX permissions");
         final Set<PosixFilePermission> writable = Files.getPosixFilePermissions(tempDir);
         Files.setPosixFilePermissions(tempDir, PosixFilePermissions.fromString("r-x------")); //nowhere to stage the new content
         try {
