@@ -27,6 +27,7 @@ public record BeamMarker(int x, int y, Edge edge, String label) {
     private static final int LAST_VISIBLE_DOT = 256;
     private static final int WIDTH = 256;
     private static final int HEIGHT = 240;
+    private static final int LABEL_MARGIN = 4;
 
     public static BeamMarker of(final BeamPosition beam){
         final int scanline = beam.scanline();
@@ -46,5 +47,15 @@ public record BeamMarker(int x, int y, Edge edge, String label) {
 
     public boolean onPicture(){
         return edge == null;
+    }
+
+    /**
+     * Whether the label fits a picture {@code width} x {@code height} pixels, beside the edge arrow ({@code arrow}
+     * pixels) on the right edge, above or below it on the top and bottom - with a few pixels' margin.
+     */
+    public boolean labelFits(final int width, final int height, final int textWidth, final int textHeight, final int arrow){
+        return edge == Edge.RIGHT
+                ? width >= textWidth + arrow + LABEL_MARGIN * 4 + 2 && height >= textHeight + LABEL_MARGIN * 2
+                : width >= textWidth + LABEL_MARGIN * 2 && height >= textHeight + arrow + LABEL_MARGIN * 3;
     }
 }

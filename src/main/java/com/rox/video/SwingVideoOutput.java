@@ -479,7 +479,7 @@ public final class SwingVideoOutput implements VideoOutput {
             final int textWidth = overlay.getFontMetrics().stringWidth(marker.label());
             final int textHeight = overlay.getFontMetrics().getAscent();
             //too small a window for the label (the arrow alone still shows the edge) - clamping would have no room
-            if (rect[2] < textWidth + size + 18 || rect[3] < textHeight + size + 12){
+            if (!marker.labelFits(rect[2], rect[3], textWidth, textHeight, size)){
                 return;
             }
             final int labelX = Math.clamp(centreX - textWidth / 2L, rect[0] + 4, rect[0] + rect[2] - textWidth - 4);

@@ -43,4 +43,23 @@ class BeamMarkerTest {
         assertEquals(new BeamMarker(0, 0, BeamMarker.Edge.TOP, "pre-render, dot 0"), BeamMarker.of(new BeamPosition(261, 0)));
         assertEquals(new BeamMarker(255, 0, BeamMarker.Edge.TOP, "pre-render, dot 340"), BeamMarker.of(new BeamPosition(261, 340)));
     }
+
+    @Test
+    void aRightEdgeLabelNeedsRoomBesideTheArrow(){
+        final BeamMarker hblank = BeamMarker.of(new BeamPosition(33, 300));
+
+        assertTrue(hblank.labelFits(130, 28, 100, 20, 12), "100 + 12 arrow + 18 margin wide, 20 + 8 high");
+        assertFalse(hblank.labelFits(129, 28, 100, 20, 12));
+        assertFalse(hblank.labelFits(130, 27, 100, 20, 12));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"245, 50", "261, 200"})
+    void aTopOrBottomLabelNeedsRoomAboveOrBelowTheArrow(final int scanline, final int dot){
+        final BeamMarker marker = BeamMarker.of(new BeamPosition(scanline, dot));
+
+        assertTrue(marker.labelFits(108, 44, 100, 20, 12), "100 + 8 wide, 20 + 12 arrow + 12 margin high");
+        assertFalse(marker.labelFits(107, 44, 100, 20, 12));
+        assertFalse(marker.labelFits(108, 43, 100, 20, 12));
+    }
 }
