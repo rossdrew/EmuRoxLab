@@ -6,6 +6,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
@@ -14,6 +15,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class BreakpointFileTest {
     @TempDir
@@ -94,6 +96,8 @@ class BreakpointFileTest {
         final List<String> before = Files.readAllLines(file());
         breakpoints.addBreakpoint(0x8000);
         final Path folder = file().getParent();
+        assumeTrue(Files.getFileStore(folder).supportsFileAttributeView(PosixFileAttributeView.class),
+                "file system without POSIX permissions");
         final Set<PosixFilePermission> writable = Files.getPosixFilePermissions(folder);
         Files.setPosixFilePermissions(folder, PosixFilePermissions.fromString("r-x------")); //nowhere to stage the new content
         try {
