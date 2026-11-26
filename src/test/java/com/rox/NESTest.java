@@ -17,6 +17,7 @@ import com.rox.ppu.PpuSnapshot;
 import com.rox.save.SystemSnapshot;
 import com.rox.video.VideoOutput;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
@@ -32,6 +33,7 @@ import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.Mockito.after;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.calls;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockingDetails;
@@ -812,6 +814,38 @@ public class NESTest {
 
             awaitPaused(nes);
             assertEquals(0x9002, nes.cpu().programCounter(), "ran on to the next breakpoint");
+        } finally {
+            nes.powerOff();
+            thread.join(5000);
+        }
+        assertFalse(thread.isAlive());
+    }
+
+    @Test
+    public void poweringOnPausedStopsBeforeTheFirstInstructionUntilResumed() throws InterruptedException {
+        final AudioOutput audio = mock(AudioOutput.class);
+        final NES nes = new NES(audio, TestRoms.nrom().at(0x9000, 0xE8, 0x4C, 0x00, 0x90).resetVector(0x9000).cartridge());
+        final AtomicLong ticks = new AtomicLong();
+        nes.clock().addListener(ticks::incrementAndGet);
+        final Thread thread = new Thread(() -> nes.powerOn(true));
+        thread.start();
+        try {
+            awaitPaused(nes);
+            assertTrue(nes.pause(), "the clock is parked");
+            assertEquals(0, ticks.get(), "not one tick ran");
+            assertEquals(0x9000, nes.cpu().programCounter(), "at the reset vector");
+            verify(audio, timeout(5000)).start();
+            final InOrder silentStart = inOrder(audio);
+            silentStart.verify(audio, calls(1)).pause(); //at least one pause before it starts (the test's own pause() comes later)
+            silentStart.verify(audio).start(); //after the pause, so the speaker starts silent
+
+            nes.resume();
+            final long deadline = System.currentTimeMillis() + 5000;
+            while (ticks.get() == 0 && System.currentTimeMillis() < deadline){
+                Thread.onSpinWait();
+            }
+            assertTrue(ticks.get() > 0, "running once resumed");
+            assertFalse(nes.isPaused());
         } finally {
             nes.powerOff();
             thread.join(5000);

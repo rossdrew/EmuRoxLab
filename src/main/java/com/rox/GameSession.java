@@ -1,11 +1,15 @@
 package com.rox;
 
 import com.rox.cartridge.Cartridge;
+import com.rox.debug.breakpoints.BreakpointFile;
+import com.rox.debug.breakpoints.Breakpoints;
 import com.rox.save.BatterySaveManager;
 import com.rox.save.SavePaths;
 
 import javax.sound.sampled.LineUnavailableException;
+import java.io.IOException;
 import java.nio.file.Path;
+import java.util.List;
 
 /**
  * One loaded game: its cartridge, battery saver and {@link NES}, running on its own thread from
@@ -38,6 +42,12 @@ final class GameSession {
      */
     static GameSession start(final Path romPath, final Cartridge cartridge, final NesFactory nesFactory)
             throws LineUnavailableException {
+        return start(romPath, cartridge, nesFactory, false);
+    }
+
+    /** @param startPaused powers on paused before the first instruction - see {@link NES#powerOn(boolean)} */
+    static GameSession start(final Path romPath, final Cartridge cartridge, final NesFactory nesFactory,
+                             final boolean startPaused) throws LineUnavailableException {
         //like inserting a cartridge whose battery was already charged - silent, no prompt
         final BatterySaveManager batterySaver;
         if (cartridge.rom().hasBattery()){
@@ -57,9 +67,29 @@ final class GameSession {
             }
             throw e;
         }
-        final Thread nesThread = new Thread(nes::powerOn, "nes-" + romPath.getFileName());
+        keepBreakpoints(nes.breakpoints(), SavePaths.breakpointsFile(romPath));
+        final Thread nesThread = new Thread(() -> nes.powerOn(startPaused), "nes-" + romPath.getFileName());
         nesThread.start();
         return new GameSession(romPath, nes, nesThread, batterySaver);
+    }
+
+    /** Restores the breakpoints last set for this ROM, then saves them after every edit. */
+    private static void keepBreakpoints(final Breakpoints breakpoints, final Path file){
+        try {
+            final List<String> unreadable = BreakpointFile.load(file, breakpoints);
+            if (!unreadable.isEmpty()){
+                System.err.println("Skipped unreadable lines in " + file + ": " + unreadable);
+            }
+        } catch (IOException e){
+            System.err.println("Couldn't load breakpoints from " + file + ": " + e.getMessage());
+        }
+        breakpoints.onChange(() -> {
+            try {
+                BreakpointFile.save(file, breakpoints);
+            } catch (IOException e){
+                System.err.println("Couldn't save breakpoints to " + file + ": " + e.getMessage());
+            }
+        });
     }
 
     Path romPath(){

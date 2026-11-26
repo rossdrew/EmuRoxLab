@@ -180,6 +180,58 @@ public class SpeakerAudioOutputTest {
         verify(line, never()).start();
     }
 
+    /** A game powered on paused: steps write samples, but nothing plays until it's resumed. */
+    @Test
+    public void pausedBeforeStartItStartsSilentAndPlaysOnceResumed(){
+        final SpeakerAudioOutput largeTimeoutOutput = new SpeakerAudioOutput(line, 5000);
+        try {
+            largeTimeoutOutput.pause();
+            largeTimeoutOutput.start();
+            for (int i = 0; i < SpeakerAudioOutput.WRITE_CHUNK_SAMPLES; i++){
+                largeTimeoutOutput.write(0.0);
+            }
+
+            verify(line, never()).start();
+            verify(line, after(200).never()).write(any(byte[].class), anyInt(), anyInt());
+
+            largeTimeoutOutput.resume();
+            verify(line, times(1)).start();
+            verify(line, timeout(1000).atLeastOnce()).write(any(byte[].class), anyInt(), anyInt());
+        } finally {
+            largeTimeoutOutput.stop();
+        }
+    }
+
+    @Test
+    public void aResumeBeforeStartCancelsAPauseMadeBeforeIt(){
+        output.pause();
+        output.resume();
+
+        output.start();
+
+        verify(line, times(1)).start();
+    }
+
+    @Test
+    public void aStopBeforeStartForgetsAPauseMadeBeforeIt(){
+        output.pause();
+        output.stop(); //e.g. a game powered on paused, powered off before its audio started
+
+        output.start();
+
+        verify(line, times(1)).start();
+    }
+
+    @Test
+    public void stopAfterStartingPausedStillClosesTheLine(){
+        output.pause();
+        output.start();
+
+        output.stop();
+
+        verify(line, times(1)).close();
+    }
+
     @Test
     public void pauseStopsTheLineOnceWithoutClosingIt(){
         output.start();
