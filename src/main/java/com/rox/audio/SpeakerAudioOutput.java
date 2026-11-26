@@ -92,7 +92,10 @@ public class SpeakerAudioOutput implements AudioOutput {
             return;
         }
         running = true;
-        line.start();
+        //paused before it started (e.g. a game powered on paused): stays silent until resume()
+        if (!paused){
+            line.start();
+        }
         writerThread = new Thread(this::drainBufferToLine, "SpeakerAudioOutput-writer");
         writerThread.setDaemon(true);
         //real-time-sensitive: reduce the chance of the OS scheduler starving this thread in favour
@@ -104,6 +107,10 @@ public class SpeakerAudioOutput implements AudioOutput {
     @Override
     public synchronized void stop(){
         if (!running){
+            //never started: a pause() made beforehand mustn't keep a later, unpaused start() silent
+            synchronized (bufferLock){
+                paused = false;
+            }
             return;
         }
         running = false;
@@ -127,22 +134,32 @@ public class SpeakerAudioOutput implements AudioOutput {
     /**
      * Stops the line where it is - unlike {@link #stop()}, which closes it for good - and parks the
      * writer thread, so samples already buffered (in the line and the ring buffer) play on after
-     * {@link #resume()} rather than being lost.
+     * {@link #resume()} rather than being lost. Before {@link #start()}, it's remembered: start() then
+     * leaves the line stopped until resume().
      */
     @Override
     public synchronized void pause(){
-        if (!running || paused){
+        if (paused){
             return;
         }
         synchronized (bufferLock){
             paused = true;
         }
-        line.stop();
+        if (running){
+            line.stop();
+        }
     }
 
+    /** Before {@link #start()}, cancels a {@link #pause()} made then. */
     @Override
     public synchronized void resume(){
-        if (!running || !paused){
+        if (!paused){
+            return;
+        }
+        if (!running){
+            synchronized (bufferLock){
+                paused = false;
+            }
             return;
         }
         line.start();

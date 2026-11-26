@@ -682,6 +682,38 @@ public class FPSClockTest {
     }
 
     @Test
+    void aPauseRequestedOncePreparedToRunParksBeforeTheFirstTick() throws InterruptedException {
+        final FPSClock clock = unthrottledClock();
+        final AtomicLong ticks = new AtomicLong();
+        clock.addListener(ticks::incrementAndGet);
+        clock.prepareToRun();
+        clock.requestPause();
+        final Thread runThread = new Thread(clock::run, "clock-run");
+        runThread.start();
+
+        awaitBlocked(runThread);
+        assertEquals(0, ticks.get(), "not one tick before the pause");
+        assertTrue(clock.pause(), "already parked");
+
+        clock.resume();
+        awaitTrue(() -> ticks.get() > 0, "ticking to start after resume()");
+        clock.stop();
+        joinOrFail(runThread);
+    }
+
+    @Test
+    void aPauseAfterAPreparedRunIsCancelledReturnsFalseRatherThanWaiting(){
+        final FPSClock clock = unthrottledClock();
+        clock.prepareToRun();
+        clock.stop();
+
+        assertFalse(assertTimeoutPreemptively(java.time.Duration.ofSeconds(5), clock::pause), "nothing will ever park");
+
+        clock.run(); //consumes the cancellation without ticking
+        assertFalse(clock.isRunning());
+    }
+
+    @Test
     void pauseBlocksUntilTheTickInProgressHasFinished() throws InterruptedException {
         final FPSClock clock = unthrottledClock();
         final AtomicBoolean pauseReturned = new AtomicBoolean();
